@@ -6,4 +6,5 @@ if not exist "apps\desktop\dist\main.cjs" (
   pause
   exit /b 1
 )
-start "" "%~dp0node_modules\electron\dist\electron.exe" "%~dp0apps\desktop"
+cd /d "%~dp0apps\desktop"
+start "Lifty" /min cmd /c "npx electron ."
