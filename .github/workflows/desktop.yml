@@ -1,0 +1,60 @@
+name: Instaladores de escritorio
+
+# Genera el instalador de Lifty para Windows, Linux y macOS.
+# Se corre a mano (Actions → "Instaladores de escritorio" → Run workflow) o al crear un tag v*.
+# Los instaladores quedan como "artifacts" de la corrida, y en un Release si es un tag.
+on:
+  workflow_dispatch:
+  push:
+    tags: ['v*']
+    branches: ['**']
+    paths:
+      - 'apps/desktop/**'
+      - '.github/workflows/desktop.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: ${{ matrix.name }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: windows-latest, name: Windows, files: 'apps/desktop/release/*.exe' }
+          - { os: ubuntu-latest, name: Linux, files: 'apps/desktop/release/*.AppImage' }
+          - { os: macos-latest, name: macOS, files: 'apps/desktop/release/*.dmg' }
+    env:
+      CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+    steps:
+      # macOS consume muchos minutos: solo en tags o a mano.
+      - name: Saltear macOS en pushes comunes
+        id: skip
+        shell: bash
+        run: |
+          if [[ "${{ matrix.name }}" == "macOS" && "${{ github.event_name }}" == "push" && "${{ github.ref_type }}" != "tag" ]]; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          fi
+      - uses: actions/checkout@v4
+        if: steps.skip.outputs.skip != 'true'
+      - uses: actions/setup-node@v4
+        if: steps.skip.outputs.skip != 'true'
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+        if: steps.skip.outputs.skip != 'true'
+      - run: npm run desktop:dist
+        if: steps.skip.outputs.skip != 'true'
+      - uses: actions/upload-artifact@v4
+        if: steps.skip.outputs.skip != 'true'
+        with:
+          name: Lifty-${{ matrix.name }}
+          path: ${{ matrix.files }}
+          if-no-files-found: error
+      - uses: softprops/action-gh-release@v2
+        if: steps.skip.outputs.skip != 'true' && github.ref_type == 'tag'
+        with:
+          files: ${{ matrix.files }}
