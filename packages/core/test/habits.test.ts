@@ -10,7 +10,9 @@ describe('rutinas y hábitos', () => {
   it('cuenta la racha sin cortar por los días que no tocan ni por hoy sin hacer', () => {
     // Gimnasio lunes, miércoles y viernes.
     const gym = habitSchema.parse({ id: 'gym', name: 'Gimnasio', days: [1, 3, 5] });
-    const logs = ['2026-09-28', '2026-09-30', '2026-10-02', '2026-10-05', '2026-10-07', '2026-10-09'].map((d) => log('gym', d, 1));
+    const logs = ['2026-09-28', '2026-09-30', '2026-10-02', '2026-10-05', '2026-10-07', '2026-10-09'].map((d) =>
+      log('gym', d, 1),
+    );
     const s = habitStatus(gym, logs, today);
     expect(s.dueToday).toBe(false);
     expect(s.streak).toBe(6);

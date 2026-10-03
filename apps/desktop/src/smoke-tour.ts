@@ -76,6 +76,9 @@ export async function smokeTour(): Promise<string[]> {
     '/stock',
     '/rutinas',
     '/estudio',
+    '/semana',
+    '/suscripciones',
+    '/vencimientos',
     '/',
   ];
   for (const r of routes) await go(r);
@@ -465,6 +468,26 @@ export async function smokeTour(): Promise<string[]> {
   if (!(await until(() => !!card()?.querySelector('.goal-value')?.textContent?.startsWith('1 h'))))
     problems.push(`estudio: no sumó la hora (${card()?.querySelector('.goal-value')?.textContent ?? ''})`);
   check('estudio');
+
+  // Vencimientos: el seguro vence en 10 días → aviso en Inicio.
+  await go('/vencimientos');
+  if (![...document.querySelectorAll('.tx-row')].some((r) => r.textContent?.includes('Seguro del auto'))) {
+    clickText('.chips .chip', 'Seguro del auto');
+    if (await waitFor('.sheet input[aria-label="Fecha de vencimiento"]')) {
+      type(
+        $('.sheet input[aria-label="Fecha de vencimiento"]'),
+        new Date(Date.now() + 10 * 86_400_000).toISOString().slice(0, 10),
+      );
+      await saveSheet('nuevo vencimiento');
+    } else problems.push('vencimientos: no se abrió el formulario');
+  }
+  await go('/');
+  if (!(await until(() => !!document.body.textContent?.includes('Vence pronto'))))
+    problems.push('vencimientos: no aparece el aviso en Inicio');
+  for (const route of ['/semana', '/suscripciones']) {
+    await go(route);
+    if (!$('.page-head')) problems.push(`${route}: no se dibujó`);
+  }
 
   // Modo privado (tecla P): oculta los montos y se vuelve a mostrar.
   await go('/');

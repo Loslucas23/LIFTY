@@ -374,6 +374,23 @@ export const studySessionSchema = z.object({
 });
 export type StudySession = z.infer<typeof studySessionSchema>;
 
+/** Vencimientos de la casa: cédula, libreta, seguro, service, garantías… */
+export const reminderSchema = z.object({
+  ...base,
+  name: z.string().trim().min(1).max(60),
+  icon: z.string().max(8).default('📌'),
+  /** Cuándo vence (o cuándo toca). */
+  date,
+  /** Cada cuántos meses se renueva (null = una sola vez, ej: una garantía). */
+  repeatMonths: z.number().int().min(1).max(240).nullable().default(null),
+  /** Con cuántos días de anticipación avisar. */
+  notifyDays: z.number().int().min(0).max(365).default(30),
+  note: z.string().max(200).default(''),
+  /** Ya no hace falta (una garantía vencida, un auto que vendiste). */
+  archived: z.boolean().default(false),
+});
+export type Reminder = z.infer<typeof reminderSchema>;
+
 export const ENTITY_SCHEMAS = {
   account: accountSchema,
   category: categorySchema,
@@ -393,6 +410,7 @@ export const ENTITY_SCHEMAS = {
   habitLog: habitLogSchema,
   subject: subjectSchema,
   studySession: studySessionSchema,
+  reminder: reminderSchema,
 } as const;
 
 export type EntityName = keyof typeof ENTITY_SCHEMAS;
@@ -417,6 +435,7 @@ export interface EntityTypes {
   habitLog: HabitLog;
   subject: Subject;
   studySession: StudySession;
+  reminder: Reminder;
 }
 
 export function isEntityName(value: string): value is EntityName {
@@ -456,4 +475,5 @@ export interface LiftyData {
   habitLogs: HabitLog[];
   subjects: Subject[];
   studySessions: StudySession[];
+  reminders: Reminder[];
 }

@@ -8,7 +8,10 @@ describe('estudio', () => {
   const mate = subjectSchema.parse({ id: 'mate', name: 'Matemática', examDate: '2026-10-21', goalHours: 20 });
   it('calcula cuánto estudiar por día para llegar al examen', () => {
     // 10 horas hechas; la última semana 7 horas (60 min por día).
-    const sessions = [ses('2026-09-20', 180), ...Array.from({ length: 7 }, (_, i) => ses(`2026-10-${String(i + 5).padStart(2, '0')}`, 60))];
+    const sessions = [
+      ses('2026-09-20', 180),
+      ...Array.from({ length: 7 }, (_, i) => ses(`2026-10-${String(i + 5).padStart(2, '0')}`, 60)),
+    ];
     const s = subjectStatus(mate, sessions, '2026-10-11');
     expect(s.hours).toBe(10);
     expect(s.daysLeft).toBe(10);

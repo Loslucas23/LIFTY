@@ -121,7 +121,10 @@ export function Layout({ route, privacy, children }: { route: string; privacy: b
             n={n}
             on={
               n.match.test(route) ||
-              (n.href === '/mas' && /^\/(anio|informes|tarjeta|ahorro|peso|cuentas|deudas|alimentacion|stock|rutinas|estudio)/.test(route))
+              (n.href === '/mas' &&
+                /^\/(anio|informes|tarjeta|ahorro|peso|cuentas|deudas|alimentacion|stock|rutinas|estudio|semana|suscripciones|vencimientos)/.test(
+                  route,
+                ))
             }
             first={i === 2}
           />

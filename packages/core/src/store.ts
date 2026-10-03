@@ -39,8 +39,11 @@ export function toLiftyData(store: RecordStore): LiftyData {
     shopEntries: list('shopEntry').sort((a, b) => Number(a.checked) - Number(b.checked) || a.name.localeCompare(b.name, 'es')),
     habits: list('habit').sort((a, b) => a.sort - b.sort || a.name.localeCompare(b.name, 'es')),
     habitLogs: list('habitLog').sort((a, b) => a.date.localeCompare(b.date)),
-    subjects: list('subject').sort((a, b) => (a.examDate ?? '9999').localeCompare(b.examDate ?? '9999') || a.name.localeCompare(b.name, 'es')),
+    subjects: list('subject').sort(
+      (a, b) => (a.examDate ?? '9999').localeCompare(b.examDate ?? '9999') || a.name.localeCompare(b.name, 'es'),
+    ),
     studySessions: list('studySession').sort((a, b) => b.date.localeCompare(a.date) || b.updatedAt.localeCompare(a.updatedAt)),
+    reminders: list('reminder').sort((a, b) => a.date.localeCompare(b.date)),
     stockMoves: list('stockMove').sort((a, b) => a.date.localeCompare(b.date) || a.updatedAt.localeCompare(b.updatedAt)),
     weights: list('weight').sort((a, b) => a.date.localeCompare(b.date) || a.updatedAt.localeCompare(b.updatedAt)),
   };

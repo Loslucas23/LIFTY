@@ -5,6 +5,9 @@ import {
   debtTotals,
   foodCardMonth,
   habitsToday,
+  reminderStatus,
+  weekStart,
+  weekSummary,
   monthInsights,
   monthLabel,
   monthOf,
@@ -46,6 +49,11 @@ export function Home() {
   const debts = debtTotals(data);
   const foodCards = data.accounts.filter((a) => a.type === 'food' && !a.archived);
   const d = b.daily;
+  const week = weekSummary(data, weekStart(today), today);
+  const dueReminders = data.reminders
+    .filter((r) => !r.archived)
+    .map((r) => reminderStatus(r, today))
+    .filter((r) => r.status !== 'ok');
   const routines = habitsToday(data.habits, data.habitLogs, today);
   const stock = data.stockItems.length ? stockOverview(data.stockItems, data.stockMoves, today, data.settings) : null;
 
@@ -200,6 +208,31 @@ export function Home() {
 
       {!empty && <FirstSteps month={month} />}
 
+      {dueReminders.length > 0 && (
+        <Section
+          title="Vence pronto"
+          action={
+            <a className="link" href="#/vencimientos">
+              Ver todo
+            </a>
+          }
+        >
+          <ul className="insights">
+            {dueReminders.map(({ reminder: r, daysLeft, status }) => (
+              <li key={r.id}>
+                <a className={`insight insight-${status === 'overdue' ? 'bad' : 'warn'}`} href="#/vencimientos">
+                  <span aria-hidden="true">{r.icon}</span>
+                  <span className="grow">
+                    {r.name}:{' '}
+                    {daysLeft < 0 ? `venció hace ${-daysLeft} días` : daysLeft === 0 ? 'vence hoy' : `vence en ${daysLeft} días`}
+                  </span>
+                </a>
+              </li>
+            ))}
+          </ul>
+        </Section>
+      )}
+
       {limits.length > 0 ? (
         <Section
           title="Te queda en cada categoría"
@@ -294,6 +327,13 @@ export function Home() {
             value={money(Math.round(debts.owedToMe > 0 ? debts.owedToMe : debts.iOwe))}
           />
         )}
+        <Tile
+          href="#/semana"
+          icon="calendar"
+          title="Tu semana"
+          text={`Gastaste ${money(Math.round(week.spent))}${week.prevSpent > 0 ? ` (${week.spent <= week.prevSpent ? 'menos' : 'más'} que la anterior)` : ''}`}
+          value="Ver"
+        />
         {routines.due.length > 0 && (
           <Tile
             href="#/rutinas"

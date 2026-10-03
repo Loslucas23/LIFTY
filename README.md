@@ -28,6 +28,9 @@ claras y reglas simples.
 | **Lista de compras compartida** | Se sincroniza entre la compu y el celular: tildás en el súper y al terminar se registra la compra (stock + gasto). Se le suma lo que falta según el stock o cualquier cosa suelta. |
 | **Rutinas** | Hábitos por momento del día y días de la semana (estudiar 60 min, 8 vasos de agua, ejercicio lunes/miércoles/viernes, medicación…): tildar o sumar, racha (los días que no tocan no la cortan), últimos 7 días y horas de estudio de la semana. |
 | **Estudio** | Materias con fecha de examen y horas meta: cuánto estudiar por día para llegar, si a tu ritmo llegás, cronómetro (sigue aunque cierres la app) y últimos 14 días. Las sesiones también suman a tu hábito "Estudiar". |
+| **Tu semana** | Resumen de lunes a domingo: lo gastado contra la semana anterior y en qué, días sin gastar, ahorro, % de rutinas y mejor racha, horas de estudio, días de ejercicio y peso. |
+| **Lo que pagás siempre** | Suscripciones y gastos fijos ordenados por lo que salen por mes (los anuales repartidos), total por año y cuánto aumentó cada uno. |
+| **Vencimientos** | Cédula, libreta, pasaporte, seguro, service, garantías: aviso en Inicio con la anticipación que elijas y "Renové" que pasa a la próxima fecha. |
 | **Peso** | Pesajes con promedio de 7 días, cambio semanal y mensual, IMC y meta. **Ejercicio y peso**: cuánto cambió tu peso las semanas que entrenaste 3+ veces contra las demás. |
 | **Detalles** | Modo privado (el ojo arriba, o la tecla **P**): oculta los montos. En la compu: **N** nuevo movimiento, **/** buscar. Tema claro, oscuro o automático. |
 
