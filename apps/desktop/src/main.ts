@@ -3,6 +3,7 @@ import net from 'node:net';
 import path from 'node:path';
 import { app, BrowserWindow, dialog, Menu, Notification, nativeImage, shell, Tray } from 'electron';
 import { startServer } from '../../server/src/index';
+import { smokeTour } from './smoke-tour';
 
 /**
  * Lifty para la compu.
@@ -228,21 +229,31 @@ async function runSmokeTest() {
     console.error(`SMOKE FAIL: ${msg}`);
     app.exit(1);
   };
-  setTimeout(() => fail('timeout'), 30_000);
+  setTimeout(() => fail('timeout'), 90_000);
   try {
     const health = await fetch(`${baseUrl}/api/health`).then((r) => r.json());
     if (health.app !== 'lifty') return fail('health');
-    for (let i = 0; i < 100; i++) {
-      const ok = await win!.webContents.executeJavaScript(`!!document.querySelector('.hero')`).catch(() => false);
-      if (ok) {
-        console.log('SMOKE OK');
-        await server?.close();
-        app.exit(0);
-        return;
-      }
-      await new Promise((r) => setTimeout(r, 200));
+    let ready = false;
+    for (let i = 0; i < 100 && !ready; i++) {
+      ready = await win!.webContents.executeJavaScript(`!!document.querySelector('.hero')`).catch(() => false);
+      if (!ready) await new Promise((r) => setTimeout(r, 200));
     }
-    fail('la pantalla de inicio no se dibujó');
+    if (!ready) return fail('la pantalla de inicio no se dibujó');
+
+    // Recorrer todas las pantallas en tamaño compu y en tamaño celular.
+    for (const [width, height] of [
+      [1280, 840],
+      [390, 800],
+    ]) {
+      win!.setContentSize(width, height);
+      await new Promise((r) => setTimeout(r, 300));
+      const problems: string[] = await win!.webContents.executeJavaScript(`(${smokeTour.toString()})()`);
+      if (problems.length) return fail(`(${width}px)\n  - ${problems.join('\n  - ')}`);
+      console.log(`Recorrido OK a ${width}px`);
+    }
+    console.log('SMOKE OK');
+    await server?.close();
+    app.exit(0);
   } catch (err) {
     fail(String(err));
   }

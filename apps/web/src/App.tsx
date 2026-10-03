@@ -42,8 +42,17 @@ export function App() {
   const route = useRoute();
   const { status, records } = useSync();
 
-  useEffect(() => onSyncError((msg) => toast(msg, { tone: 'error' })), []);
-  useEffect(() => window.scrollTo(0, 0), [route]);
+  useEffect(() => {
+    const off = onSyncError((msg) => toast(msg, { tone: 'error' }));
+    return () => {
+      off();
+    };
+  }, []);
+  // Ojo: en Chromium nuevo window.scrollTo() devuelve una promesa. Un efecto no puede
+  // devolver nada que no sea una función de limpieza (React la ejecutaría y fallaría).
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [route]);
 
   const pair = match('/vincular/:code', route) ?? (match('/vincular', route) ? {} : null);
   if (pair || status === 'unauthorized') {

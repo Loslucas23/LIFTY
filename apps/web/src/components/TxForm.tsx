@@ -35,7 +35,9 @@ export function TxFormHost() {
   const req = useSyncExternalStore(
     (fn) => {
       listeners.add(fn);
-      return () => listeners.delete(fn);
+      return () => {
+        listeners.delete(fn);
+      };
     },
     () => request,
   );

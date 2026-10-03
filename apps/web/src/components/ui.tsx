@@ -27,7 +27,9 @@ export function Toasts() {
   const list = useSyncExternalStore(
     (fn) => {
       toastListeners.add(fn);
-      return () => toastListeners.delete(fn);
+      return () => {
+        toastListeners.delete(fn);
+      };
     },
     () => toasts,
   );

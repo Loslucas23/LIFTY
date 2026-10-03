@@ -36,12 +36,16 @@ export function getState(): SyncState {
 
 export function subscribe(fn: () => void): () => void {
   listeners.add(fn);
-  return () => listeners.delete(fn);
+  return () => {
+    listeners.delete(fn);
+  };
 }
 
 export function onSyncError(fn: (message: string) => void): () => void {
   errorListeners.add(fn);
-  return () => errorListeners.delete(fn);
+  return () => {
+    errorListeners.delete(fn);
+  };
 }
 
 function setState(patch: Partial<SyncState>) {
