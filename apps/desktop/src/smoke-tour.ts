@@ -47,6 +47,11 @@ export async function smokeTour(): Promise<string[]> {
     el?.click();
     return !!el;
   };
+  const until = async (ok: () => boolean, ms = 2500) => {
+    const end = Date.now() + ms;
+    while (Date.now() < end && !ok()) await sleep(50);
+    return ok();
+  };
   const closeSheet = async () => {
     $<HTMLButtonElement>('.sheet [aria-label="Cerrar"]')?.click();
     await sleep(150);
@@ -366,21 +371,21 @@ export async function smokeTour(): Promise<string[]> {
   // ¿Dónde está tu plata? (cuadre de cuentas y presupuesto)
   await go('/cuentas');
   if (!(await waitFor('.where'))) problems.push('cuadre: no aparece "¿Dónde está tu plata?"');
-  if ($('.where button.link')?.textContent?.includes('Arreglarlo')) {
-    $<HTMLButtonElement>('.where button.link:last-of-type')?.click();
+  const fix = [...document.querySelectorAll<HTMLButtonElement>('.where button.link')].find((b) =>
+    b.textContent?.includes('Arreglarlo'),
+  );
+  if (fix) {
+    fix.click();
     if (!(await waitFor('.action-list'))) problems.push('cuadre: no se abrió "Arreglarlo"');
-    await closeSheet();
+    clickText('.action-list button', 'Empezar a cuadrar');
+    if (!(await until(() => $('.where .tag')?.textContent === 'Cuadra')))
+      problems.push(`cuadre: después de "Empezar a cuadrar desde hoy" sigue sin cuadrar (${$('.where .tag')?.textContent})`);
   }
   check('cuadre');
 
   // Stock: producto, compra con precio (y gasto), uso, conteo y lista de compras.
   await go('/stock');
   const stockName = `Arroz prueba ${Date.now() % 100000}`;
-  const until = async (ok: () => boolean, ms = 2500) => {
-    const end = Date.now() + ms;
-    while (Date.now() < end && !ok()) await sleep(50);
-    return ok();
-  };
   clickText('.page-head button', 'Producto');
   if (await waitFor('.sheet input[placeholder="Ej: Arroz"]')) {
     type($('.sheet input[placeholder="Ej: Arroz"]'), stockName);

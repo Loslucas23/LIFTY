@@ -11,7 +11,14 @@ import type { Account, LiftyData } from './schema';
  */
 export interface MoneyCheck {
   today: string;
-  /** Bancos y efectivo (sin tarjetas ni alimentación), en pesos. */
+  /** Cuentas de plata guardada (no se usan para gastar): aparte. */
+  reserved: { account: Account; balance: number; balanceUYU: number }[];
+  reservedTotal: number;
+  /** Tarjetas de crédito con saldo a favor (casi siempre es la deuda cargada al revés). */
+  creditInFavor: { account: Account; balance: number }[];
+  /** De qué mes viene el arrastre (para "empezar a cuadrar desde hoy"). */
+  carryoverFrom: string | null;
+  /** Bancos y efectivo para gastar (sin tarjetas, alimentación ni cuentas de ahorro), en pesos. */
   accounts: { account: Account; balanceUYU: number }[];
   cash: number;
   /** Ahorro apartado que está dentro de esas cuentas. */
@@ -56,14 +63,21 @@ export function moneyCheck(
   const rate = data.settings.usdRate;
   const month = monthOf(today);
   const balances = accountBalances(data, today);
-  const money = balances.filter((x) => x.account.type === 'bank' || x.account.type === 'cash');
+  const isMoney = (x: (typeof balances)[number]) => x.account.type === 'bank' || x.account.type === 'cash';
+  // Las cuentas de plata guardada (ej: BROU dólares) van aparte: no son para gastar.
+  const money = balances.filter((x) => isMoney(x) && !x.account.reserved);
+  const reserved = balances.filter((x) => isMoney(x) && x.account.reserved && (!x.account.archived || x.balance !== 0));
   const cash = round2(money.reduce((s, x) => s + x.balanceUYU, 0));
-  const inAccount = new Set(data.goals.filter((g) => g.accountId).map((g) => g.id));
+  const spendIds = new Set(money.map((x) => x.account.id));
+  const reservedIds = new Set(reserved.map((x) => x.account.id));
+  const goalAccount = new Map(data.goals.map((g) => [g.id, g.accountId]));
   let savingsInAccounts = 0;
   let savingsOutside = 0;
   for (const g of goalBalances(data)) {
-    if (g.goalId && inAccount.has(g.goalId)) savingsInAccounts += g.balanceUYU;
-    else savingsOutside += g.balanceUYU;
+    const acc = g.goalId ? goalAccount.get(g.goalId) : null;
+    if (acc && spendIds.has(acc)) savingsInAccounts += g.balanceUYU;
+    else if (!acc || !reservedIds.has(acc)) savingsOutside += g.balanceUYU;
+    // Las metas guardadas en una cuenta de ahorro ya están dentro de su saldo.
   }
   const credit = new Set(data.accounts.filter((a) => a.type === 'credit').map((a) => a.id));
   const creditDebt = -balances.filter((x) => credit.has(x.account.id)).reduce((s, x) => s + x.balanceUYU, 0);
@@ -92,6 +106,12 @@ export function moneyCheck(
 
   return {
     today,
+    reserved: reserved.map((x) => ({ account: x.account, balance: x.balance, balanceUYU: x.balanceUYU })),
+    reservedTotal: round2(reserved.reduce((s, x) => s + x.balanceUYU, 0)),
+    creditInFavor: balances
+      .filter((x) => credit.has(x.account.id) && x.balance > 0 && !x.account.archived)
+      .map((x) => ({ account: x.account, balance: x.balance })),
+    carryoverFrom: b.carryover.fromMonth,
     accounts: money
       .filter((x) => !x.account.archived || x.balance !== 0)
       .map((x) => ({ account: x.account, balanceUYU: x.balanceUYU })),

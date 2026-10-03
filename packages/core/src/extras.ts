@@ -1,11 +1,24 @@
 import { convert } from './accounts';
-import { countsInBudget, offBudgetAccounts, ownAmount, txRate } from './budget';
+import { countsInBudget, offBudgetAccounts, ownAmount, reservedAccounts, savingFromTransfer, txRate } from './budget';
 import { exerciseVsWeight, habitsToday } from './habits';
 import { addMonths, daysInMonth, isActiveIn, monthOf } from './months';
 import { round2 } from './money';
 import type { FixedExpense, LiftyData, Reminder, Settings, StockItem, StockMove, YearGoal } from './schema';
 import { stockStatus } from './stock';
 import { addDays, dailyWeights, daysBetween } from './weight';
+
+/** Lo pasado a cuentas de ahorro (menos lo sacado) entre dos fechas, en pesos. */
+function savedByTransfer(data: LiftyData, from: string, to: string): number {
+  const reserved = reservedAccounts(data);
+  if (!reserved.size) return 0;
+  let s = 0;
+  for (const t of data.transactions) {
+    if (t.date < from || t.date > to) continue;
+    const v = savingFromTransfer(t, reserved);
+    if (v !== null) s += v * txRate(t, data.settings.usdRate);
+  }
+  return s;
+}
 
 // ---------------- Suscripciones y gastos que se repiten ----------------
 
@@ -120,7 +133,7 @@ export function weekSummary(data: LiftyData, from: string, today: string): WeekS
   const sumKind = (k: 'income' | 'saving') =>
     data.transactions
       .filter((t) => t.kind === k && countsInBudget(t, off) && inRange(t.date, from, last))
-      .reduce((s, t) => s + t.amount * txRate(t, rate), 0);
+      .reduce((s, t) => s + t.amount * txRate(t, rate), 0) + (k === 'saving' ? savedByTransfer(data, from, last) : 0);
 
   // Hábitos: cuántos tocaban en la semana y cuántos se cumplieron.
   let habits: WeekSummary['habits'] = null;
@@ -265,9 +278,10 @@ export function yearGoalStatus(goal: YearGoal, data: LiftyData, today: string): 
   let detail = '';
   let needed: string | null = null;
   if (goal.kind === 'savings') {
-    current = data.transactions
-      .filter((t) => t.kind === 'saving' && t.date >= from && t.date <= last)
-      .reduce((s, t) => s + t.amount * txRate(t, rate), 0);
+    current =
+      data.transactions
+        .filter((t) => t.kind === 'saving' && t.date >= from && t.date <= last)
+        .reduce((s, t) => s + t.amount * txRate(t, rate), 0) + savedByTransfer(data, from, last);
     progress = current / goal.target;
     detail = `$ ${n(current)} de $ ${n(goal.target)}`;
     if (current < goal.target) needed = `$ ${n((goal.target - current) / monthsLeft)} por mes`;

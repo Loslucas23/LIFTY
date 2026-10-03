@@ -63,6 +63,7 @@ export function Food() {
                   initialBalance: 0,
                   monthlyLoad: null,
                   loadDay: null,
+                  reserved: false,
                 }
               : editing
           }

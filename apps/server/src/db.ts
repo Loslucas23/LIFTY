@@ -91,9 +91,14 @@ export class LiftyDb {
       this.run(`INSERT OR REPLACE INTO meta (key, value) VALUES ('schema', ?)`, [String(version)]);
       this.db.exec('COMMIT');
     }
-    if (fresh) {
+    // Datos iniciales. Si la base ya existía, se agregan solo los que faltan y nunca estuvieron
+    // (ej: una cuenta que se sumó en una versión nueva); lo que borraste queda borrado.
+    const missing = seedRecords().filter(
+      ({ entity, record }) => fresh || !this.get(`SELECT 1 AS x FROM records WHERE entity = ? AND id = ?`, [entity, record.id]),
+    );
+    if (missing.length) {
       this.applyMutations(
-        seedRecords().map(({ entity, record }) => ({ entity, op: 'upsert', id: record.id, updatedAt: record.updatedAt, record })),
+        missing.map(({ entity, record }) => ({ entity, op: 'upsert', id: record.id, updatedAt: record.updatedAt, record })),
       );
     }
     this.save();

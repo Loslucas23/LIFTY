@@ -443,6 +443,19 @@ function TxForm({
             <Field label="Entra a">
               <Chips label="Entra a" value={toAccountId} onChange={setToAccountId} options={accountChips(accountId)} />
             </Field>
+            {(() => {
+              const from = data.accounts.find((a) => a.id === accountId);
+              const to = data.accounts.find((a) => a.id === toAccountId);
+              if (!!from?.reserved === !!to?.reserved) return null;
+              return (
+                <p className="note note-good">
+                  🔒{' '}
+                  {to?.reserved
+                    ? `${to.name} es plata guardada: esto cuenta como ahorro.`
+                    : `${from?.name} es plata guardada: esto cuenta como retiro de ahorro.`}
+                </p>
+              );
+            })()}
           </>
         ) : (
           <>

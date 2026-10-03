@@ -514,3 +514,30 @@ describe('¿dónde está tu plata?', () => {
     expect(c.difference).toBe(-1000);
   });
 });
+
+describe('cuentas de ahorro (plata que no se usa)', () => {
+  it('BROU dólares va aparte y pasarle plata cuenta como ahorro', () => {
+    const d = data({
+      transactions: [
+        tx({ date: '2026-10-05', kind: 'income', amount: 40000, accountId: 'acc-brou' }),
+        // Compra de dólares para guardar: transferencia BROU → BROU dólares.
+        tx({ date: '2026-10-06', kind: 'transfer', amount: 4100, accountId: 'acc-brou', toAccountId: 'acc-brou-usd' }),
+      ],
+    });
+    d.accounts = d.accounts.map((a) => (a.id === 'acc-brou-usd' ? { ...a, reserved: true, initialBalance: 1000 } : a));
+    const b = computeMonth(d, '2026-10', '2026-10-11');
+    expect(b.savings.total).toBe(4100);
+    const c = moneyCheck(d, '2026-10-11', b);
+    expect(c.cash).toBe(35900);
+    // 1000 + 100 dólares a 41.
+    expect(c.reservedTotal).toBe(45100);
+    expect(c.budget.value).toBe(35900);
+    expect(c.difference).toBe(0);
+  });
+
+  it('avisa si la tarjeta quedó con saldo a favor', () => {
+    const d = data();
+    d.accounts = d.accounts.map((a) => (a.id === 'acc-tarjeta' ? { ...a, initialBalance: 21486 } : a));
+    expect(moneyCheck(d, '2026-10-11').creditInFavor.map((x) => x.balance)).toEqual([21486]);
+  });
+});

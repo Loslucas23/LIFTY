@@ -230,11 +230,35 @@ interface Index {
   offBudget: Set<string>;
 }
 
+/** Cuentas de plata guardada (no se usa para gastar). */
+export function reservedAccounts(data: Pick<LiftyData, 'accounts'>): Set<string> {
+  return new Set(data.accounts.filter((a) => a.reserved && (a.type === 'bank' || a.type === 'cash')).map((a) => a.id));
+}
+
+/**
+ * Pasar plata a una cuenta de ahorro (ej: comprar dólares para BROU dólares) es ahorrar;
+ * sacarla de ahí es retirar ahorro. Devuelve el monto con signo, o null si no es el caso.
+ */
+export function savingFromTransfer(
+  tx: Pick<Transaction, 'kind' | 'accountId' | 'toAccountId' | 'amount'>,
+  reserved: Set<string>,
+): number | null {
+  if (tx.kind !== 'transfer') return null;
+  const from = !!tx.accountId && reserved.has(tx.accountId);
+  const to = !!tx.toAccountId && reserved.has(tx.toAccountId);
+  if (from === to) return null;
+  return to ? tx.amount : -tx.amount;
+}
+
 function buildIndex(data: LiftyData): Index {
   const byMonth: Index['byMonth'] = new Map();
   const linked: Index['linked'] = new Map();
   const offBudget = offBudgetAccounts(data);
-  for (const original of data.transactions) {
+  const reserved = reservedAccounts(data);
+  for (const raw of data.transactions) {
+    const asSaving = savingFromTransfer(raw, reserved);
+    const original: Transaction =
+      asSaving === null ? raw : { ...raw, kind: 'saving', amount: asSaving, toAccountId: null, goalId: null };
     if (!countsInBudget(original, offBudget)) continue;
     const tx = original.sharedAmount ? { ...original, amount: ownAmount(original) } : original;
     if (tx.linkKind && tx.linkId && tx.linkMonth) {

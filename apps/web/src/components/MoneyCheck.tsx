@@ -1,4 +1,4 @@
-import { initialBalanceFor, moneyCheck, newId, type LiftyData, type MoneyCheck as Check } from '@lifty/core';
+import { initialBalanceFor, moneyCheck, monthLabel, newId, type LiftyData, type MoneyCheck as Check } from '@lifty/core';
 import { money } from '../lib/format';
 import { navigate } from '../lib/router';
 import { useData, useMonth, useToday } from '../lib/store';
@@ -54,6 +54,32 @@ export function askRealBalances(data: LiftyData, c: Check, today: string, i = 0)
   });
 }
 
+/**
+ * "Empezar a cuadrar desde hoy": el mes anterior se cierra con lo que hace falta para que lo
+ * disponible según tus cuentas y según el presupuesto den lo mismo. Lo de antes no cambia.
+ */
+export function startFromToday(data: LiftyData, c: Check, today: string) {
+  const value = Math.round((c.budget.carryover + c.difference) * 100) / 100;
+  const from = c.carryoverFrom;
+  if (from && (c.budget.carryoverSource === 'real' || c.budget.carryoverSource === 'projected')) {
+    const prev = data.closings.find((x) => x.id === from);
+    mutate('closing', 'upsert', { id: from, updatedAt: '', realBalance: value, note: 'Cuadre con las cuentas' });
+    toast(`Listo: ${monthLabel(from, false).toLowerCase()} cerrado con ${money(value)}. Ahora cuadra.`, {
+      action: { label: 'Deshacer', run: () => (prev ? mutate('closing', 'upsert', prev) : mutate('closing', 'delete', from)) },
+    });
+  } else {
+    const prev = data.settings;
+    mutate('settings', 'upsert', {
+      ...prev,
+      startBalance: value,
+      ...(c.budget.carryoverSource === 'none' ? { startMonth: today.slice(0, 7) } : {}),
+    });
+    toast(`Listo: arrancás con ${money(value)}. Ahora cuadra.`, {
+      action: { label: 'Deshacer', run: () => mutate('settings', 'upsert', prev) },
+    });
+  }
+}
+
 function fixDifference(data: LiftyData, c: Check, today: string) {
   const d = c.difference;
   const amount = Math.abs(d);
@@ -89,17 +115,24 @@ function fixDifference(data: LiftyData, c: Check, today: string) {
     [
       {
         label: '1. Poner el saldo real de cada cuenta',
-        hint: 'Primero esto: que BROU, Itaú y el efectivo den lo mismo que en la realidad',
+        hint: 'Primero esto: que BROU, Itaú y el efectivo den lo mismo que en la app del banco',
         run: () => askRealBalances(data, c, today),
+      },
+      {
+        label: '2. Empezar a cuadrar desde hoy (recomendado)',
+        hint: c.carryoverFrom
+          ? `Cierra ${monthLabel(c.carryoverFrom, false).toLowerCase()} con lo que dicen tus cuentas. Lo de antes no cambia; desde hoy cuadra exacto.`
+          : 'Toma lo que tenés hoy en tus cuentas como punto de partida. Desde hoy cuadra exacto.',
+        run: () => startFromToday(data, c, today),
       },
       d < 0
         ? {
-            label: `2. Anotar ${money(amount)} como gastos sin detallar`,
+            label: `3. O anotar ${money(amount)} como gastos sin detallar`,
             hint: 'Si gastaste y no lo cargaste (efectivo, débitos del banco…)',
             run: () => record('expense'),
           }
         : {
-            label: `2. Anotar ${money(amount)} como ingreso sin detallar`,
+            label: `3. O anotar ${money(amount)} como ingreso sin detallar`,
             hint: 'Si te entró plata que no cargaste',
             run: () => record('income'),
           },
@@ -150,7 +183,13 @@ export function WhereIsMyMoney() {
       <dl className="receipt">
         <Row label="Bancos y efectivo" value={c.cash} />
         {c.savingsInAccounts > 0 && <Row label="Ahorro guardado en tus cuentas" value={-c.savingsInAccounts} dot="#0ea5e9" />}
-        {c.cardOwed !== 0 && <Row label="Tarjeta: ya gastado, falta pagar" value={-c.cardOwed} dot="var(--series-2)" />}
+        {c.cardOwed !== 0 && (
+          <Row
+            label={c.cardOwed > 0 ? 'Tarjeta: ya gastado, falta pagar' : 'Tarjeta: saldo a favor'}
+            value={-c.cardOwed}
+            dot="var(--series-2)"
+          />
+        )}
         {debtNet !== 0 && <Row label={debtNet > 0 ? 'Te deben' : 'Debés'} value={debtNet} />}
         <Row label="Disponible hoy" value={c.available} total />
         {c.pendingFixed > 0 && <Row label="Gastos fijos que faltan pagar" value={-c.pendingFixed} dot="var(--warn)" />}
@@ -158,6 +197,23 @@ export function WhereIsMyMoney() {
         {c.pendingIncome > 0 && <Row label="Lo que falta cobrar" value={c.pendingIncome} />}
         <Row label="Para gastar hasta fin de mes" value={c.untilMonthEnd} total dot="var(--accent)" />
       </dl>
+      {c.creditInFavor.map(({ account, balance }) => (
+        <div key={account.id} className="note note-bad">
+          ⚠️ <strong>{account.name}</strong> figura con {money(balance, account.currency)} <strong>a favor</strong>, y por eso
+          suma en vez de restar. Si en realidad es lo que debés, corregilo.{' '}
+          <button
+            className="link"
+            onClick={() => {
+              mutate('account', 'upsert', { ...account, initialBalance: initialBalanceFor(data, account.id, -balance, today) });
+              toast(`${account.name}: debés ${money(balance, account.currency)}`, {
+                action: { label: 'Deshacer', run: () => mutate('account', 'upsert', account) },
+              });
+            }}
+          >
+            Es lo que debo
+          </button>
+        </div>
+      ))}
       {ok ? (
         <p className="muted small">
           ✅ Lo que hay en tus cuentas coincide con tu presupuesto: cada peso está en algún lado.{' '}
@@ -183,6 +239,14 @@ export function WhereIsMyMoney() {
       )}
       {c.cardFuture > 0 && (
         <p className="muted small">Además tenés {money(Math.round(c.cardFuture))} en cuotas de los meses que vienen.</p>
+      )}
+      {c.reserved.length > 0 && (
+        <p className="muted small">
+          🔒 Aparte, plata guardada que no se usa:{' '}
+          {c.reserved.map((r) => `${r.account.name} ${money(r.balance, r.account.currency)}`).join(' · ')}
+          {c.reserved.some((r) => r.account.currency === 'USD') ? ` (≈ ${money(Math.round(c.reservedTotal))})` : ''}. Pasarle
+          plata cuenta como ahorro.
+        </p>
       )}
       {c.savingsOutside > 0 && (
         <p className="muted small">

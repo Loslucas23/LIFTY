@@ -30,6 +30,23 @@ describe('API', () => {
     expect(body.changes.find((c: { entity: string }) => c.entity === 'settings').record.usdRate).toBe(41);
   });
 
+  it('al abrir una base vieja agrega las cuentas nuevas que falten, pero no revive lo borrado', async () => {
+    const dir = fs.mkdtempSync('/tmp/lifty-db-');
+    const file = `${dir}/lifty.db`;
+    const first = await LiftyDb.open(file);
+    // Simula una base de antes: sin BROU dólares, y con Itaú borrada por el usuario.
+    first.applyMutations([{ entity: 'account', op: 'delete', id: 'acc-itau', updatedAt: '2030-01-01T00:00:00Z' }]);
+    (first as unknown as { db: { exec: (s: string) => void } }).db.exec(
+      `DELETE FROM records WHERE entity = 'account' AND id = 'acc-brou-usd'`,
+    );
+    first.save();
+    const again = await LiftyDb.open(file);
+    const accounts = again.changesSince(0).filter((c) => c.entity === 'account');
+    expect(accounts.find((c) => c.id === 'acc-brou-usd')?.record).toMatchObject({ currency: 'USD', reserved: true });
+    // Lo borrado no vuelve (queda como lápida, que no aparece en la lista completa).
+    expect(accounts.some((c) => c.id === 'acc-itau')).toBe(false);
+  });
+
   it('pide vincular a los dispositivos de la red', async () => {
     const res = await app.inject({ url: '/api/changes', ...remote });
     expect(res.statusCode).toBe(401);

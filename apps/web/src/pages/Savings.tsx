@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import {
+  accountBalances,
   addMonths,
   goalBalances,
   goalPlans,
@@ -37,7 +38,14 @@ export function Savings() {
   const month = monthOf(today);
   const balances = goalBalances(data);
   const plans = new Map(goalPlans(data, today).map((p) => [p.goal.id, p]));
-  const totalUYU = round2(balances.reduce((s, g) => s + g.balanceUYU, 0));
+  // Cuentas de plata guardada (ej: BROU dólares): su saldo es ahorro. Las metas guardadas ahí ya están adentro.
+  const reservedBalances = accountBalances(data, today).filter((b) => b.account.reserved && !b.account.archived);
+  const reservedIds = new Set(reservedBalances.map((b) => b.account.id));
+  const goalAccount = new Map(data.goals.map((g) => [g.id, g.accountId]));
+  const looseGoals = balances.filter((g) => !(g.goalId && reservedIds.has(goalAccount.get(g.goalId) ?? '')));
+  const totalUYU = round2(
+    looseGoals.reduce((s, g) => s + g.balanceUYU, 0) + reservedBalances.reduce((s, b) => s + b.balanceUYU, 0),
+  );
   const history = data.transactions.filter((t) => t.kind === 'saving').slice(0, 30);
   const [editing, setEditing] = useState<Goal | 'new' | null>(null);
   const [goalSheet, setGoalSheet] = useState(false);
@@ -70,13 +78,22 @@ export function Savings() {
         onClick={() =>
           openExplain({
             title: 'Ahorrado en total',
-            intro: 'La suma de lo que tenés en cada meta. Los dólares se pasan a pesos con la cotización de Ajustes.',
-            rows: balances.map((g) => ({
-              label: g.name,
-              value: g.balanceUYU,
-              op: '+' as const,
-              note: g.currency === 'USD' ? `${money(g.balance, 'USD')} × ${data.settings.usdRate}` : undefined,
-            })),
+            intro:
+              'Tus cuentas de plata guardada más lo que tenés en las metas (las que están guardadas en esas cuentas ya van adentro). Los dólares se pasan a pesos con la cotización de Ajustes.',
+            rows: [
+              ...reservedBalances.map((b) => ({
+                label: `🔒 ${b.account.name}`,
+                value: b.balanceUYU,
+                op: '+' as const,
+                note: b.account.currency === 'USD' ? `${money(b.balance, 'USD')} × ${data.settings.usdRate}` : undefined,
+              })),
+              ...looseGoals.map((g) => ({
+                label: g.name,
+                value: g.balanceUYU,
+                op: '+' as const,
+                note: g.currency === 'USD' ? `${money(g.balance, 'USD')} × ${data.settings.usdRate}` : undefined,
+              })),
+            ],
             result: { label: 'Total', value: totalUYU },
           })
         }
@@ -85,6 +102,24 @@ export function Savings() {
         <p className="hero-value">{money(Math.round(totalUYU))}</p>
         <p className="hero-sub">Pesos y dólares juntos (convertidos a la cotización de hoy) · tocá para ver el detalle</p>
       </section>
+
+      {reservedBalances.length > 0 && (
+        <div className="card list">
+          {reservedBalances.map((b) => (
+            <a key={b.account.id} className="tx-row" href="#/cuentas">
+              <span className="tx-icon">{b.account.icon}</span>
+              <span className="tx-main">
+                <span className="tx-title">🔒 {b.account.name}</span>
+                <span className="tx-meta">Plata guardada: pasarle plata cuenta como ahorro</span>
+              </span>
+              <span className="tx-amount">
+                {money(b.balance, b.account.currency)}
+                {b.account.currency === 'USD' && <small> ≈ {money(Math.round(b.balanceUYU))}</small>}
+              </span>
+            </a>
+          ))}
+        </div>
+      )}
 
       <MonthlyGoal month={month} onEdit={() => setGoalSheet(true)} />
 

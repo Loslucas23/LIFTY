@@ -35,26 +35,35 @@ export function Accounts() {
   const [editing, setEditing] = useState<Account | 'new' | null>(null);
   const balances = accountBalances(data, today);
   const visible = balances.filter((b) => !b.account.archived);
-  const money_ = visible.filter((b) => b.account.type === 'bank' || b.account.type === 'cash');
+  const money_ = visible.filter((b) => (b.account.type === 'bank' || b.account.type === 'cash') && !b.account.reserved);
+  const saved = visible.filter((b) => (b.account.type === 'bank' || b.account.type === 'cash') && b.account.reserved);
   const credit = visible.filter((b) => b.account.type === 'credit');
   const food = visible.filter((b) => b.account.type === 'food');
   const totalMoney = round2(money_.reduce((s, b) => s + b.balanceUYU, 0));
   const debts = debtTotals(data);
 
-  const adjust = (b: (typeof balances)[number]) =>
+  const adjust = (b: (typeof balances)[number]) => {
+    const credit = b.account.type === 'credit';
     openPrompt({
       title: `Ajustar saldo de ${b.account.name}`,
-      label: `¿Cuánto hay hoy en ${b.account.name}? (${b.account.currency === 'USD' ? 'US$' : '$'})`,
-      hint:
-        b.account.type === 'credit'
-          ? 'En la tarjeta de crédito, poné lo que debés en negativo (ej: -12000).'
-          : 'Lifty ajusta el saldo inicial para que dé este número. Los movimientos no cambian.',
-      initial: String(b.balance),
+      label: credit
+        ? `¿Cuánto debés hoy en ${b.account.name}? (${b.account.currency === 'USD' ? 'US$' : '$'})`
+        : `¿Cuánto hay hoy en ${b.account.name}? (${b.account.currency === 'USD' ? 'US$' : '$'})`,
+      hint: credit
+        ? 'Todo lo que debés: lo del próximo resumen más las cuotas que faltan. Si no debés nada, 0.'
+        : 'Lifty ajusta el saldo inicial para que dé este número. Los movimientos no cambian.',
+      initial: String(credit ? Math.max(0, -b.balance) : b.balance),
       onSubmit: (value) => {
-        mutate('account', 'upsert', { ...b.account, initialBalance: initialBalanceFor(data, b.account.id, value, today) });
-        toast(`${b.account.name}: saldo ajustado a ${money(value, b.account.currency)}`);
+        const target = credit ? -Math.abs(value) : value;
+        mutate('account', 'upsert', { ...b.account, initialBalance: initialBalanceFor(data, b.account.id, target, today) });
+        toast(
+          credit
+            ? `${b.account.name}: debés ${money(Math.abs(value), b.account.currency)}`
+            : `${b.account.name}: saldo ajustado a ${money(value, b.account.currency)}`,
+        );
       },
     });
+  };
 
   const accountMenu = (b: (typeof balances)[number]) => {
     const a = b.account;
@@ -126,7 +135,8 @@ export function Accounts() {
         onClick={() =>
           openExplain({
             title: 'Plata disponible',
-            intro: 'La suma de tus bancos y el efectivo, en pesos (los dólares a la cotización actual).',
+            intro:
+              'La suma de tus bancos y el efectivo para usar, en pesos (los dólares a la cotización actual). Las cuentas de plata guardada van aparte.',
             rows: money_.map((b) => ({ label: b.account.name, value: b.balanceUYU, op: '+' as const })),
             result: { label: 'Total', value: totalMoney },
             footnote:
@@ -138,8 +148,8 @@ export function Accounts() {
         <p className="hero-value">{money(totalMoney)}</p>
         <div className="hero-stats">
           <div>
-            <span>Tarjeta</span>
-            <strong>{money(Math.round(credit.reduce((s, b) => s + b.balanceUYU, 0)))}</strong>
+            <span>{credit.reduce((s, b) => s + b.balanceUYU, 0) > 0 ? 'Tarjeta (a favor)' : 'Debés en la tarjeta'}</span>
+            <strong>{money(Math.round(Math.abs(credit.reduce((s, b) => s + b.balanceUYU, 0))))}</strong>
           </div>
           <a href="#/deudas" onClick={(e) => e.stopPropagation()}>
             <span>Te deben</span>
@@ -157,6 +167,15 @@ export function Accounts() {
       <Section title="Bancos y efectivo">
         <div className="card list">{money_.map(row)}</div>
       </Section>
+      {saved.length > 0 && (
+        <Section title="Plata guardada (no se usa)">
+          <div className="card list">{saved.map(row)}</div>
+          <p className="muted small">
+            No entra en lo disponible. Pasarle plata (transferir desde el BROU, comprar dólares) cuenta como ahorro; sacarle, como
+            retiro.
+          </p>
+        </Section>
+      )}
       {credit.length > 0 && (
         <Section
           title="Tarjetas de crédito"
@@ -206,6 +225,7 @@ export function AccountForm({ account, onClose }: { account: Account | null; onC
   const [archived, setArchived] = useState(account?.archived ?? false);
   const [load, setLoad] = useState(account?.monthlyLoad ? String(account.monthlyLoad) : '');
   const [loadDay, setLoadDay] = useState(account?.loadDay ? String(account.loadDay) : '');
+  const [reserved, setReserved] = useState(account?.reserved ?? false);
   const save = () => {
     if (!name.trim()) return;
     mutate('account', 'upsert', {
@@ -221,6 +241,7 @@ export function AccountForm({ account, onClose }: { account: Account | null; onC
       initialBalance: account?.initialBalance ?? 0,
       monthlyLoad: type === 'food' ? parseAmount(load) || null : null,
       loadDay: type === 'food' && loadDay ? Math.min(31, Math.max(1, Number(loadDay))) : null,
+      reserved: (type === 'bank' || type === 'cash') && reserved,
     });
     toast('Cuenta guardada');
     onClose();
@@ -284,6 +305,16 @@ export function AccountForm({ account, onClose }: { account: Account | null; onC
                 />
               </Field>
             </div>
+          </>
+        )}
+        {(type === 'bank' || type === 'cash') && (
+          <>
+            <Toggle checked={reserved} onChange={setReserved} label="Es plata guardada (no se usa para gastar)" />
+            {reserved && (
+              <p className="muted small">
+                Ej: BROU dólares, caja de ahorro. Va aparte de lo disponible y pasarle plata cuenta como ahorro.
+              </p>
+            )}
           </>
         )}
         <Field label="Color">

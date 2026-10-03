@@ -50,6 +50,7 @@ function acc(id: string, name: string, type: Account['type'], icon: string, colo
     initialBalance: 0,
     monthlyLoad: null,
     loadDay: null,
+    reserved: false,
   };
 }
 
@@ -89,7 +90,7 @@ export function seedRecords(): { entity: EntityName; record: EntityTypes[EntityN
   ];
   const accounts: Account[] = [
     acc('acc-brou', 'BROU', 'bank', '🏦', '#1d4ed8', 1),
-    { ...acc('acc-brou-usd', 'BROU dólares', 'bank', '💵', '#1e40af', 2), currency: 'USD' as const },
+    { ...acc('acc-brou-usd', 'BROU dólares', 'bank', '💵', '#1e40af', 2), currency: 'USD' as const, reserved: true },
     acc('acc-itau', 'Itaú', 'bank', '🏦', '#ea580c', 2),
     acc('acc-efectivo', 'Efectivo', 'cash', '💵', '#16a34a', 3),
     acc('acc-tarjeta', 'Tarjeta de crédito', 'credit', '💳', '#7c3aed', 4),

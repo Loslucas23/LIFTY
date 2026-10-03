@@ -42,6 +42,11 @@ export const accountSchema = z.object({
   /** Tarjeta de alimentación: lo que carga la empresa cada mes y qué día. */
   monthlyLoad: money.min(0).nullable().default(null),
   loadDay: z.number().int().min(1).max(31).nullable().default(null),
+  /**
+   * Plata guardada (ej: BROU dólares): no se usa para gastar. No entra en lo disponible y
+   * pasarle plata cuenta como ahorro (sacarle, como retiro de ahorro).
+   */
+  reserved: z.boolean().default(false),
 });
 export type Account = z.infer<typeof accountSchema>;
 
