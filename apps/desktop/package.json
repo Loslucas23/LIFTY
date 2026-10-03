@@ -52,7 +52,9 @@
       "target": [
         "AppImage"
       ],
-      "category": "Office"
-    }
+      "category": "Office",
+      "executableName": "lifty"
+    },
+    "executableName": "lifty"
   }
 }
