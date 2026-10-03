@@ -2718,3 +2718,63 @@ button.tx-main {
   color: var(--accent);
   font-weight: 700;
 }
+
+/* Estudio y ejercicio/peso */
+.timer {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.timer.running {
+  border-color: var(--accent);
+}
+.timer-clock {
+  font-size: 36px;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.02em;
+}
+.timer-start {
+  display: flex;
+  gap: 8px;
+}
+.timer-start select {
+  flex: 1;
+}
+.study-bars {
+  display: grid;
+  grid-template-columns: repeat(14, 1fr);
+  gap: 4px;
+  height: 90px;
+}
+.exercise-weight {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.ew-weeks {
+  display: grid;
+  grid-template-columns: repeat(12, 1fr);
+  gap: 4px;
+}
+.ew-week {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  font-size: 11px;
+}
+.ew-count {
+  width: 100%;
+  text-align: center;
+  border-radius: 6px;
+  padding: 4px 0;
+  font-weight: 700;
+  background: var(--surface-2);
+}
+.ew-count.ok {
+  background: var(--accent);
+  color: var(--accent-ink);
+}
+.ew-change {
+  font-weight: 600;
+}

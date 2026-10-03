@@ -75,6 +75,7 @@ export async function smokeTour(): Promise<string[]> {
     '/deudas',
     '/stock',
     '/rutinas',
+    '/estudio',
     '/',
   ];
   for (const r of routes) await go(r);
@@ -446,6 +447,24 @@ export async function smokeTour(): Promise<string[]> {
   habit()?.querySelector<HTMLButtonElement>('.habit-check')?.click();
   if (!(await until(() => pressed() !== before))) problems.push('rutinas: no se pudo tildar el hábito');
   check('rutinas');
+
+  // Estudio: materia con examen y meta, sumar una hora.
+  await go('/estudio');
+  const subjectName = `Materia prueba ${Date.now() % 100000}`;
+  clickText('.page-head button', 'Materia');
+  if (await waitFor('.sheet input[placeholder="Ej: Matemática"]')) {
+    type($('.sheet input[placeholder="Ej: Matemática"]'), subjectName);
+    type($('.sheet input[placeholder="Ej: 30"]'), '20');
+    const exam = new Date(Date.now() + 10 * 86_400_000).toISOString().slice(0, 10);
+    type($('.sheet input[aria-label="Fecha del examen"]'), exam);
+    await saveSheet('nueva materia');
+  } else problems.push('estudio: no se abrió el formulario');
+  const card = () => [...document.querySelectorAll<HTMLElement>('.goal')].find((c) => c.textContent?.includes(subjectName));
+  if (!card()?.textContent?.includes('por día')) problems.push('estudio: no dice cuánto estudiar por día');
+  [...(card()?.querySelectorAll<HTMLButtonElement>('button') ?? [])].find((b) => b.textContent?.includes('+1 h'))?.click();
+  if (!(await until(() => !!card()?.querySelector('.goal-value')?.textContent?.startsWith('1 h'))))
+    problems.push(`estudio: no sumó la hora (${card()?.querySelector('.goal-value')?.textContent ?? ''})`);
+  check('estudio');
 
   // Modo privado (tecla P): oculta los montos y se vuelve a mostrar.
   await go('/');

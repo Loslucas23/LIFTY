@@ -4,6 +4,7 @@ import {
   bmiLabel,
   dailyWeights,
   daysBetween,
+  exerciseVsWeight,
   movingAverage,
   newId,
   todayISO,
@@ -11,6 +12,7 @@ import {
   weightStats,
   type WeightEntry,
 } from '@lifty/core';
+import { openExplain } from '../components/Editors';
 import { Icon } from '../components/Icon';
 import { useWidth } from '../components/useWidth';
 import { Empty, Field, PageHeader, Section, Segmented, Sheet, toast } from '../components/ui';
@@ -83,6 +85,8 @@ export function Weight() {
           </section>
 
           <WeightChart entries={data.weights} goal={goalWeightKg} range={range} onRange={setRange} today={today} />
+
+          <ExerciseAndWeight />
 
           <Section title="Historial">
             <div className="card list">
@@ -363,5 +367,84 @@ function ChartHead({ range, onRange }: { range: Range; onRange: (r: Range) => vo
         ]}
       />
     </figcaption>
+  );
+}
+
+/** Cruza los días que entrenaste (hábitos de área "Ejercicio" en Rutinas) con cómo cambió tu peso. */
+function ExerciseAndWeight() {
+  const data = useData();
+  const today = useToday();
+  const hasExercise = data.habits.some((h) => h.area === 'ejercicio' && !h.archived);
+  const r = useMemo(
+    () => exerciseVsWeight(data.habits, data.habitLogs, dailyWeights(data.weights), today, 12),
+    [data.habits, data.habitLogs, data.weights, today],
+  );
+  if (!hasExercise)
+    return (
+      <Section title="Ejercicio y peso">
+        <a className="card tile-link" href="#/rutinas">
+          <Icon name="check" />
+          <span className="tile-text">
+            <strong>¿Entrenar te ayuda a bajar?</strong>
+            <span className="muted small">
+              Creá en Rutinas un hábito de área Ejercicio (gimnasio, caminar…) y Lifty compara tu peso las semanas que entrenás y
+              las que no.
+            </span>
+          </span>
+          <Icon name="right" size={18} />
+        </a>
+      </Section>
+    );
+  const t = r.threshold;
+  const txt = (g: { weeks: number; avgChange: number | null }) =>
+    g.avgChange === null
+      ? 'sin datos todavía'
+      : `${g.avgChange < 0 ? 'bajaste' : g.avgChange > 0 ? 'subiste' : 'quedaste igual'} ${g.avgChange !== 0 ? kg(Math.abs(g.avgChange)) : ''} por semana en promedio (${g.weeks} semana${g.weeks === 1 ? '' : 's'})`;
+  const enough = r.active.weeks > 0 && r.rest.weeks > 0;
+  return (
+    <Section title="Ejercicio y peso">
+      <div className="card pad exercise-weight">
+        {enough ? (
+          <p>
+            Las semanas que entrenaste <strong>{t} o más veces</strong> {txt(r.active)}. Las demás {txt(r.rest)}.
+          </p>
+        ) : (
+          <p className="muted">
+            Todavía faltan semanas para comparar (hacen falta semanas con {t}+ entrenamientos y semanas con menos, pesándote en
+            ambas). Por ahora: con {t}+ {txt(r.active)}; con menos {txt(r.rest)}.
+          </p>
+        )}
+        <div className="ew-weeks" aria-label="Entrenamientos y cambio de peso por semana">
+          {r.weeks.map((w) => (
+            <div key={w.week} className="ew-week" title={`Semana del ${w.week.split('-').reverse().join('/')}`}>
+              <span className={`ew-count ${w.workouts >= t ? 'ok' : ''}`}>{w.workouts}</span>
+              <span
+                className={`ew-change ${w.change === null ? 'muted' : w.change < 0 ? 'text-income' : w.change > 0 ? 'text-expense' : ''}`}
+              >
+                {w.change === null
+                  ? '·'
+                  : `${w.change > 0 ? '+' : w.change < 0 ? '−' : ''}${Math.abs(w.change).toLocaleString('es-UY')}`}
+              </span>
+            </div>
+          ))}
+        </div>
+        <button
+          className="link small"
+          onClick={() =>
+            openExplain({
+              title: 'Ejercicio y peso',
+              intro: `Por semana (lunes a domingo, sin la semana en curso): días que cumpliste algún hábito de ejercicio y cuánto cambió tu peso promedio contra la semana anterior. No es causa y efecto: también influye lo que comés.`,
+              rows: r.weeks.map((w) => ({
+                label: `Semana del ${w.week.split('-').reverse().slice(0, 2).join('/')} · ${w.workouts} entrenamiento${w.workouts === 1 ? '' : 's'}`,
+                value: w.change ?? 0,
+                raw: w.change === null ? 'sin pesajes' : signedKg(w.change),
+              })),
+            })
+          }
+        >
+          Arriba: veces que entrenaste. Abajo: kg contra la semana anterior · ¿de dónde sale?
+        </button>
+      </div>
+    </Section>
   );
 }

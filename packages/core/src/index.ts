@@ -12,3 +12,4 @@ export * from './card';
 export * from './reconcile';
 export * from './stock';
 export * from './habits';
+export * from './study';

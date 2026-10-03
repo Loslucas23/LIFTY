@@ -32,6 +32,7 @@ const GROUPS: { title: string; items: { href: string; icon: IconName; label: str
     title: 'Salud',
     items: [
       { href: '/rutinas', icon: 'check', label: 'Rutinas', hint: 'Hábitos del día, estudio, agua, ejercicio y rachas' },
+      { href: '/estudio', icon: 'calendar', label: 'Estudio', hint: 'Materias, examen, cuánto estudiar por día y cronómetro' },
       { href: '/peso', icon: 'scale', label: 'Peso', hint: 'Pesajes, tendencia, IMC y meta' },
     ],
   },

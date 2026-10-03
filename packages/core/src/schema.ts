@@ -327,7 +327,7 @@ export const shopEntrySchema = z.object({
 export type ShopEntry = z.infer<typeof shopEntrySchema>;
 
 /** Rutinas y hábitos: tomar agua, estudiar, ejercicio, tender la cama… */
-export const HABIT_AREAS = ['rutina', 'estudio', 'salud', 'casa', 'otro'] as const;
+export const HABIT_AREAS = ['rutina', 'estudio', 'ejercicio', 'salud', 'casa', 'otro'] as const;
 export const HABIT_TIMES = ['mañana', 'tarde', 'noche', 'cualquiera'] as const;
 export const habitSchema = z.object({
   ...base,
@@ -354,6 +354,26 @@ export const habitLogSchema = z.object({
 });
 export type HabitLog = z.infer<typeof habitLogSchema>;
 
+/** Estudio: una materia (o curso) con su examen y las horas que querés dedicarle. */
+export const subjectSchema = z.object({
+  ...base,
+  name: z.string().trim().min(1).max(60),
+  icon: z.string().max(8).default('📘'),
+  examDate: date.nullable().default(null),
+  goalHours: z.number().positive().max(5000).nullable().default(null),
+  archived: z.boolean().default(false),
+});
+export type Subject = z.infer<typeof subjectSchema>;
+
+export const studySessionSchema = z.object({
+  ...base,
+  subjectId: id,
+  date,
+  minutes: z.number().positive().max(1440),
+  note: z.string().max(200).default(''),
+});
+export type StudySession = z.infer<typeof studySessionSchema>;
+
 export const ENTITY_SCHEMAS = {
   account: accountSchema,
   category: categorySchema,
@@ -371,6 +391,8 @@ export const ENTITY_SCHEMAS = {
   shopEntry: shopEntrySchema,
   habit: habitSchema,
   habitLog: habitLogSchema,
+  subject: subjectSchema,
+  studySession: studySessionSchema,
 } as const;
 
 export type EntityName = keyof typeof ENTITY_SCHEMAS;
@@ -393,6 +415,8 @@ export interface EntityTypes {
   shopEntry: ShopEntry;
   habit: Habit;
   habitLog: HabitLog;
+  subject: Subject;
+  studySession: StudySession;
 }
 
 export function isEntityName(value: string): value is EntityName {
@@ -430,4 +454,6 @@ export interface LiftyData {
   shopEntries: ShopEntry[];
   habits: Habit[];
   habitLogs: HabitLog[];
+  subjects: Subject[];
+  studySessions: StudySession[];
 }

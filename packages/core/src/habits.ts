@@ -87,3 +87,61 @@ export function habitsToday(habits: Habit[], logs: HabitLog[], today: string): H
   const due = statuses.filter((s) => s.dueToday);
   return { statuses, due, doneCount: due.filter((s) => s.done).length };
 }
+
+// ---------------- Ejercicio y peso ----------------
+
+export interface ExerciseWeek {
+  /** Lunes de la semana. */
+  week: string;
+  /** Días con algún hábito de ejercicio cumplido. */
+  workouts: number;
+  /** Peso promedio de la semana (null si no te pesaste). */
+  avgKg: number | null;
+  /** Cambio contra la semana anterior (null si falta alguna de las dos). */
+  change: number | null;
+}
+
+export interface ExerciseVsWeight {
+  weeks: ExerciseWeek[];
+  threshold: number;
+  /** Semanas con `threshold` o más entrenamientos, y las demás: cuántas y cambio promedio de peso. */
+  active: { weeks: number; avgChange: number | null };
+  rest: { weeks: number; avgChange: number | null };
+}
+
+const mondayOf = (date: string) => addDays(date, -((new Date(`${date}T12:00:00Z`).getUTCDay() + 6) % 7));
+
+/** Cruza los días que entrenaste con cómo cambió tu peso cada semana (sin la semana en curso). */
+export function exerciseVsWeight(
+  habits: Habit[],
+  logs: HabitLog[],
+  weights: { date: string; kg: number }[],
+  today: string,
+  count = 12,
+  threshold = 3,
+): ExerciseVsWeight {
+  const exercise = new Map(habits.filter((h) => h.area === 'ejercicio').map((h) => [h.id, h]));
+  const workoutDays = new Set(
+    logs.filter((l) => exercise.has(l.habitId) && l.value >= exercise.get(l.habitId)!.target).map((l) => l.date),
+  );
+  const thisMonday = mondayOf(today);
+  const weeks: ExerciseWeek[] = [];
+  let prevAvg: number | null = null;
+  // Una semana más al principio para tener contra qué comparar la primera.
+  for (let i = count; i >= 1; i--) {
+    const week = addDays(thisMonday, -7 * i);
+    const end = addDays(week, 6);
+    const ws = weights.filter((w) => w.date >= week && w.date <= end);
+    const avgKg = ws.length ? round2(ws.reduce((s, w) => s + w.kg, 0) / ws.length) : null;
+    let workouts = 0;
+    for (let d = 0; d < 7; d++) if (workoutDays.has(addDays(week, d))) workouts++;
+    weeks.push({ week, workouts, avgKg, change: avgKg !== null && prevAvg !== null ? round2(avgKg - prevAvg) : null });
+    if (avgKg !== null) prevAvg = avgKg;
+    else prevAvg = null;
+  }
+  const group = (f: (w: ExerciseWeek) => boolean) => {
+    const ws = weeks.filter((w) => w.change !== null && f(w));
+    return { weeks: ws.length, avgChange: ws.length ? round2(ws.reduce((s, w) => s + w.change!, 0) / ws.length) : null };
+  };
+  return { weeks, threshold, active: group((w) => w.workouts >= threshold), rest: group((w) => w.workouts < threshold) };
+}
