@@ -4,20 +4,22 @@ import { useSync } from '../lib/store';
 
 const GROUPS: { title: string; items: { href: string; icon: IconName; label: string; hint: string }[] }[] = [
   {
-    title: 'Finanzas',
+    title: 'Plata',
     items: [
-      { href: '/anio', icon: 'calendar', label: 'Resumen del año', hint: 'Ingresos, gastos y saldo de cada mes' },
-      { href: '/tarjeta', icon: 'card', label: 'Tarjeta de crédito', hint: 'Cuotas y lo que vas a pagar' },
-      { href: '/ahorro', icon: 'piggy', label: 'Ahorro', hint: 'Metas en pesos y dólares' },
+      { href: '/cuentas', icon: 'bank', label: 'Cuentas y saldos', hint: 'BROU, Itaú, efectivo, dólares; transferir' },
+      { href: '/alimentacion', icon: 'food', label: 'Tarjeta de alimentación', hint: 'Va aparte: saldo, carga y cuánto por día' },
+      { href: '/tarjeta', icon: 'card', label: 'Tarjeta de crédito', hint: 'Cuotas, resumen y lo que vas a pagar' },
+      { href: '/ahorro', icon: 'piggy', label: 'Ahorro', hint: 'Meta del mes y metas con fecha' },
+      { href: '/deudas', icon: 'people', label: 'Deudas y préstamos', hint: 'Lo que te deben y lo que debés' },
+      { href: '/anio', icon: 'chart', label: 'Informes', hint: 'El año mes a mes, tendencias y patrimonio' },
     ],
   },
   {
     title: 'Presupuesto',
     items: [
-      { href: '/sueldos', icon: 'wallet', label: 'Sueldos', hint: 'Nominal, descuentos, líquido y aguinaldo' },
-      { href: '/fijos', icon: 'repeat', label: 'Gastos fijos', hint: 'Alquiler, servicios, gimnasio…' },
+      { href: '/sueldos', icon: 'wallet', label: 'Sueldos e ingresos', hint: 'Líquido, aguinaldo, salario vacacional' },
+      { href: '/fijos', icon: 'repeat', label: 'Gastos fijos', hint: 'Mensuales, anuales o cada N meses' },
       { href: '/categorias', icon: 'tag', label: 'Categorías', hint: 'Y cuánto querés gastar en cada una' },
-      { href: '/cuentas', icon: 'bank', label: 'Cuentas y medios de pago', hint: 'Bancos, efectivo, tarjetas' },
     ],
   },
   {
@@ -30,7 +32,7 @@ const GROUPS: { title: string; items: { href: string; icon: IconName; label: str
       { href: '/conectar', icon: 'phone', label: 'Conectar dispositivos', hint: 'Vinculá tu celular con un código QR' },
       { href: '/importar', icon: 'upload', label: 'Importar desde Excel', hint: 'Traé tu planilla de finanzas' },
       { href: '/respaldo', icon: 'download', label: 'Copia de seguridad', hint: 'Exportar a Excel, guardar o restaurar' },
-      { href: '/ajustes', icon: 'settings', label: 'Ajustes', hint: 'Nombre, dólar, mes inicial' },
+      { href: '/ajustes', icon: 'settings', label: 'Ajustes', hint: 'Nombre, dólar, meta de ahorro, tema' },
     ],
   },
 ];

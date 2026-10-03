@@ -38,8 +38,7 @@ export function Home() {
           <p className="hero-sub">
             {b.daily.perDay > 0 ? (
               <>
-                Podés gastar <strong>{money(b.daily.perDay)}</strong> por día
-                {b.daily.basis === 'budget' ? ' según tu presupuesto' : ''} · quedan {b.daily.daysLeft} días
+                Podés gastar <strong>{money(b.daily.perDay)}</strong> por día · quedan {b.daily.daysLeft} días
               </>
             ) : b.result < 0 ? (
               <>Estás {money(-b.result)} por debajo: revisá el presupuesto</>

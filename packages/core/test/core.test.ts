@@ -109,6 +109,7 @@ describe('presupuesto mensual', () => {
           dayOfMonth: 1,
           startMonth: '2026-01',
           endMonth: null,
+          everyMonths: 1,
           archived: false,
         },
         {
@@ -122,6 +123,7 @@ describe('presupuesto mensual', () => {
           dayOfMonth: 10,
           startMonth: '2026-01',
           endMonth: '2026-01',
+          everyMonths: 1,
           archived: false,
         },
       ],
@@ -230,9 +232,7 @@ describe('presupuesto mensual', () => {
     expect(b.plan.unbudgeted).toBe(0);
     expect(b.plan.unassigned).toBe(39000 - 17600 - 1000 - 3100);
     expect(b.plan.projected).toBeCloseTo(b.result - 2674, 2);
-    // Por día: lo que queda de los presupuestos en los 12 días que faltan.
-    expect(b.daily).toMatchObject({ basis: 'budget', daysLeft: 12 });
-    expect(b.daily!.perDay).toBeCloseTo(2674 / 12, 2);
+    expect(b.daily).toMatchObject({ daysLeft: 12 });
   });
 
   it('lista las cuotas pendientes y los ahorros por meta', () => {

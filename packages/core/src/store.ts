@@ -34,6 +34,7 @@ export function toLiftyData(store: RecordStore): LiftyData {
     goals: list('goal').sort((a, b) => a.name.localeCompare(b.name)),
     closings: list('closing').sort((a, b) => a.id.localeCompare(b.id)),
     budgets: list('budget').sort((a, b) => a.id.localeCompare(b.id)),
+    debts: list('debt').sort((a, b) => b.date.localeCompare(a.date)),
     weights: list('weight').sort((a, b) => a.date.localeCompare(b.date) || a.updatedAt.localeCompare(b.updatedAt)),
   };
 }

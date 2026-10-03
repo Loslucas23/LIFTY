@@ -1996,3 +1996,86 @@ button.tx-row:hover {
     flex-basis: 100%;
   }
 }
+
+/* Notas dentro de formularios */
+.note {
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: var(--surface-2);
+  font-size: 14px;
+}
+.note-good {
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-weight: 600;
+}
+.note-bad {
+  background: color-mix(in srgb, var(--bad) 12%, var(--surface));
+  color: var(--bad);
+  font-weight: 600;
+}
+.split {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px;
+  border-radius: 12px;
+  background: var(--surface-2);
+}
+
+/* ¿De dónde sale? */
+.explain {
+  margin: 0;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+.explain-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--line);
+}
+.explain-row:last-child {
+  border-bottom: 0;
+}
+.explain-row dd {
+  margin: 0;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.explain-row .op {
+  display: inline-block;
+  width: 18px;
+  color: var(--muted);
+  font-weight: 700;
+}
+.explain-result {
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-weight: 700;
+  font-size: 17px;
+}
+.explainable {
+  cursor: pointer;
+  text-decoration: underline dotted;
+  text-underline-offset: 4px;
+  text-decoration-thickness: 1px;
+}
+
+.hero-food {
+  background: linear-gradient(140deg, #0f766e, #115e59);
+  cursor: pointer;
+}
+.explainable-hero {
+  cursor: pointer;
+}
+.tx-food .tx-icon {
+  outline: 2px dashed color-mix(in srgb, #0d9488 50%, transparent);
+  outline-offset: -2px;
+}
+.tx-amount small {
+  display: block;
+  font-size: 11px;
+}

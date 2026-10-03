@@ -108,6 +108,8 @@ function GoalForm({ goal, onClose }: { goal: Goal | null; onClose: () => void })
       color: goal?.color ?? '#0ea5e9',
       currency,
       target: parseAmount(target) || null,
+      targetMonth: goal?.targetMonth ?? null,
+      startMonth: goal?.startMonth ?? null,
       archived: false,
     });
     toast('Meta guardada');

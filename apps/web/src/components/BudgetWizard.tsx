@@ -160,6 +160,7 @@ function IncomesStep({ month }: { month: string }) {
       currency: 'UYU',
       startMonth: month,
       endMonth: null,
+      everyMonths: 1,
       aguinaldo: true,
       payDay: null,
       categoryId: 'cat-sueldo',
@@ -217,6 +218,7 @@ function FixedStep({ month }: { month: string }) {
       dayOfMonth: day ? Math.min(31, Math.max(1, Number(day))) : null,
       startMonth: month,
       endMonth: null,
+      everyMonths: 1,
       archived: false,
     };
     mutate('fixed', 'upsert', fixed);

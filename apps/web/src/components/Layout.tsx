@@ -8,15 +8,17 @@ const NAV: { href: string; label: string; icon: IconName; match: RegExp }[] = [
   { href: '/', label: 'Inicio', icon: 'home', match: /^\/$/ },
   { href: '/movimientos', label: 'Movimientos', icon: 'list', match: /^\/movimientos/ },
   { href: '/presupuesto', label: 'Presupuesto', icon: 'budget', match: /^\/presupuesto/ },
-  { href: '/anio', label: 'Año', icon: 'calendar', match: /^\/anio/ },
-  { href: '/tarjeta', label: 'Tarjeta', icon: 'card', match: /^\/tarjeta/ },
   { href: '/ahorro', label: 'Ahorro', icon: 'piggy', match: /^\/ahorro/ },
+  { href: '/cuentas', label: 'Cuentas', icon: 'bank', match: /^\/(cuentas|deudas)/ },
+  { href: '/alimentacion', label: 'Alimentación', icon: 'food', match: /^\/alimentacion/ },
+  { href: '/tarjeta', label: 'Tarjeta', icon: 'card', match: /^\/tarjeta/ },
+  { href: '/anio', label: 'Informes', icon: 'calendar', match: /^\/(anio|informes)/ },
   { href: '/peso', label: 'Peso', icon: 'scale', match: /^\/peso/ },
   {
     href: '/mas',
     label: 'Más',
     icon: 'more',
-    match: /^\/(mas|sueldos|fijos|categorias|cuentas|conectar|importar|ajustes|respaldo)/,
+    match: /^\/(mas|sueldos|fijos|categorias|conectar|importar|ajustes|respaldo)/,
   },
 ];
 
@@ -63,7 +65,10 @@ export function Layout({ route, children }: { route: string; children: ReactNode
           <TabLink
             key={n.href}
             n={n}
-            on={n.match.test(route) || (n.href === '/mas' && /^\/(anio|tarjeta|ahorro|peso)/.test(route))}
+            on={
+              n.match.test(route) ||
+              (n.href === '/mas' && /^\/(anio|informes|tarjeta|ahorro|peso|cuentas|deudas|alimentacion)/.test(route))
+            }
             first={i === 2}
           />
         ))}

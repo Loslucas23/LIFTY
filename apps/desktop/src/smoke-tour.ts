@@ -69,6 +69,9 @@ export async function smokeTour(): Promise<string[]> {
     '/importar',
     '/respaldo',
     '/peso',
+    '/cuentas',
+    '/alimentacion',
+    '/deudas',
     '/',
   ];
   for (const r of routes) await go(r);
@@ -100,6 +103,118 @@ export async function smokeTour(): Promise<string[]> {
     await closeSheet();
   }
   check('guardar movimiento');
+
+  // Helpers para el formulario de movimientos.
+  const openNew = async () => {
+    ($('.sidebar-add') ?? $('.fab'))?.click();
+    return !!(await waitFor('.sheet .amount-input input'));
+  };
+  const chip = (text: string, scope = '.sheet') =>
+    [...document.querySelectorAll<HTMLButtonElement>(`${scope} .chip`)].find((c) => c.textContent?.trim().endsWith(text));
+  const saveSheet = async (what: string) => {
+    $<HTMLButtonElement>('.sheet-foot .btn-primary')?.click();
+    await sleep(300);
+    if ($('.sheet')) {
+      problems.push(`${what}: no se guardó (${$('.sheet .field-error')?.textContent ?? 'sin mensaje'})`);
+      await closeSheet();
+    }
+    check(what);
+  };
+
+  // Transferencia (cajero): no es gasto.
+  await go('/');
+  if (await openNew()) {
+    clickText('.sheet .segmented button', 'Mover');
+    await sleep(100);
+    type($('.sheet .amount-input input'), '1000');
+    await sleep(50);
+    const fieldChips = (label: string) =>
+      [...document.querySelectorAll<HTMLElement>('.sheet .field')].find(
+        (f) => f.querySelector('.field-label')?.textContent === label,
+      );
+    [...(fieldChips('Sale de')?.querySelectorAll<HTMLButtonElement>('.chip') ?? [])]
+      .find((c) => c.textContent?.includes('BROU'))
+      ?.click();
+    await sleep(50);
+    [...(fieldChips('Entra a')?.querySelectorAll<HTMLButtonElement>('.chip') ?? [])]
+      .find((c) => c.textContent?.includes('Efectivo'))
+      ?.click();
+    await sleep(50);
+    await saveSheet('transferencia');
+  } else problems.push('transferencia: no se abrió el formulario');
+
+  // Compra en cuotas con la tarjeta de crédito.
+  if (await openNew()) {
+    type($('.sheet .amount-input input'), '3000');
+    await sleep(50);
+    chip('Tarjeta de crédito')?.click();
+    await sleep(100);
+    $<HTMLButtonElement>('.sheet [aria-label="Más cuotas"]')?.click();
+    await sleep(50);
+    $<HTMLButtonElement>('.sheet [aria-label="Más cuotas"]')?.click();
+    await sleep(100);
+    if (!document.querySelector('.sheet .installments')?.textContent?.includes('3 cuotas'))
+      problems.push('cuotas: no muestra las 3 cuotas');
+    await saveSheet('compra en cuotas');
+  } else problems.push('cuotas: no se abrió el formulario');
+
+  // Gasto dividido: queda una deuda.
+  if (await openNew()) {
+    type($('.sheet .amount-input input'), '2000');
+    await sleep(50);
+    [...document.querySelectorAll<HTMLElement>('.sheet .toggle')].find((t) => t.textContent?.includes('Dividir'))?.click();
+    await sleep(100);
+    type($('.sheet input[placeholder="Ej: Juan"]'), 'Juan Prueba');
+    clickText('.sheet .chip', 'La mitad');
+    await sleep(100);
+    await saveSheet('gasto dividido');
+  } else problems.push('gasto dividido: no se abrió el formulario');
+  await go('/deudas');
+  if (!document.body.textContent?.includes('Juan Prueba')) problems.push('deudas: el gasto dividido no creó la deuda');
+
+  // Deuda: me prestaron y pago una parte.
+  clickText('.page-head button', 'Agregar');
+  if (await waitFor('.sheet input[placeholder="Ej: Juan"]')) {
+    clickText('.sheet .segmented button', 'Me prestaron');
+    type($('.sheet input[placeholder="Ej: Juan"]'), 'Mamá Prueba');
+    type($('.sheet input[placeholder="0"]'), '5000');
+    await sleep(100);
+    await saveSheet('nueva deuda');
+    [...document.querySelectorAll<HTMLButtonElement>('.tx-row')].find((r) => r.textContent?.includes('Mamá Prueba'))?.click();
+    if (await waitFor('.sheet .split')) {
+      clickText('.sheet .split button', 'Pagué');
+      await sleep(200);
+      check('pago de deuda');
+      await closeSheet();
+    } else problems.push('deudas: no se abrió el detalle');
+  } else problems.push('deudas: no se abrió el formulario');
+
+  // Tarjeta de alimentación: va aparte.
+  await go('/alimentacion');
+  clickText('.page button', 'Gasto con la tarjeta');
+  if (await waitFor('.sheet .amount-input input')) {
+    type($('.sheet .amount-input input'), '450');
+    await sleep(100);
+    if (!$('.sheet .note')?.textContent?.includes('no cuenta en tu presupuesto'))
+      problems.push('alimentación: falta el aviso de que va aparte');
+    await saveSheet('gasto con alimentación');
+  } else problems.push('alimentación: no se abrió el formulario');
+
+  // Ajustar el saldo de una cuenta.
+  await go('/cuentas');
+  $<HTMLButtonElement>('.list .tx-row')?.click();
+  if (await waitFor('.action-list')) {
+    clickText('.action', 'Ajustar saldo');
+    if (await waitFor('.sheet input[inputmode="decimal"]')) {
+      type($('.sheet input[inputmode="decimal"]'), '25000');
+      await sleep(50);
+      $<HTMLButtonElement>('.sheet-foot .btn-primary')?.click();
+      await sleep(250);
+      if ($('.sheet')) problems.push('cuentas: no se ajustó el saldo');
+      if (!$('.list')?.textContent?.includes('25.000')) problems.push('cuentas: el saldo ajustado no se ve');
+    } else problems.push('cuentas: no se abrió "Ajustar saldo"');
+  } else problems.push('cuentas: no se abrió el menú de la cuenta');
+  check('cuentas');
 
   // Anotar un peso.
   await go('/peso');

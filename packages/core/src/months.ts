@@ -80,3 +80,9 @@ export function todayISO(now: Date = new Date()): string {
 export function isActiveIn(month: string, startMonth: string, endMonth: string | null | undefined): boolean {
   return startMonth <= month && (!endMonth || month <= endMonth);
 }
+
+/** ¿Algo que se repite cada `every` meses desde `startMonth` cae en `month`? */
+export function occursIn(month: string, startMonth: string, endMonth: string | null | undefined, every = 1): boolean {
+  if (!isActiveIn(month, startMonth, endMonth)) return false;
+  return every <= 1 || monthDiff(startMonth, month) % every === 0;
+}

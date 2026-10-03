@@ -24,6 +24,8 @@ export function defaultSettings(): Settings {
     usdRate: 41,
     startMonth: null,
     startBalance: 0,
+    savingsMode: 'none',
+    savingsValue: 0,
     heightCm: null,
     goalWeightKg: null,
   };
@@ -34,11 +36,24 @@ function cat(id: string, name: string, kind: Category['kind'], icon: string, col
 }
 
 function acc(id: string, name: string, type: Account['type'], icon: string, color: string, sort: number): Account {
-  return { id, updatedAt: at, name, type, currency: 'UYU', icon, color, archived: false, sort };
+  return {
+    id,
+    updatedAt: at,
+    name,
+    type,
+    currency: 'UYU',
+    icon,
+    color,
+    archived: false,
+    sort,
+    initialBalance: 0,
+    monthlyLoad: null,
+    loadDay: null,
+  };
 }
 
 function goal(id: string, name: string, currency: Goal['currency'], icon: string, color: string): Goal {
-  return { id, updatedAt: at, name, currency, target: null, icon, color, archived: false };
+  return { id, updatedAt: at, name, currency, target: null, targetMonth: null, startMonth: null, icon, color, archived: false };
 }
 
 /** Datos iniciales, inspirados en la hoja "parametros" de la planilla. Ids fijos: el seed es idempotente. */
@@ -61,6 +76,7 @@ export function seedRecords(): { entity: EntityName; record: EntityTypes[EntityN
   ];
   const accounts: Account[] = [
     acc('acc-brou', 'BROU', 'bank', '🏦', '#1d4ed8', 1),
+    { ...acc('acc-brou-usd', 'BROU dólares', 'bank', '💵', '#1e40af', 2), currency: 'USD' as const },
     acc('acc-itau', 'Itaú', 'bank', '🏦', '#ea580c', 2),
     acc('acc-efectivo', 'Efectivo', 'cash', '💵', '#16a34a', 3),
     acc('acc-tarjeta', 'Tarjeta de crédito', 'credit', '💳', '#7c3aed', 4),

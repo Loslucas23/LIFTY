@@ -12,7 +12,7 @@ import {
 
 const MONEY = '#,##0.00;[Red]-#,##0.00';
 
-const TYPE_LABEL = { expense: 'Gasto', income: 'Ingreso', saving: 'Ahorro' } as const;
+const TYPE_LABEL = { expense: 'Gasto', income: 'Ingreso', saving: 'Ahorro', transfer: 'Transferencia' } as const;
 
 function sheet(wb: ExcelJS.Workbook, name: string, columns: { header: string; key: string; width: number; money?: boolean }[]) {
   const ws = wb.addWorksheet(name, { views: [{ state: 'frozen', ySplit: 1 }] });

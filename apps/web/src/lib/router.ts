@@ -33,3 +33,10 @@ export function match(pattern: string, path: string): Record<string, string> | n
   }
   return params;
 }
+
+/** Parámetros después de "?" en el hash: #/movimientos?cuenta=abc */
+export function useQuery(): URLSearchParams {
+  const route = useRoute();
+  const i = route.indexOf('?');
+  return new URLSearchParams(i >= 0 ? route.slice(i + 1) : '');
+}

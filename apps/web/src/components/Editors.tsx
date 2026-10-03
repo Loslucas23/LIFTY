@@ -24,7 +24,28 @@ type Editor =
   | { type: 'fixed'; id: string | null; month?: string }
   | { type: 'income'; id: string | null; month?: string }
   | { type: 'budget'; month: string; categoryId: string }
-  | { type: 'wizard'; month: string };
+  | { type: 'wizard'; month: string }
+  | { type: 'prompt'; prompt: PromptRequest }
+  | { type: 'explain'; explain: ExplainRequest };
+
+export interface PromptRequest {
+  title: string;
+  label: string;
+  initial?: string;
+  hint?: string;
+  confirm?: string;
+  /** Devuelve un mensaje de error, o nada si salió bien. */
+  onSubmit: (value: number) => string | void;
+}
+
+/** "¿De dónde sale?": la cuenta paso a paso de un número. */
+export interface ExplainRequest {
+  title: string;
+  intro?: string;
+  rows: { label: string; value: number; op?: '+' | '−' | '=' | '÷' | '×'; raw?: string; note?: string }[];
+  result?: { label: string; value: number; raw?: string };
+  footnote?: string;
+}
 
 let current: Editor | null = null;
 const listeners = new Set<() => void>();
@@ -40,6 +61,8 @@ export const openFixedForm = (id: string | null, month?: string) => set({ type: 
 export const openIncomeForm = (id: string | null, month?: string) => set({ type: 'income', id, month });
 export const openBudgetEditor = (month: string, categoryId: string) => set({ type: 'budget', month, categoryId });
 export const openBudgetWizard = (month: string) => set({ type: 'wizard', month });
+export const openPrompt = (prompt: PromptRequest) => set({ type: 'prompt', prompt });
+export const openExplain = (explain: ExplainRequest) => set({ type: 'explain', explain });
 
 export function EditorsHost() {
   const editor = useSyncExternalStore(
@@ -67,7 +90,79 @@ export function EditorsHost() {
     }
     case 'wizard':
       return <BudgetWizard month={editor.month} onClose={close} />;
+    case 'prompt':
+      return <PromptSheet prompt={editor.prompt} onClose={close} />;
+    case 'explain':
+      return <ExplainSheet explain={editor.explain} onClose={close} />;
   }
+}
+
+function PromptSheet({ prompt, onClose }: { prompt: PromptRequest; onClose: () => void }) {
+  const [text, setText] = useState(prompt.initial ?? '');
+  const [error, setError] = useState<string | null>(null);
+  const submit = () => {
+    const v = parseAmount(text);
+    if (v === null) return setError('Escribí un monto');
+    const err = prompt.onSubmit(v);
+    if (err) return setError(err);
+    onClose();
+  };
+  return (
+    <Sheet
+      title={prompt.title}
+      onClose={onClose}
+      footer={
+        <button className="btn btn-primary grow" onClick={submit}>
+          {prompt.confirm ?? 'Guardar'}
+        </button>
+      }
+    >
+      <form
+        className="form"
+        onSubmit={(e) => {
+          e.preventDefault();
+          submit();
+        }}
+      >
+        <Field label={prompt.label} hint={prompt.hint} error={error}>
+          <input data-autofocus inputMode="decimal" value={text} onChange={(e) => setText(e.target.value)} />
+        </Field>
+        <button type="submit" hidden />
+      </form>
+    </Sheet>
+  );
+}
+
+function ExplainSheet({ explain, onClose }: { explain: ExplainRequest; onClose: () => void }) {
+  return (
+    <Sheet title={explain.title} onClose={onClose}>
+      <div className="form">
+        {explain.intro && <p className="muted">{explain.intro}</p>}
+        <dl className="explain">
+          {explain.rows.map((r, i) => (
+            <div key={i} className="explain-row">
+              <dt>
+                {r.op && <span className="op">{r.op}</span>}
+                {r.label}
+                {r.note && <small className="muted"> · {r.note}</small>}
+              </dt>
+              <dd>{r.raw ?? money(r.value)}</dd>
+            </div>
+          ))}
+          {explain.result && (
+            <div className="explain-row explain-result">
+              <dt>
+                <span className="op">=</span>
+                {explain.result.label}
+              </dt>
+              <dd>{explain.result.raw ?? money(explain.result.value)}</dd>
+            </div>
+          )}
+        </dl>
+        {explain.footnote && <p className="muted small">{explain.footnote}</p>}
+      </div>
+    </Sheet>
+  );
 }
 
 function MenuSheet({

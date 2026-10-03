@@ -32,6 +32,9 @@ function linkedTx(data: LiftyData, line: PlannedLine, month: string, amountOrigi
     fxRate: line.currency === 'USD' ? data.settings.usdRate : 1,
     categoryId: line.categoryId ?? (line.kind === 'fixed' ? null : 'cat-sueldo'),
     accountId: line.accountId,
+    toAccountId: null,
+    sharedAmount: 0,
+    sharedWith: '',
     goalId: null,
     description: line.name,
     installments: 1,
@@ -144,4 +147,28 @@ export function changePlannedAmount(data: LiftyData, kind: 'fixed' | 'income', i
     mutate(entity, 'upsert', { ...item, ...patch } as never);
   }
   toast(`${item.name}: ${money(amount)} desde ${monthLabel(month).toLowerCase()}`);
+}
+
+/**
+ * Gasto dividido: mantiene la deuda "X me debe su parte" en sincronía con el movimiento.
+ * Si se deja de dividir y la deuda no tiene pagos, se borra.
+ */
+export function syncSplitDebt(data: LiftyData, tx: Transaction) {
+  const existing = data.debts.find((d) => d.fromTxId === tx.id);
+  if (tx.kind === 'expense' && tx.sharedAmount > 0 && tx.sharedWith) {
+    mutate('debt', 'upsert', {
+      ...(existing ?? { id: newId(), payments: [], settled: false }),
+      updatedAt: '',
+      person: tx.sharedWith,
+      direction: 'lent',
+      amount: tx.sharedAmount,
+      currency: tx.currency,
+      date: tx.date,
+      description: tx.description || 'Gasto dividido',
+      accountId: tx.accountId,
+      fromTxId: tx.id,
+    });
+  } else if (existing && existing.payments.length === 0) {
+    mutate('debt', 'delete', existing.id);
+  }
 }

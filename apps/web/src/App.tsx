@@ -8,7 +8,10 @@ import { useSync } from './lib/store';
 import { onSyncError } from './lib/sync';
 import { Budget } from './pages/Budget';
 import { Card } from './pages/Card';
-import { Accounts, Categories, SettingsPage } from './pages/Config';
+import { Accounts } from './pages/Accounts';
+import { Debts } from './pages/Debts';
+import { Food } from './pages/Food';
+import { Categories, SettingsPage } from './pages/Config';
 import { Connect, Pair } from './pages/Connect';
 import { Backup, ImportExcel } from './pages/Data';
 import { Home } from './pages/Home';
@@ -39,6 +42,8 @@ const ROUTES: [string, (p: Record<string, string>) => ReactNode][] = [
   ['/importar', () => <ImportExcel />],
   ['/respaldo', () => <Backup />],
   ['/peso', () => <Weight />],
+  ['/alimentacion', () => <Food />],
+  ['/deudas', () => <Debts />],
 ];
 
 export function App() {

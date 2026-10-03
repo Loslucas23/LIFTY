@@ -1,4 +1,4 @@
-import { addMonths, daysInMonth, isActiveIn, monthOf, monthRange, parseMonth } from './months';
+import { addMonths, daysInMonth, isActiveIn, monthOf, monthRange, occursIn, parseMonth } from './months';
 import { round2, toUYU } from './money';
 import { aguinaldoFor, netSalary } from './salary';
 import type { Account, BudgetEntry, Currency, LiftyData, LinkKind, MonthClosing, Transaction } from './schema';
@@ -103,11 +103,56 @@ export interface MonthBudget {
   endBalance: number;
   categories: CategorySpend[];
   plan: MonthPlan;
-  /**
-   * Solo para el mes en curso. Si hay presupuestos, lo que queda de ellos repartido en los
-   * días que faltan; si no, el saldo proyectado.
-   */
-  daily: { day: number; daysLeft: number; perDay: number; basis: 'budget' | 'balance' } | null;
+  /** Meta de ahorro del mes ("pagate a vos primero"). */
+  savingsGoal: SavingsGoalStatus;
+  /** Cuánto podés gastar por día (solo el mes en curso). */
+  daily: DailyAllowance | null;
+}
+
+export interface SavingsGoalStatus {
+  /** Lo que querés ahorrar este mes (0 = sin meta). */
+  target: number;
+  /** Lo que ya ahorraste este mes. */
+  saved: number;
+  /** Lo que se aparta: el mayor entre la meta y lo ahorrado. */
+  reserve: number;
+  /** Lo que falta ahorrar para cumplir la meta. */
+  pending: number;
+}
+
+/**
+ * Gasto diario disponible:
+ *   (ingresos − gastos fijos − cuotas de compras anteriores − ahorro − lo ya gastado) ÷ días que quedan
+ * Se calcula al empezar el día: si hoy gastás menos, mañana tenés más; si gastás más, baja.
+ */
+export interface DailyAllowance {
+  day: number;
+  daysLeft: number;
+  income: number;
+  fixed: number;
+  /** Cuotas de compras de meses anteriores que caen este mes. */
+  committedCard: number;
+  savings: number;
+  /** ingresos − fijos − cuotas − ahorro */
+  base: number;
+  /** Gastado en el mes antes de hoy (día a día y compras nuevas con tarjeta). */
+  spentBefore: number;
+  spentToday: number;
+  /** Lo que queda para los días que faltan (incluido hoy) al empezar el día. */
+  available: number;
+  /** Para cada día que queda (al empezar hoy). */
+  perDay: number;
+  /** Lo que te queda para hoy. */
+  todayLeft: number;
+  /** Días de esta semana que quedan (hasta el domingo o fin de mes, incluido hoy). */
+  weekDays: number;
+  weekLeft: number;
+  /** Si no gastás más hoy, cuánto vas a tener por día a partir de mañana. */
+  tomorrowPerDay: number | null;
+  /** Ritmo: gasto promedio por día en el mes (día a día y compras nuevas). */
+  pace: number;
+  /** A este ritmo, cómo terminás el mes (sin contar lo que viene del mes anterior). */
+  forecastEnd: number;
 }
 
 export interface Installment {
@@ -116,6 +161,23 @@ export interface Installment {
   of: number;
   /** En la moneda original. */
   amount: number;
+}
+
+/** Cuentas que NO son plata (tarjeta de alimentación): sus movimientos van aparte del presupuesto. */
+export function offBudgetAccounts(data: Pick<LiftyData, 'accounts'>): Set<string> {
+  return new Set(data.accounts.filter((a) => a.type === 'food').map((a) => a.id));
+}
+
+/** ¿Este movimiento cuenta en el presupuesto? (no las transferencias ni la tarjeta de alimentación) */
+export function countsInBudget(tx: Pick<Transaction, 'kind' | 'accountId' | 'linkKind'>, offBudget: Set<string>): boolean {
+  if (tx.kind === 'transfer') return false;
+  if (tx.linkKind === 'load' || tx.linkKind === 'cardbill') return false;
+  return !(tx.accountId && offBudget.has(tx.accountId));
+}
+
+/** Lo que cuenta para mi presupuesto: sin la parte de otros en un gasto dividido. */
+export function ownAmount(tx: Pick<Transaction, 'amount' | 'sharedAmount'>): number {
+  return tx.amount > 0 ? tx.amount - (tx.sharedAmount ?? 0) : tx.amount;
 }
 
 export function txRate(tx: Pick<Transaction, 'currency' | 'fxRate'>, fallbackRate: number): number {
@@ -165,12 +227,16 @@ interface Index {
   linked: Map<string, Transaction[]>;
   closings: Map<string, MonthClosing>;
   budgets: Map<string, BudgetEntry>;
+  offBudget: Set<string>;
 }
 
 function buildIndex(data: LiftyData): Index {
   const byMonth: Index['byMonth'] = new Map();
   const linked: Index['linked'] = new Map();
-  for (const tx of data.transactions) {
+  const offBudget = offBudgetAccounts(data);
+  for (const original of data.transactions) {
+    if (!countsInBudget(original, offBudget)) continue;
+    const tx = original.sharedAmount ? { ...original, amount: ownAmount(original) } : original;
     if (tx.linkKind && tx.linkId && tx.linkMonth) {
       const key = `${tx.linkKind}:${tx.linkId}:${tx.linkMonth}`;
       const list = linked.get(key) ?? [];
@@ -191,6 +257,7 @@ function buildIndex(data: LiftyData): Index {
     accounts: new Map(data.accounts.map((a) => [a.id, a])),
     byMonth,
     linked,
+    offBudget,
     closings: new Map(data.closings.map((c) => [c.id, c])),
     budgets: new Map((data.budgets ?? []).map((b) => [`${b.month}:${b.categoryId}`, b])),
   };
@@ -232,6 +299,14 @@ function plannedLine(
   };
 }
 
+/** "Una vez", "Cada 3 meses", "Una vez al año". */
+export function everyLabel(every: number, startMonth: string, endMonth: string | null): string {
+  if (endMonth === startMonth) return 'Una sola vez';
+  if (every === 12) return 'Una vez al año';
+  if (every === 1) return 'Todos los meses';
+  return `Cada ${every} meses`;
+}
+
 const sum = (xs: { amount: number }[]) => round2(xs.reduce((s, x) => s + x.amount, 0));
 
 function computeSingle(
@@ -246,13 +321,15 @@ function computeSingle(
   // Ingresos planificados: sueldos y aguinaldos.
   const incomePlanned: PlannedLine[] = [];
   for (const src of data.incomes) {
-    if (isActiveIn(month, src.startMonth, src.endMonth)) {
+    if (src.accountId && idx.offBudget.has(src.accountId)) continue;
+    const every = src.everyMonths ?? 1;
+    if (occursIn(month, src.startMonth, src.endMonth, every)) {
       const line = plannedLine(idx, {
         month,
         kind: 'salary',
         refId: src.id,
         name: src.name,
-        detail: 'Sueldo líquido',
+        detail: every === 1 ? 'Sueldo líquido' : everyLabel(every, src.startMonth, src.endMonth),
         currency: src.currency,
         plannedOriginal: netSalary(src),
         categoryId: src.categoryId,
@@ -262,7 +339,8 @@ function computeSingle(
       used.add(line.key);
       incomePlanned.push(line);
     }
-    const ag = aguinaldoFor(src, month);
+    // Lo que se cobra una sola vez (salario vacacional, un bono) no genera aguinaldo.
+    const ag = every === 1 && src.startMonth !== src.endMonth ? aguinaldoFor(src, month) : null;
     if (ag) {
       const line = plannedLine(idx, {
         month,
@@ -284,13 +362,15 @@ function computeSingle(
   // Gastos fijos.
   const fixedItems: PlannedLine[] = [];
   for (const f of data.fixed) {
-    if (!isActiveIn(month, f.startMonth, f.endMonth)) continue;
+    if (f.accountId && idx.offBudget.has(f.accountId)) continue;
+    const every = f.everyMonths ?? 1;
+    if (!occursIn(month, f.startMonth, f.endMonth, every)) continue;
     const line = plannedLine(idx, {
       month,
       kind: 'fixed',
       refId: f.id,
       name: f.name,
-      detail: '',
+      detail: every === 1 ? '' : everyLabel(every, f.startMonth, f.endMonth),
       currency: f.currency,
       plannedOriginal: f.amount,
       categoryId: f.categoryId,
@@ -411,14 +491,68 @@ function computeSingle(
     projected: round2(result - remaining),
   };
 
-  let daily: MonthBudget['daily'] = null;
+  // Meta de ahorro: se aparta primero.
+  const st = data.settings;
+  const savingsTarget =
+    st.savingsMode === 'amount'
+      ? round2(st.savingsValue)
+      : st.savingsMode === 'percent'
+        ? round2((Math.max(0, incomeTotal) * st.savingsValue) / 100)
+        : 0;
+  const savingsReserve = round2(Math.max(savingsTarget, savingsTotal));
+  const savingsGoal: SavingsGoalStatus = {
+    target: savingsTarget,
+    saved: savingsTotal,
+    reserve: savingsReserve,
+    pending: round2(Math.max(0, savingsTarget - savingsTotal)),
+  };
+  plan.unassigned = round2(plan.unassigned + savingsTotal - savingsReserve);
+  plan.projected = round2(plan.projected - savingsGoal.pending);
+
+  let daily: DailyAllowance | null = null;
   if (monthOf(today) === month) {
     const day = Number(today.slice(8, 10));
     const daysLeft = daysInMonth(month) - day + 1;
-    daily =
-      assigned > 0
-        ? { day, daysLeft, perDay: round2(Math.min(remaining, Math.max(0, result)) / daysLeft), basis: 'budget' }
-        : { day, daysLeft, perDay: round2(Math.max(0, result) / daysLeft), basis: 'balance' };
+    // Lo "comprometido": cuotas de compras de meses anteriores. Lo gastado: día a día y
+    // compras nuevas de este mes (con tarjeta cuentan el día de la compra).
+    let committedCard = 0;
+    let spentBefore = 0;
+    let spentToday = 0;
+    for (const l of [...variable, ...card]) {
+      if (monthOf(l.date) !== month) {
+        committedCard += l.amount;
+      } else if (l.date < today) {
+        spentBefore += l.amount;
+      } else if (l.date === today) {
+        spentToday += l.amount;
+      }
+    }
+    const base = round2(incomeTotal - fixedTotal - committedCard - savingsReserve);
+    const available = round2(base - spentBefore);
+    const perDay = round2(Math.max(0, available) / daysLeft);
+    const dow = new Date(`${today}T12:00:00Z`).getUTCDay();
+    const weekDays = Math.min(dow === 0 ? 1 : 8 - dow, daysLeft);
+    const spentMonth = spentBefore + spentToday;
+    const pace = round2(spentMonth / day);
+    daily = {
+      day,
+      daysLeft,
+      income: incomeTotal,
+      fixed: fixedTotal,
+      committedCard: round2(committedCard),
+      savings: savingsReserve,
+      base,
+      spentBefore: round2(spentBefore),
+      spentToday: round2(spentToday),
+      available,
+      perDay,
+      todayLeft: round2(perDay - spentToday),
+      weekDays,
+      weekLeft: round2(perDay * weekDays - spentToday),
+      tomorrowPerDay: daysLeft > 1 ? round2(Math.max(0, available - spentToday) / (daysLeft - 1)) : null,
+      pace,
+      forecastEnd: round2(base - pace * daysInMonth(month)),
+    };
   }
 
   return {
@@ -444,6 +578,7 @@ function computeSingle(
     endBalance: closing ? closing.realBalance : result,
     categories,
     plan,
+    savingsGoal,
     daily,
   };
 }
