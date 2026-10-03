@@ -28,6 +28,7 @@ export function defaultSettings(): Settings {
     savingsValue: 0,
     heightCm: null,
     goalWeightKg: null,
+    shoppingDays: 7,
   };
 }
 

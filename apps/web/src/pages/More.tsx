@@ -23,6 +23,12 @@ const GROUPS: { title: string; items: { href: string; icon: IconName; label: str
     ],
   },
   {
+    title: 'Casa',
+    items: [
+      { href: '/stock', icon: 'box', label: 'Stock', hint: 'Lo que tenés, cuánto te dura, lista de compras y vencimientos' },
+    ],
+  },
+  {
     title: 'Salud',
     items: [{ href: '/peso', icon: 'scale', label: 'Peso', hint: 'Pesajes, tendencia, IMC y meta' }],
   },

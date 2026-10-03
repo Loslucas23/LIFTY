@@ -21,6 +21,7 @@ import { FixedList, Incomes } from './pages/Plans';
 import { Savings } from './pages/Savings';
 import { Weight } from './pages/Weight';
 import { Reports } from './pages/Reports';
+import { Stock } from './pages/Stock';
 import { usePrivacy } from './lib/privacy';
 import { Year } from './pages/Year';
 
@@ -47,6 +48,7 @@ const ROUTES: [string, (p: Record<string, string>) => ReactNode][] = [
   ['/peso', () => <Weight />],
   ['/alimentacion', () => <Food />],
   ['/deudas', () => <Debts />],
+  ['/stock', () => <Stock />],
 ];
 
 export function App() {

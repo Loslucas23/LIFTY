@@ -73,6 +73,7 @@ export async function smokeTour(): Promise<string[]> {
     '/cuentas',
     '/alimentacion',
     '/deudas',
+    '/stock',
     '/',
   ];
   for (const r of routes) await go(r);
@@ -365,6 +366,56 @@ export async function smokeTour(): Promise<string[]> {
     await closeSheet();
   }
   check('cuadre');
+
+  // Stock: producto, compra con precio (y gasto), uso, conteo y lista de compras.
+  await go('/stock');
+  const stockName = `Arroz prueba ${Date.now() % 100000}`;
+  const until = async (ok: () => boolean, ms = 2500) => {
+    const end = Date.now() + ms;
+    while (Date.now() < end && !ok()) await sleep(50);
+    return ok();
+  };
+  clickText('.page-head button', 'Producto');
+  if (await waitFor('.sheet input[placeholder="Ej: Arroz"]')) {
+    type($('.sheet input[placeholder="Ej: Arroz"]'), stockName);
+    clickText('.sheet .chip', 'kg');
+    await sleep(80);
+    type($('.sheet input[placeholder^="Ej: 2"]'), '2');
+    await saveSheet('nuevo producto de stock');
+  } else problems.push('stock: no se abrió el formulario de producto');
+  const stockRow = () =>
+    [...document.querySelectorAll<HTMLElement>('.stock-row')].find((r) => r.textContent?.includes(stockName));
+  if (!(await until(() => !!stockRow()?.textContent?.includes('2 kg'))))
+    problems.push(`stock: el producto no muestra la cantidad (${stockRow()?.textContent ?? 'no está'})`);
+  stockRow()?.querySelector<HTMLButtonElement>('[aria-label^="Compré"]')?.click();
+  if (await waitFor('.sheet .purchase-line')) {
+    type($('.sheet .purchase-line input[aria-label="Cantidad"]'), '1');
+    type($('.sheet .purchase-line input[aria-label="Precio total"]'), '60');
+    await sleep(80);
+    $<HTMLButtonElement>('.sheet-foot .btn-primary')?.click();
+    await sleep(300);
+    if ($('.sheet')) problems.push(`stock: no se guardó la compra (${$('.sheet .field-error')?.textContent ?? ''})`);
+  } else problems.push('stock: no se abrió registrar compra');
+  if (!(await until(() => !!stockRow()?.textContent?.includes('3 kg'))))
+    problems.push(`stock: la compra no sumó al stock (${stockRow()?.textContent ?? 'no está'})`);
+  stockRow()?.querySelector<HTMLButtonElement>('.tx-main')?.click();
+  if (await waitFor('.sheet .net-box')) {
+    clickText('.sheet .btn-row button', 'Conté');
+    if (await waitFor('.sheet input[inputmode="decimal"]')) {
+      type($('.sheet input[inputmode="decimal"]'), '0');
+      // El cuadro de "Conté" se abre arriba de la ficha: es el último.
+      [...document.querySelectorAll<HTMLButtonElement>('.sheet-foot .btn-primary')].pop()?.click();
+      await sleep(300);
+    }
+    await closeSheet();
+  } else problems.push('stock: no se abrió la ficha del producto');
+  clickText('.page .segmented button', 'Comprar');
+  await sleep(150);
+  if (!(await until(() => [...document.querySelectorAll('.shop-row')].some((r) => r.textContent?.includes(stockName)))))
+    problems.push('stock: la lista de compras no tiene lo que queda poco');
+  check('stock');
+  await go('/movimientos');
+  if (!document.body.textContent?.includes('Compra del súper')) problems.push('stock: la compra no cargó el gasto');
 
   // Modo privado (tecla P): oculta los montos y se vuelve a mostrar.
   await go('/');

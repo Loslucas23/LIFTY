@@ -207,6 +207,8 @@ export const settingsSchema = z.object({
   /** Módulo Peso: altura (para el IMC) y peso objetivo. */
   heightCm: z.number().min(50).max(250).nullable().default(null),
   goalWeightKg: z.number().min(20).max(400).nullable().default(null),
+  /** Módulo Stock: cada cuántos días hacés las compras (para saber qué comprar ahora). */
+  shoppingDays: z.number().int().min(1).max(60).default(7),
 });
 export type Settings = z.infer<typeof settingsSchema>;
 
@@ -266,6 +268,52 @@ export const weightSchema = z.object({
 });
 export type WeightEntry = z.infer<typeof weightSchema>;
 
+/** Módulo Stock: unidades y lugares de la casa. */
+export const STOCK_UNITS = ['u', 'kg', 'g', 'l', 'ml', 'paq'] as const;
+export type StockUnit = (typeof STOCK_UNITS)[number];
+export const STOCK_PLACES = ['despensa', 'heladera', 'freezer', 'limpieza', 'higiene', 'otros'] as const;
+export type StockPlace = (typeof STOCK_PLACES)[number];
+
+/** Un producto que tenés en casa (arroz, leche, detergente…). */
+export const stockItemSchema = z.object({
+  ...base,
+  name: z.string().trim().min(1).max(60),
+  icon: z.string().max(8).default('📦'),
+  place: z.enum(STOCK_PLACES).default('despensa'),
+  unit: z.enum(STOCK_UNITS).default('u'),
+  /** Avisar cuando quede esto o menos (opcional: si no, Lifty usa lo que consumís). */
+  minQuantity: z.number().min(0).nullable().default(null),
+  /** Cuánto viene en lo que comprás (ej: paquete de 1 kg): la lista redondea a esto. */
+  packSize: z.number().positive().nullable().default(null),
+  /** Para cuántos días querés tener (si no, los días entre compras de Ajustes). */
+  coverDays: z.number().int().min(1).max(180).nullable().default(null),
+  note: z.string().max(200).default(''),
+  archived: z.boolean().default(false),
+});
+export type StockItem = z.infer<typeof stockItemSchema>;
+
+/**
+ * Un movimiento de stock. buy: compré (suma). use: usé (resta). waste: tiré (resta, se
+ * cuenta aparte). count: conté y hay exactamente `quantity` (corrige sin borrar historia).
+ */
+export const STOCK_MOVE_KINDS = ['buy', 'use', 'waste', 'count'] as const;
+export type StockMoveKind = (typeof STOCK_MOVE_KINDS)[number];
+export const stockMoveSchema = z.object({
+  ...base,
+  itemId: id,
+  date,
+  kind: z.enum(STOCK_MOVE_KINDS),
+  quantity: z.number().min(0).max(1_000_000),
+  /** Solo compras: lo que pagaste en total por esa cantidad (pesos). */
+  price: money.min(0).nullable().default(null),
+  store: z.string().max(60).default(''),
+  /** Solo compras: cuándo vence lo que compraste. */
+  expiry: date.nullable().default(null),
+  /** El gasto que se cargó con esta compra (si se cargó). */
+  txId: id.nullable().default(null),
+});
+export type StockMove = z.infer<typeof stockMoveSchema>;
+
 export const ENTITY_SCHEMAS = {
   account: accountSchema,
   category: categorySchema,
@@ -278,6 +326,8 @@ export const ENTITY_SCHEMAS = {
   weight: weightSchema,
   budget: budgetSchema,
   debt: debtSchema,
+  stockItem: stockItemSchema,
+  stockMove: stockMoveSchema,
 } as const;
 
 export type EntityName = keyof typeof ENTITY_SCHEMAS;
@@ -295,6 +345,8 @@ export interface EntityTypes {
   weight: WeightEntry;
   budget: BudgetEntry;
   debt: Debt;
+  stockItem: StockItem;
+  stockMove: StockMove;
 }
 
 export function isEntityName(value: string): value is EntityName {
@@ -327,4 +379,6 @@ export interface LiftyData {
   weights: WeightEntry[];
   budgets: BudgetEntry[];
   debts: Debt[];
+  stockItems: StockItem[];
+  stockMoves: StockMove[];
 }

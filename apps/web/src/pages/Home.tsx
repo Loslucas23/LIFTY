@@ -9,6 +9,7 @@ import {
   monthOf,
   newId,
   round2,
+  stockOverview,
   upcomingEvents,
   weightStats,
   type Insight,
@@ -44,6 +45,7 @@ export function Home() {
   const debts = debtTotals(data);
   const foodCards = data.accounts.filter((a) => a.type === 'food' && !a.archived);
   const d = b.daily;
+  const stock = data.stockItems.length ? stockOverview(data.stockItems, data.stockMoves, today, data.settings) : null;
 
   return (
     <div className="page">
@@ -288,6 +290,20 @@ export function Home() {
                   : 'Debés'
             }
             value={money(Math.round(debts.owedToMe > 0 ? debts.owedToMe : debts.iOwe))}
+          />
+        )}
+        {stock && (
+          <Tile
+            href="#/stock"
+            icon="box"
+            title="Stock"
+            text={[
+              stock.shopping.length ? `${stock.shopping.length} para comprar` : 'Nada para comprar',
+              stock.expiring.length ? `${stock.expiring.length} vence${stock.expiring.length === 1 ? '' : 'n'} pronto` : null,
+            ]
+              .filter(Boolean)
+              .join(' · ')}
+            value={stock.shoppingCost > 0 ? `~${money(Math.round(stock.shoppingCost))}` : '✓'}
           />
         )}
         {weight.latest && (

@@ -7,6 +7,8 @@ import {
   goalBalances,
   goalPlans,
   offBudgetAccounts,
+  stockOverview,
+  UNIT_LABEL,
   effectiveStartMonth,
   monthLabel,
   monthOf,
@@ -236,6 +238,35 @@ export async function exportWorkbook(data: LiftyData, today = todayISO()): Promi
     }
     deudas.getColumn('fecha').numFmt = 'dd/mm/yyyy';
     finish(deudas);
+  }
+
+  // ---- Stock ----
+  if (data.stockItems.length) {
+    const stock = sheet(wb, 'Stock', [
+      { header: 'Producto', key: 'producto', width: 22 },
+      { header: 'Lugar', key: 'lugar', width: 12 },
+      { header: 'Hay', key: 'hay', width: 8 },
+      { header: 'Unidad', key: 'unidad', width: 8 },
+      { header: 'Usás por semana', key: 'semana', width: 14 },
+      { header: 'Te dura (días)', key: 'dura', width: 12 },
+      { header: 'Comprar', key: 'comprar', width: 10 },
+      { header: 'Precio por unidad', key: 'precio', width: 16, money: true },
+      { header: 'Por mes', key: 'mes', width: 12, money: true },
+    ]);
+    for (const s of stockOverview(data.stockItems, data.stockMoves, today, data.settings).statuses) {
+      stock.addRow({
+        producto: s.item.name,
+        lugar: s.item.place,
+        hay: s.quantity,
+        unidad: UNIT_LABEL[s.item.unit],
+        semana: s.usage ? Math.round(s.usage.perDay * 7 * 100) / 100 : null,
+        dura: s.daysLeft,
+        comprar: s.toBuy || null,
+        precio: s.prices.last,
+        mes: s.monthlyCost,
+      });
+    }
+    finish(stock);
   }
 
   // ---- Peso ----

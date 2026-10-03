@@ -2558,3 +2558,108 @@ button.stat {
 .mismatch {
   border-color: var(--warn);
 }
+
+/* Stock */
+.stock-row .tx-main {
+  text-align: left;
+}
+.stock-bar {
+  display: block;
+  height: 4px;
+  margin-top: 4px;
+  border-radius: 999px;
+  background: var(--surface-2);
+  overflow: hidden;
+  max-width: 220px;
+}
+.stock-bar span {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: var(--accent);
+}
+.stock-bar span.low {
+  background: var(--bad);
+}
+.stock-stepper {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex: none;
+}
+.stock-stepper button {
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  background: var(--surface-2);
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--ink);
+}
+.stock-stepper button:disabled {
+  opacity: 0.4;
+}
+.stock-qty {
+  min-width: 64px;
+  text-align: center;
+  font-weight: 700;
+  font-size: 14px;
+  white-space: nowrap;
+}
+.shop-row.off .tx-title,
+.shop-row.off .tx-meta {
+  opacity: 0.45;
+  text-decoration: line-through;
+}
+.shop-row .check[aria-pressed='true'] {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-ink);
+}
+.shop-qty {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex: none;
+}
+.shop-qty input {
+  width: 64px;
+  padding: 6px 8px;
+  text-align: right;
+}
+.shop-total {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 10px;
+}
+.purchase-lines {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.purchase-line {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  gap: 6px;
+  align-items: center;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--line);
+}
+.purchase-line select {
+  grid-column: 1 / -1;
+}
+.purchase-line input[type='date'] {
+  grid-column: 1 / -1;
+}
+.purchase-note {
+  grid-column: 1 / -1;
+}
+.plain-list {
+  margin: 4px 0 0;
+  padding-left: 18px;
+}
+button.tx-main {
+  text-align: left;
+  align-items: flex-start;
+}

@@ -14,6 +14,7 @@ const NAV: { href: string; label: string; icon: IconName; match: RegExp }[] = [
   { href: '/cuentas', label: 'Cuentas', icon: 'bank', match: /^\/(cuentas|deudas)/ },
   { href: '/alimentacion', label: 'Alimentación', icon: 'food', match: /^\/alimentacion/ },
   { href: '/tarjeta', label: 'Tarjeta', icon: 'card', match: /^\/tarjeta/ },
+  { href: '/stock', label: 'Stock', icon: 'box', match: /^\/stock/ },
   { href: '/informes', label: 'Informes', icon: 'chart', match: /^\/(anio|informes)/ },
   { href: '/peso', label: 'Peso', icon: 'scale', match: /^\/peso/ },
   {
@@ -118,7 +119,7 @@ export function Layout({ route, privacy, children }: { route: string; privacy: b
             n={n}
             on={
               n.match.test(route) ||
-              (n.href === '/mas' && /^\/(anio|informes|tarjeta|ahorro|peso|cuentas|deudas|alimentacion)/.test(route))
+              (n.href === '/mas' && /^\/(anio|informes|tarjeta|ahorro|peso|cuentas|deudas|alimentacion|stock)/.test(route))
             }
             first={i === 2}
           />
