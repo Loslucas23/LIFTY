@@ -12,6 +12,7 @@ const GROUPS: { title: string; items: { href: string; icon: IconName; label: str
       { href: '/ahorro', icon: 'piggy', label: 'Ahorro', hint: 'Meta del mes y metas con fecha' },
       { href: '/deudas', icon: 'people', label: 'Deudas y préstamos', hint: 'Lo que te deben y lo que debés' },
       { href: '/informes', icon: 'chart', label: 'Informes', hint: 'El año mes a mes, tendencias y patrimonio' },
+      { href: '/simulador', icon: 'card', label: '¿Me lo puedo comprar?', hint: 'Simulá una compra al contado o en cuotas' },
       { href: '/metas', icon: 'chart', label: 'Metas del año', hint: 'Ahorro, peso, estudio y hábitos: si vas al día' },
       { href: '/semana', icon: 'calendar', label: 'Tu semana', hint: 'Gastos, ahorro, rutinas, estudio y peso de la semana' },
     ],
@@ -33,6 +34,7 @@ const GROUPS: { title: string; items: { href: string; icon: IconName; label: str
   {
     title: 'Casa',
     items: [
+      { href: '/recetas', icon: 'food', label: 'Recetas', hint: 'Qué podés cocinar con lo que tenés y cuánto sale' },
       { href: '/vencimientos', icon: 'bell', label: 'Vencimientos', hint: 'Cédula, libreta, seguro, service, garantías' },
       { href: '/stock', icon: 'box', label: 'Stock', hint: 'Lo que tenés, cuánto te dura, lista de compras y vencimientos' },
     ],

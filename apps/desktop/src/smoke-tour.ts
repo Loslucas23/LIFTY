@@ -85,6 +85,8 @@ export async function smokeTour(): Promise<string[]> {
     '/suscripciones',
     '/vencimientos',
     '/metas',
+    '/recetas',
+    '/simulador',
     '/',
   ];
   for (const r of routes) await go(r);
@@ -510,6 +512,31 @@ export async function smokeTour(): Promise<string[]> {
   clickText('.page .segmented button', 'Precios');
   await sleep(150);
   check('precios del stock');
+
+  // ¿Me lo puedo comprar?
+  await go('/simulador');
+  type($('input[placeholder="Ej: 36000"]'), '36000');
+  if (!(await until(() => !!$('.sim-verdict')))) problems.push('simulador: no muestra si alcanza');
+  check('simulador');
+
+  // Recetas: una receta con un ingrediente del stock.
+  await go('/recetas');
+  if (!$('.recipe')) {
+    clickText('.page-head button', 'Receta');
+    if (await waitFor('.sheet input[placeholder="Ej: Fideos con tuco"]')) {
+      type($('.sheet input[placeholder="Ej: Fideos con tuco"]'), 'Receta prueba');
+      const sel = $<HTMLSelectElement>('.sheet select[aria-label="Ingrediente"]');
+      if (sel && sel.options.length > 1) {
+        const setter = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value')!.set!;
+        setter.call(sel, sel.options[1].value);
+        sel.dispatchEvent(new Event('change', { bubbles: true }));
+      }
+      await sleep(100);
+      await saveSheet('nueva receta');
+    } else problems.push('recetas: no se abrió el formulario');
+  }
+  if (!(await until(() => !!$('.recipe')))) problems.push('recetas: no aparece la receta');
+  check('recetas');
 
   // Modo privado (tecla P): oculta los montos y se vuelve a mostrar.
   await go('/');

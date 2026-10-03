@@ -2800,3 +2800,21 @@ button.tx-main {
   background: var(--ink);
   opacity: 0.6;
 }
+
+/* Simulador */
+.bar-fill.bar-bad {
+  background: var(--bad);
+}
+.sim-verdict {
+  margin: 12px 0;
+}
+.sim-months li {
+  grid-template-columns: 80px 1fr 130px;
+}
+.sim-months strong {
+  text-align: right;
+}
+.sim-months strong small {
+  display: block;
+  font-weight: 500;
+}

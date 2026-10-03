@@ -415,6 +415,21 @@ export const yearGoalSchema = z.object({
 });
 export type YearGoal = z.infer<typeof yearGoalSchema>;
 
+/** Recetas: ingredientes del stock para saber qué podés cocinar y cuánto sale. */
+export const recipeSchema = z.object({
+  ...base,
+  name: z.string().trim().min(1).max(60),
+  icon: z.string().max(8).default('🍲'),
+  servings: z.number().int().min(1).max(50).default(2),
+  ingredients: z
+    .array(z.object({ itemId: id, quantity: z.number().positive().max(100000) }))
+    .max(40)
+    .default([]),
+  note: z.string().max(500).default(''),
+  archived: z.boolean().default(false),
+});
+export type Recipe = z.infer<typeof recipeSchema>;
+
 export const ENTITY_SCHEMAS = {
   account: accountSchema,
   category: categorySchema,
@@ -436,6 +451,7 @@ export const ENTITY_SCHEMAS = {
   studySession: studySessionSchema,
   reminder: reminderSchema,
   yearGoal: yearGoalSchema,
+  recipe: recipeSchema,
 } as const;
 
 export type EntityName = keyof typeof ENTITY_SCHEMAS;
@@ -462,6 +478,7 @@ export interface EntityTypes {
   studySession: StudySession;
   reminder: Reminder;
   yearGoal: YearGoal;
+  recipe: Recipe;
 }
 
 export function isEntityName(value: string): value is EntityName {
@@ -503,4 +520,5 @@ export interface LiftyData {
   studySessions: StudySession[];
   reminders: Reminder[];
   yearGoals: YearGoal[];
+  recipes: Recipe[];
 }

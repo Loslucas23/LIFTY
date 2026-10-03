@@ -32,6 +32,8 @@ claras y reglas simples.
 | **Lo que pagás siempre** | Suscripciones y gastos fijos ordenados por lo que salen por mes (los anuales repartidos), total por año y cuánto aumentó cada uno. |
 | **Vencimientos** | Cédula, libreta, pasaporte, seguro, service, garantías: aviso en Inicio con la anticipación que elijas y "Renové" que pasa a la próxima fecha. |
 | **Metas del año** | "Ahorrar $X", "llegar a 75 kg", "200 h de estudio", "150 días de gimnasio" o lo que anotes a mano: el avance sale solo de lo que cargás, contra dónde deberías estar hoy, y cuánto te falta por mes o por semana. |
+| **Recetas** | Ingredientes del stock: cuántas veces podés hacerla con lo que tenés, cuánto sale el plato y por porción, "Cociné" descuenta del stock y los faltantes van a la lista de compras. |
+| **¿Me lo puedo comprar?** | Ponés el precio y las cuotas: mes a mes, lo libre (ingresos − fijos − cuotas − ahorro − tu gasto promedio) menos la cuota, si te alcanza y cuántos meses tardarías en juntarlo. |
 | **Peso** | Pesajes con promedio de 7 días, cambio semanal y mensual, IMC y meta. **Ejercicio y peso**: cuánto cambió tu peso las semanas que entrenaste 3+ veces contra las demás. |
 | **Detalles** | Modo privado (el ojo arriba, o la tecla **P**): oculta los montos. En la compu: **N** nuevo movimiento, **/** buscar. Tema claro, oscuro o automático. |
 
