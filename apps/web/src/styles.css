@@ -187,7 +187,9 @@ code {
 
 /* =================== Estructura =================== */
 .shell {
-  min-height: 100dvh;
+  min-height: 100vh;
+  min-height: 100vh;
+  height: 100dvh;
 }
 .sidebar {
   display: none;
@@ -251,6 +253,7 @@ code {
     gap: 16px;
     position: sticky;
     top: 0;
+    height: 100vh;
     height: 100dvh;
     padding: 20px 14px;
     border-right: 1px solid var(--line);
@@ -305,8 +308,7 @@ code {
   align-items: center;
   height: calc(var(--tabbar-h) + env(safe-area-inset-bottom));
   padding-bottom: env(safe-area-inset-bottom);
-  background: color-mix(in srgb, var(--surface) 92%, transparent);
-  backdrop-filter: blur(12px);
+  background: var(--surface);
   border-top: 1px solid var(--line);
 }
 .tab {
@@ -1112,21 +1114,20 @@ button.tx-row:hover {
   position: fixed;
   inset: 0;
   z-index: 50;
-  background: rgb(5 10 8 / 0.45);
+  background: rgba(5, 10, 8, 0.45);
   display: flex;
   align-items: flex-end;
   justify-content: center;
-  animation: fade 0.15s ease-out;
 }
 .sheet {
   width: 100%;
+  max-height: 94vh;
   max-height: 94dvh;
   display: flex;
   flex-direction: column;
   background: var(--surface);
   border-radius: 22px 22px 0 0;
-  box-shadow: 0 -10px 40px rgb(0 0 0 / 0.2);
-  animation: up 0.2s ease-out;
+  box-shadow: 0 -10px 40px rgba(0, 0, 0, 0.2);
 }
 .sheet-head {
   display: flex;
@@ -1152,18 +1153,8 @@ button.tx-row:hover {
   .sheet {
     max-width: 540px;
     border-radius: 22px;
+    max-height: 88vh;
     max-height: 88dvh;
-  }
-}
-@keyframes up {
-  from {
-    transform: translateY(24px);
-    opacity: 0.6;
-  }
-}
-@keyframes fade {
-  from {
-    opacity: 0;
   }
 }
 
@@ -1196,8 +1187,7 @@ button.tx-row:hover {
   background: var(--ink);
   color: var(--bg);
   font-weight: 500;
-  box-shadow: 0 8px 24px rgb(0 0 0 / 0.25);
-  animation: up 0.2s ease-out;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
 }
 .toast-error {
   background: var(--bad);
@@ -1564,7 +1554,9 @@ button.tx-row:hover {
 }
 .pair-screen,
 .splash {
-  min-height: 100dvh;
+  min-height: 100vh;
+  min-height: 100vh;
+  height: 100dvh;
   display: grid;
   place-items: center;
   padding: 16px;
@@ -1619,4 +1611,15 @@ button.tx-row:hover {
     animation: none !important;
     transition: none !important;
   }
+}
+
+.error-detail {
+  width: 100%;
+  white-space: pre-wrap;
+  text-align: left;
+  font-size: 12px;
+  padding: 10px;
+  border-radius: 10px;
+  background: var(--surface-2);
+  color: var(--bad);
 }
