@@ -430,6 +430,17 @@ export const recipeSchema = z.object({
 });
 export type Recipe = z.infer<typeof recipeSchema>;
 
+/** Diario: cómo dormiste y cómo te sentiste. El id es la fecha. */
+export const journalSchema = z.object({
+  ...base,
+  date,
+  sleepHours: z.number().min(0).max(24).nullable().default(null),
+  /** 1 (mal) a 5 (muy bien). */
+  mood: z.number().int().min(1).max(5).nullable().default(null),
+  note: z.string().max(500).default(''),
+});
+export type JournalEntry = z.infer<typeof journalSchema>;
+
 export const ENTITY_SCHEMAS = {
   account: accountSchema,
   category: categorySchema,
@@ -452,6 +463,7 @@ export const ENTITY_SCHEMAS = {
   reminder: reminderSchema,
   yearGoal: yearGoalSchema,
   recipe: recipeSchema,
+  journal: journalSchema,
 } as const;
 
 export type EntityName = keyof typeof ENTITY_SCHEMAS;
@@ -479,6 +491,7 @@ export interface EntityTypes {
   reminder: Reminder;
   yearGoal: YearGoal;
   recipe: Recipe;
+  journal: JournalEntry;
 }
 
 export function isEntityName(value: string): value is EntityName {
@@ -521,4 +534,5 @@ export interface LiftyData {
   reminders: Reminder[];
   yearGoals: YearGoal[];
   recipes: Recipe[];
+  journal: JournalEntry[];
 }

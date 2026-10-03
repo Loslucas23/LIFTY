@@ -87,6 +87,7 @@ export async function smokeTour(): Promise<string[]> {
     '/metas',
     '/recetas',
     '/simulador',
+    '/diario',
     '/',
   ];
   for (const r of routes) await go(r);
@@ -540,6 +541,14 @@ export async function smokeTour(): Promise<string[]> {
   }
   if (!(await until(() => !!$('.recipe')))) problems.push('recetas: no aparece la receta');
   check('recetas');
+
+  // Diario: sueño y ánimo de hoy.
+  await go('/diario');
+  clickText('.journal-quick .chip', '7 h');
+  $<HTMLButtonElement>('.journal-quick .chip[aria-label="Ánimo 4 de 5"]')?.click();
+  if (!(await until(() => document.querySelectorAll('.journal-quick .chip.on').length === 2)))
+    problems.push('diario: no se guardó el sueño y el ánimo');
+  check('diario');
 
   // Modo privado (tecla P): oculta los montos y se vuelve a mostrar.
   await go('/');

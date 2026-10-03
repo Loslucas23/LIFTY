@@ -5,6 +5,7 @@ import {
   monthLabel,
   monthOf,
   monthReports,
+  personalInflation,
   netWorthHistory,
   round2,
   spendingByWeekday,
@@ -193,6 +194,8 @@ export function Reports() {
 
       <Tags />
 
+      <Inflation />
+
       <Section title={`Los gastos más grandes de ${monthLabel(current, false).toLowerCase()}`}>
         <TopExpenses month={current} />
       </Section>
@@ -319,5 +322,52 @@ function TopExpenses({ month }: { month: string }) {
         <TxRow key={t.id} tx={t} showDate />
       ))}
     </div>
+  );
+}
+
+/** Tu inflación: cuánto subió lo que vos comprás, pesado por lo que gastás en cada cosa. */
+function Inflation() {
+  const data = useData();
+  const today = useToday();
+  const r = personalInflation(data, today);
+  if (!r.items.length) return null;
+  return (
+    <Section title="Tu inflación (último año)">
+      <button
+        className="card pad tile-link"
+        onClick={() =>
+          openExplain({
+            title: 'Tu inflación',
+            intro:
+              'Cada producto del stock (precio por unidad, primera contra última compra del año) y cada gasto fijo que cambió de monto, pesado por lo que gastás por mes en eso.',
+            rows: r.items.map((i) => ({
+              label: `${i.name}: ${money(i.before)} → ${money(i.now)} (pesa ${money(Math.round(i.weight))}/mes)`,
+              value: i.change,
+              raw: `${i.change > 0 ? '+' : ''}${i.change.toLocaleString('es-UY')}%`,
+            })),
+            result:
+              r.total !== null
+                ? { label: 'Tu inflación', value: r.total, raw: `${r.total > 0 ? '+' : ''}${r.total.toLocaleString('es-UY')}%` }
+                : undefined,
+          })
+        }
+      >
+        <span className="tile-text">
+          <strong className={r.total !== null && r.total > 0 ? 'text-expense' : 'text-income'}>
+            {r.total !== null
+              ? `${r.total > 0 ? '+' : ''}${r.total.toLocaleString('es-UY', { maximumFractionDigits: 1 })}%`
+              : '—'}
+          </strong>
+          <span className="muted small">
+            Lo que más subió:{' '}
+            {r.items
+              .slice(0, 3)
+              .map((i) => `${i.name} ${i.change > 0 ? '+' : ''}${Math.round(i.change)}%`)
+              .join(' · ')}
+          </span>
+        </span>
+        <span className="link small">¿De dónde sale?</span>
+      </button>
+    </Section>
   );
 }

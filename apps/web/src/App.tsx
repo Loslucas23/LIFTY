@@ -25,6 +25,7 @@ import { Stock } from './pages/Stock';
 import { Routines } from './pages/Routines';
 import { Study } from './pages/Study';
 import { Recipes } from './pages/Recipes';
+import { Journal } from './pages/Journal';
 import { Simulator } from './pages/Simulator';
 import { Recurring, Reminders, Week, YearGoals } from './pages/Extras';
 import { usePrivacy } from './lib/privacy';
@@ -61,6 +62,7 @@ const ROUTES: [string, (p: Record<string, string>) => ReactNode][] = [
   ['/vencimientos', () => <Reminders />],
   ['/metas', () => <YearGoals />],
   ['/recetas', () => <Recipes />],
+  ['/diario', () => <Journal />],
   ['/simulador', () => <Simulator />],
 ];
 

@@ -24,6 +24,7 @@ import { confirmPlanned } from '../lib/actions';
 import { openBudgetEditor, openBudgetWizard, openExplain, openFixedForm, openIncomeForm, openMenu } from '../components/Editors';
 import { Icon, type IconName } from '../components/Icon';
 import { useMoneyCheck } from '../components/MoneyCheck';
+import { JournalPrompt } from './Journal';
 import { openTxForm } from '../components/TxForm';
 import { TxRow } from '../components/TxRow';
 import { Empty, Progress, Section, toast } from '../components/ui';
@@ -163,6 +164,8 @@ export function Home() {
       <SurplusProposal month={month} />
 
       <CloseReminder month={month} />
+
+      {!empty && (data.journal.length > 0 || data.habits.length > 0) && <JournalPrompt />}
 
       {!empty && <MoneyMismatch />}
 

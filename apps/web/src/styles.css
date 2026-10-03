@@ -2818,3 +2818,49 @@ button.tx-main {
   display: block;
   font-weight: 500;
 }
+
+/* Diario */
+.journal-quick {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 8px;
+}
+.journal-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.journal-row > span {
+  min-width: 70px;
+}
+.chip.on {
+  background: color-mix(in srgb, var(--accent) 16%, var(--surface));
+  border-color: var(--accent);
+  color: var(--accent);
+  font-weight: 700;
+}
+.chip.mood {
+  font-size: 20px;
+  padding: 4px 10px;
+}
+.journal-strip {
+  display: grid;
+  grid-template-columns: repeat(14, 1fr);
+  gap: 4px;
+}
+.journal-day {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  border-radius: 8px;
+  padding: 4px 0;
+  color: var(--ink);
+}
+.journal-day.on {
+  outline: 2px solid var(--accent);
+}
+.journal-day small {
+  font-size: 10px;
+}
