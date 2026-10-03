@@ -21,11 +21,15 @@ const GROUPS: { title: string; items: { href: string; icon: IconName; label: str
     ],
   },
   {
+    title: 'Salud',
+    items: [{ href: '/peso', icon: 'scale', label: 'Peso', hint: 'Pesajes, tendencia, IMC y meta' }],
+  },
+  {
     title: 'Lifty',
     items: [
       { href: '/conectar', icon: 'phone', label: 'Conectar dispositivos', hint: 'Vinculá tu celular con un código QR' },
       { href: '/importar', icon: 'upload', label: 'Importar desde Excel', hint: 'Traé tu planilla de finanzas' },
-      { href: '/respaldo', icon: 'download', label: 'Copia de seguridad', hint: 'Exportar o restaurar tus datos' },
+      { href: '/respaldo', icon: 'download', label: 'Copia de seguridad', hint: 'Exportar a Excel, guardar o restaurar' },
       { href: '/ajustes', icon: 'settings', label: 'Ajustes', hint: 'Nombre, dólar, mes inicial' },
     ],
   },
@@ -55,19 +59,9 @@ export function More() {
         </Section>
       ))}
 
-      <Section title="Próximamente">
-        <div className="card soon">
-          <span className="menu-icon">
-            <Icon name="scale" />
-          </span>
-          <span>
-            <strong>Peso y salud</strong>
-            <span className="muted small">
-              Lifty está armado por módulos: el próximo puede ser tu peso, hábitos o lo que se te ocurra.
-            </span>
-          </span>
-        </div>
-      </Section>
+      <p className="muted small center">
+        Lifty está armado por módulos: después se pueden sumar hábitos, gimnasio o lo que se te ocurra.
+      </p>
       {!local && <p className="muted small center">Estás usando Lifty desde otro dispositivo vinculado a tu compu.</p>}
     </div>
   );

@@ -5,3 +5,4 @@ export * from './salary';
 export * from './budget';
 export * from './defaults';
 export * from './store';
+export * from './weight';

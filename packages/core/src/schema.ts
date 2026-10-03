@@ -159,8 +159,20 @@ export const settingsSchema = z.object({
   startMonth: month.nullable().default(null),
   /** Saldo con el que arrancó `startMonth`. */
   startBalance: money.default(0),
+  /** Módulo Peso: altura (para el IMC) y peso objetivo. */
+  heightCm: z.number().min(50).max(250).nullable().default(null),
+  goalWeightKg: z.number().min(20).max(400).nullable().default(null),
 });
 export type Settings = z.infer<typeof settingsSchema>;
+
+/** Módulo Peso: un pesaje. */
+export const weightSchema = z.object({
+  ...base,
+  date,
+  kg: z.number().min(20).max(400),
+  note: z.string().max(200).default(''),
+});
+export type WeightEntry = z.infer<typeof weightSchema>;
 
 export const ENTITY_SCHEMAS = {
   account: accountSchema,
@@ -171,6 +183,7 @@ export const ENTITY_SCHEMAS = {
   goal: goalSchema,
   closing: closingSchema,
   settings: settingsSchema,
+  weight: weightSchema,
 } as const;
 
 export type EntityName = keyof typeof ENTITY_SCHEMAS;
@@ -185,6 +198,7 @@ export interface EntityTypes {
   goal: Goal;
   closing: MonthClosing;
   settings: Settings;
+  weight: WeightEntry;
 }
 
 export function isEntityName(value: string): value is EntityName {
@@ -214,4 +228,5 @@ export interface LiftyData {
   fixed: FixedExpense[];
   goals: Goal[];
   closings: MonthClosing[];
+  weights: WeightEntry[];
 }

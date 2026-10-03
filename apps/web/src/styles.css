@@ -360,7 +360,8 @@ code {
   display: flex;
   align-items: baseline;
   justify-content: space-between;
-  gap: 12px;
+  flex-wrap: wrap;
+  gap: 4px 12px;
 }
 .section-head > :last-child:not(:first-child) {
   flex: none;
@@ -508,7 +509,7 @@ code {
   gap: 8px;
   margin-top: 12px;
 }
-.hero-stats a {
+.hero-stats > * {
   display: flex;
   flex-direction: column;
   padding: 10px 12px;
@@ -670,6 +671,14 @@ button.tx-row:hover {
 .planned-meta {
   font-size: 13px;
   color: var(--muted);
+}
+.due-warn {
+  color: var(--warn);
+  font-weight: 600;
+}
+.due-bad {
+  color: var(--bad);
+  font-weight: 600;
 }
 .planned-amount {
   font-weight: 700;
@@ -939,6 +948,9 @@ button.tx-row:hover {
   min-height: 56px;
   box-shadow: none !important;
   background: transparent;
+}
+.amount-input input:focus-visible {
+  outline: none;
 }
 .currency-btn {
   font-size: 22px;
@@ -1291,6 +1303,38 @@ button.tx-row:hover {
   fill: var(--ink);
   font-weight: 700;
 }
+.chart .goal-line {
+  stroke: var(--muted);
+  stroke-width: 1.5;
+  stroke-dasharray: 6 5;
+}
+.chart .dot {
+  fill: var(--surface);
+  stroke: var(--series-1);
+  stroke-width: 2;
+}
+.chart .crosshair {
+  stroke: var(--muted);
+  stroke-width: 1;
+}
+.legend-dot {
+  border-radius: 50% !important;
+  background: var(--surface);
+  box-shadow: inset 0 0 0 2px var(--series-1);
+}
+.legend-line {
+  height: 2px !important;
+  width: 14px !important;
+  background: var(--series-1);
+}
+.chart-head > div:first-child {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.chart-head .segmented {
+  min-width: 240px;
+}
 .chart .hover-col {
   fill: var(--surface-2);
 }
@@ -1622,4 +1666,15 @@ button.tx-row:hover {
   border-radius: 10px;
   background: var(--surface-2);
   color: var(--bad);
+}
+
+.quick {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.compare {
+  display: block;
+  margin-top: 4px;
 }

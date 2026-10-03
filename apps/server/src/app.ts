@@ -3,9 +3,10 @@ import path from 'node:path';
 import Fastify, { type FastifyInstance, type FastifyReply, type FastifyRequest } from 'fastify';
 import fastifyStatic from '@fastify/static';
 import QRCode from 'qrcode';
-import { ENTITY_SCHEMAS, isEntityName, mutationSchema, type Mutation } from '@lifty/core';
+import { ENTITY_SCHEMAS, isEntityName, mutationSchema, toLiftyData, type Mutation, type RecordStore } from '@lifty/core';
 import { LiftyDb, type Device } from './db';
 import { importWorkbook } from './excel';
+import { exportWorkbook } from './export';
 import { isLoopback, lanAddresses } from './network';
 
 export const VERSION = '0.1.0';
@@ -190,6 +191,17 @@ export async function buildApp(opts: AppOptions): Promise<FastifyInstance> {
       req.log.warn(err);
       return reply.code(422).send({ error: 'bad_file', message: `No pude leer la planilla: ${(err as Error).message}` });
     }
+  });
+
+  app.get('/api/export/excel', async (_req, reply) => {
+    const store: RecordStore = {};
+    for (const r of db.changesSince(0)) if (r.record) (store[r.entity] ??= {})[r.id] = r.record as never;
+    const file = await exportWorkbook(toLiftyData(store));
+    const name = `lifty-${new Date().toISOString().slice(0, 10)}.xlsx`;
+    return reply
+      .header('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+      .header('Content-Disposition', `attachment; filename="${name}"`)
+      .send(file);
   });
 
   app.get('/api/server-info', async () => ({ version: VERSION, urls: baseUrl(), dataFile: db.file }));

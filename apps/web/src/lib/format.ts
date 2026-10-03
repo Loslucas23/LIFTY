@@ -13,15 +13,16 @@ export function compact(amount: number): string {
 
 const DAY_NAMES = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'];
 
-export function dayLabel(date: string, today: string): string {
+export function dayLabel(date: string, today: string, withMonth = false): string {
   if (date === today) return 'Hoy';
   const d = new Date(`${date}T12:00:00`);
   const t = new Date(`${today}T12:00:00`);
   const diff = Math.round((t.getTime() - d.getTime()) / 86_400_000);
   if (diff === 1) return 'Ayer';
   const name = DAY_NAMES[d.getDay()];
-  const label = `${name.charAt(0).toUpperCase()}${name.slice(1)} ${d.getDate()}`;
-  return d.getFullYear() === t.getFullYear() ? label : `${label}/${d.getMonth() + 1}/${d.getFullYear()}`;
+  const label = `${name.charAt(0).toUpperCase()}${name.slice(1)} ${d.getDate()}${withMonth ? `/${d.getMonth() + 1}` : ''}`;
+  if (d.getFullYear() === t.getFullYear()) return label;
+  return withMonth ? `${label}/${d.getFullYear()}` : `${label}/${d.getMonth() + 1}/${d.getFullYear()}`;
 }
 
 export { monthLabel };

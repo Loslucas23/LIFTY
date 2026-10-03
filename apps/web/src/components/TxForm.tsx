@@ -141,6 +141,49 @@ function TxForm({
       });
   };
 
+  // Sugerencias: lo que más cargaste de este tipo (con su categoría y cuenta).
+  const suggestions = useMemo(() => {
+    const byText = new Map<string, { text: string; count: number; last: Transaction }>();
+    for (const t of data.transactions) {
+      if (t.kind !== kind || t.linkKind || t.installments > 1 || !t.description.trim()) continue;
+      const key = t.description.trim().toLowerCase();
+      const entry = byText.get(key);
+      if (entry) entry.count++;
+      else byText.set(key, { text: t.description.trim(), count: 1, last: t });
+    }
+    return [...byText.values()].sort((a, b) => b.count - a.count || b.last.date.localeCompare(a.last.date));
+  }, [data.transactions, kind]);
+
+  const pickSuggestion = (text: string, fillAll: boolean) => {
+    setDescription(text);
+    const match = suggestions.find((x) => x.text.toLowerCase() === text.trim().toLowerCase());
+    if (!match) return;
+    if (fillAll || categoryId === null) setCategoryId(match.last.categoryId);
+    if (fillAll || accountId === null) setAccountId(match.last.accountId);
+    if (fillAll && match.last.kind === 'saving') setGoalId(match.last.goalId);
+    if (fillAll && !amountText) {
+      setAmountText(String(Math.abs(match.last.amount)).replace('.', ','));
+      setCurrency(match.last.currency);
+    }
+  };
+
+  const duplicate = () => {
+    if (!tx) return;
+    openTxForm({
+      preset: {
+        kind: tx.kind,
+        amount: tx.amount,
+        currency: tx.currency,
+        categoryId: tx.categoryId,
+        accountId: tx.accountId,
+        goalId: tx.goalId,
+        description: tx.description,
+        installments: tx.installments,
+        date: todayISO(),
+      },
+    });
+  };
+
   const remove = () => {
     if (!tx) return;
     mutate('transaction', 'delete', tx.id);
@@ -159,6 +202,11 @@ function TxForm({
           {tx && (
             <button className="btn btn-danger-ghost" onClick={remove}>
               Borrar
+            </button>
+          )}
+          {tx && !linked && (
+            <button className="btn btn-ghost" onClick={duplicate} title="Cargar otro igual con fecha de hoy">
+              Duplicar
             </button>
           )}
           <button className="btn btn-primary grow" onClick={save}>
@@ -210,6 +258,18 @@ function TxForm({
           />
         </div>
         {error && <p className="field-error">{error}</p>}
+        {!tx && !linked && !description && suggestions.length > 0 && (
+          <div className="quick">
+            <span className="field-label">Lo de siempre</span>
+            <div className="chips">
+              {suggestions.slice(0, 6).map((x) => (
+                <button key={x.text} type="button" className="chip" onClick={() => pickSuggestion(x.text, true)}>
+                  {x.text}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
         {parsed !== null && /[+-]/.test(amountText.slice(1)) && <p className="muted small">= {money(parsed, currency)}</p>}
         {kind === 'saving' && (
           <Segmented
@@ -315,10 +375,17 @@ function TxForm({
         <Field label="Detalle">
           <input
             value={description}
-            onChange={(e) => setDescription(e.target.value)}
+            onChange={(e) => pickSuggestion(e.target.value, false)}
             placeholder="Ej: Cabify al centro"
             maxLength={200}
+            list="tx-desc-suggestions"
+            autoComplete="off"
           />
+          <datalist id="tx-desc-suggestions">
+            {suggestions.slice(0, 50).map((x) => (
+              <option key={x.text} value={x.text} />
+            ))}
+          </datalist>
         </Field>
         <button type="submit" hidden />
       </form>

@@ -10,9 +10,8 @@ function plannedDate(line: PlannedLine, month: string): string {
   return `${month}-${String(day).padStart(2, '0')}`;
 }
 
-/** Marca algo planificado (sueldo, aguinaldo, gasto fijo) como cobrado/pagado. */
-export function confirmPlanned(data: LiftyData, line: PlannedLine, month: string, amountOriginal = line.plannedOriginal) {
-  const tx: Transaction = {
+function linkedTx(data: LiftyData, line: PlannedLine, month: string, amountOriginal: number): Transaction {
+  return {
     id: newId(),
     updatedAt: new Date().toISOString(),
     date: plannedDate(line, month),
@@ -30,6 +29,11 @@ export function confirmPlanned(data: LiftyData, line: PlannedLine, month: string
     linkId: line.refId,
     linkMonth: month,
   };
+}
+
+/** Marca algo planificado (sueldo, aguinaldo, gasto fijo) como cobrado/pagado. */
+export function confirmPlanned(data: LiftyData, line: PlannedLine, month: string, amountOriginal = line.plannedOriginal) {
+  const tx = linkedTx(data, line, month, amountOriginal);
   mutate('transaction', 'upsert', tx);
   toast(`${line.name}: ${line.kind === 'fixed' ? 'pagado' : 'cobrado'} (${money(amountOriginal, line.currency)})`, {
     action: { label: 'Deshacer', run: () => mutate('transaction', 'delete', tx.id) },
@@ -41,5 +45,16 @@ export function unconfirmPlanned(data: LiftyData, line: PlannedLine) {
   for (const t of removed) mutate('transaction', 'delete', t.id);
   toast(`${line.name}: marcado como pendiente`, {
     action: { label: 'Deshacer', run: () => removed.forEach((t) => mutate('transaction', 'upsert', t)) },
+  });
+}
+
+/** Marca como pagados/cobrados todos los pendientes de una lista (con lo planificado). */
+export function confirmAll(data: LiftyData, lines: PlannedLine[], month: string) {
+  const pending = lines.filter((l) => !l.confirmed);
+  if (!pending.length) return;
+  const txs = pending.map((l) => linkedTx(data, l, month, l.plannedOriginal));
+  for (const tx of txs) mutate('transaction', 'upsert', tx);
+  toast(`${txs.length} marcados como pagados`, {
+    action: { label: 'Deshacer', run: () => txs.forEach((t) => mutate('transaction', 'delete', t.id)) },
   });
 }

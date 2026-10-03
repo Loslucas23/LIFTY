@@ -15,6 +15,7 @@ import { More } from './pages/More';
 import { Movements } from './pages/Movements';
 import { FixedList, Incomes } from './pages/Plans';
 import { Savings } from './pages/Savings';
+import { Weight } from './pages/Weight';
 import { Year } from './pages/Year';
 
 const ROUTES: [string, (p: Record<string, string>) => ReactNode][] = [
@@ -36,6 +37,7 @@ const ROUTES: [string, (p: Record<string, string>) => ReactNode][] = [
   ['/conectar', () => <Connect />],
   ['/importar', () => <ImportExcel />],
   ['/respaldo', () => <Backup />],
+  ['/peso', () => <Weight />],
 ];
 
 export function App() {

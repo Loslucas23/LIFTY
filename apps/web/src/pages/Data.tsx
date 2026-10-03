@@ -126,6 +126,27 @@ export function Backup() {
     setTimeout(() => URL.revokeObjectURL(a.href), 1000);
   };
 
+  const [downloading, setDownloading] = useState(false);
+  const exportExcel = async () => {
+    setDownloading(true);
+    try {
+      const headers: Record<string, string> = {};
+      const token = getToken();
+      if (token) headers.Authorization = `Bearer ${token}`;
+      const res = await fetch('./api/export/excel', { headers });
+      if (!res.ok) throw new Error(`Error ${res.status}`);
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(await res.blob());
+      a.download = `lifty-${new Date().toISOString().slice(0, 10)}.xlsx`;
+      a.click();
+      setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+    } catch {
+      toast('Necesitás conexión con la compu para exportar a Excel', { tone: 'error' });
+    } finally {
+      setDownloading(false);
+    }
+  };
+
   const restore = async (file: File) => {
     try {
       const json = JSON.parse(await file.text());
@@ -151,9 +172,14 @@ export function Backup() {
           La compu guarda una copia automática de la base todos los días (las últimas 14). Además podés descargar todo en un
           archivo para guardarlo donde quieras.
         </p>
-        <button className="btn btn-primary" onClick={exportJson}>
-          <Icon name="download" /> Descargar copia (.json)
+        <button className="btn btn-primary" onClick={exportExcel} disabled={downloading}>
+          <Icon name="download" /> {downloading ? 'Preparando…' : 'Descargar en Excel (.xlsx)'}
         </button>
+        <p className="muted small">Resumen mes a mes, movimientos, sueldos, gastos fijos y peso, listos para filtrar.</p>
+        <button className="btn" onClick={exportJson}>
+          <Icon name="download" /> Descargar copia completa (.json)
+        </button>
+        <p className="muted small">La copia .json es la que sirve para restaurar.</p>
         <hr />
         <p className="muted small">Restaurar suma o actualiza lo que haya en la copia; no borra lo que cargaste después.</p>
         <input

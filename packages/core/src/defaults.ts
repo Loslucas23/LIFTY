@@ -17,7 +17,16 @@ export function newId(): string {
 const at = '1970-01-01T00:00:00.000Z';
 
 export function defaultSettings(): Settings {
-  return { id: 'main', updatedAt: at, ownerName: '', usdRate: 41, startMonth: null, startBalance: 0 };
+  return {
+    id: 'main',
+    updatedAt: at,
+    ownerName: '',
+    usdRate: 41,
+    startMonth: null,
+    startBalance: 0,
+    heightCm: null,
+    goalWeightKg: null,
+  };
 }
 
 function cat(id: string, name: string, kind: Category['kind'], icon: string, color: string, sort: number): Category {

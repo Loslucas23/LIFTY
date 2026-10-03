@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { MONTH_NAMES, monthOf, parseMonth, type MonthBudget } from '@lifty/core';
 import { Icon } from '../components/Icon';
+import { useWidth } from '../components/useWidth';
 import { PageHeader } from '../components/ui';
 import { compact, money } from '../lib/format';
 import { navigate } from '../lib/router';
@@ -87,15 +88,15 @@ export function Year({ year: yearParam }: { year?: string }) {
 /** Barras agrupadas: ingresos vs. gastos por mes, con tooltip al pasar o tocar. */
 function YearChart({ months, today }: { months: MonthBudget[]; today: string }) {
   const [hover, setHover] = useState<number | null>(null);
-  const W = 720;
-  const H = 240;
-  const pad = { top: 16, right: 8, bottom: 26, left: 56 };
+  const [boxRef, W] = useWidth<HTMLDivElement>();
+  const H = W < 520 ? 200 : 240;
+  const pad = { top: 16, right: 4, bottom: 26, left: W < 520 ? 48 : 56 };
   const max = Math.max(1, ...months.flatMap((m) => [m.income.total, m.expenses]));
   const step = niceStep(max / 4);
   const top = Math.ceil(max / step) * step;
   const y = (v: number) => pad.top + (H - pad.top - pad.bottom) * (1 - Math.max(0, v) / top);
   const colW = (W - pad.left - pad.right) / 12;
-  const barW = Math.min(18, (colW - 10) / 2);
+  const barW = Math.max(3, Math.min(18, (colW - 8) / 2));
   const ticks = Array.from({ length: Math.round(top / step) + 1 }, (_, i) => i * step);
   const current = monthOf(today);
   const h = hover !== null ? months[hover] : null;
@@ -113,7 +114,7 @@ function YearChart({ months, today }: { months: MonthBudget[]; today: string }) 
           </span>
         </span>
       </figcaption>
-      <div className="chart-box">
+      <div className="chart-box" ref={boxRef}>
         <svg
           viewBox={`0 0 ${W} ${H}`}
           role="img"

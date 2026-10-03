@@ -4,14 +4,16 @@ import { PlannedList } from '../components/Planned';
 import { openTxForm } from '../components/TxForm';
 import { Empty, Field, MonthPicker, PageHeader, Progress, Section, Sheet, toast } from '../components/ui';
 import { money, parseAmount } from '../lib/format';
+import { confirmAll } from '../lib/actions';
 import { navigate } from '../lib/router';
-import { useData, useLookups, useMonth, useToday } from '../lib/store';
+import { useData, useLookups, useMonth, useMonths, useToday } from '../lib/store';
 import { mutate } from '../lib/sync';
 
 export function Budget({ month: monthParam }: { month?: string }) {
   const today = useToday();
   const month = monthParam ?? monthOf(today);
   const b = useMonth(month);
+  const data = useData();
   const [closing, setClosing] = useState(false);
   const paid = b.fixed.items.filter((l) => l.confirmed).length;
 
@@ -52,6 +54,14 @@ export function Budget({ month: monthParam }: { month?: string }) {
               b.fixed.items.length > 0 && (
                 <span className="muted small">
                   {paid} de {b.fixed.items.length} pagos{b.fixed.pending > 0 && ` · faltan ${money(b.fixed.pending)}`}
+                  {b.fixed.pending > 0 && (
+                    <>
+                      {' · '}
+                      <button className="link small" onClick={() => confirmAll(data, b.fixed.items, month)}>
+                        Tildar todos
+                      </button>
+                    </>
+                  )}
                 </span>
               )
             }
@@ -247,6 +257,10 @@ function CloseMonth({ b, onClose }: { b: MonthBudget; onClose: () => void }) {
 
 function CategorySpend({ b }: { b: MonthBudget }) {
   const { category } = useLookups();
+  const prevMonth = addMonths(b.month, -1);
+  const prev = useMonths(prevMonth, prevMonth)[0];
+  const prevSpent = new Map(prev.categories.map((c) => [c.categoryId, c.spent]));
+  const prevName = monthLabel(prevMonth, false).toLowerCase();
   const list = b.categories.filter((c) => c.spent > 0 || c.limit);
   if (!list.length) return null;
   const max = Math.max(...list.map((c) => Math.max(c.spent, c.limit ?? 0)));
@@ -282,11 +296,23 @@ function CategorySpend({ b }: { b: MonthBudget }) {
                   <div className="bar-fill" style={{ width: `${(c.spent / max) * 100}%` }} />
                 </div>
               )}
+              <Compare now={c.spent} before={prevSpent.get(c.categoryId) ?? 0} label={prevName} />
             </li>
           );
         })}
       </ul>
     </Section>
+  );
+}
+
+/** Diferencia con el mes anterior (más gasto = peor, en el color de gasto). */
+function Compare({ now, before, label }: { now: number; before: number; label: string }) {
+  const diff = Math.round(now - before);
+  if (before === 0 || diff === 0) return null;
+  return (
+    <span className={`compare small ${diff > 0 ? 'text-expense' : 'text-income'}`}>
+      {diff > 0 ? '▲' : '▼'} {money(Math.abs(diff))} {diff > 0 ? 'más' : 'menos'} que en {label}
+    </span>
   );
 }
 

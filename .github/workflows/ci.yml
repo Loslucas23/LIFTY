@@ -39,3 +39,21 @@ jobs:
           sudo chmod 4755 node_modules/electron/dist/chrome-sandbox
       - name: Abrir Lifty y verificar que dibuja el inicio
         run: xvfb-run -a npm run smoke -w @lifty/desktop
+
+  windows:
+    name: Windows (instalar-lifty.bat + abrir el programa)
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Ejecutar instalar-lifty.bat como lo haría el usuario
+        shell: cmd
+        env:
+          LIFTY_NO_PROMPT: '1'
+        run: call instalar-lifty.bat
+      - name: Abrir Lifty y recorrer todas las pantallas
+        shell: cmd
+        run: call node_modules\.bin\electron.cmd apps\desktop --smoke-test

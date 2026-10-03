@@ -189,3 +189,35 @@ describe('importar Excel', () => {
     expect(result.records.length).toBeGreaterThan(10);
   });
 });
+
+describe('exportar Excel', () => {
+  it('genera una planilla con resumen y movimientos', async () => {
+    const tx = { date: '2026-02-02', kind: 'expense', amount: 633.2, categoryId: 'cat-transporte', description: 'Cabify' };
+    await app.inject({
+      method: 'POST',
+      url: '/api/mutations',
+      payload: {
+        mutations: [
+          { entity: 'transaction', op: 'upsert', id: 't1', updatedAt: '2026-02-02T10:00:00Z', record: tx },
+          {
+            entity: 'weight',
+            op: 'upsert',
+            id: 'w1',
+            updatedAt: '2026-02-02T10:00:00Z',
+            record: { date: '2026-02-02', kg: 80.5 },
+          },
+        ],
+      },
+    });
+    const res = await app.inject({ url: '/api/export/excel' });
+    expect(res.statusCode).toBe(200);
+    expect(res.headers['content-type']).toContain('spreadsheetml');
+    const wb = new ExcelJS.Workbook();
+    await wb.xlsx.load(res.rawPayload as never);
+    expect(wb.worksheets.map((w) => w.name)).toEqual(['Resumen', 'Movimientos', 'Sueldos', 'Gastos fijos', 'Peso']);
+    const movs = wb.getWorksheet('Movimientos')!;
+    expect(movs.getRow(2).getCell(8).value).toBe('Cabify');
+    expect(movs.getRow(2).getCell(6).value).toBe('Transporte');
+    expect(wb.getWorksheet('Resumen')!.rowCount).toBeGreaterThan(1);
+  });
+});

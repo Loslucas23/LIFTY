@@ -5,6 +5,7 @@ import { lanAddresses } from './network';
 
 export { buildApp, LiftyDb, VERSION, lanAddresses };
 export { importWorkbook } from './excel';
+export { exportWorkbook } from './export';
 
 export interface StartOptions {
   /** Carpeta donde se guardan la base y las copias de seguridad. */

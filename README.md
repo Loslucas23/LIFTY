@@ -18,6 +18,9 @@ copia: todo eso se calcula solo y se carga en segundos desde el celular.
 | **Ahorro** | Metas en pesos y en dólares, depósitos y retiros. |
 | **Año** | Resumen mes a mes (como la hoja RESUMEN) con gráfico de ingresos y gastos. |
 | **Importar Excel** | Trae tu `finanzas.xlsm`: sueldos, fijos, movimientos, tarjeta y meses cerrados. Se puede importar varias veces sin duplicar. |
+| **Exportar a Excel** | Descargá todo en un `.xlsx` (resumen mes a mes, movimientos, sueldos, fijos, peso) desde **Más → Copia de seguridad**. |
+| **Peso** | Anotá tus pesajes: tendencia con promedio de 7 días, cambio semanal y mensual, IMC y meta. |
+| **Para el día a día** | "Lo de siempre": tus gastos más repetidos a un toque (con categoría, cuenta y monto). Duplicar un movimiento. Avisos de lo que vence o ya venció. "Tildar todos" los fijos. Cuánto gastaste por categoría comparado con el mes anterior. Tema claro u oscuro. |
 
 ## Cómo se conectan la compu y el celular
 
@@ -50,7 +53,17 @@ aceptalo para "redes privadas" para que el celular pueda entrar.
 
 ## Instalar
 
-### El programa para la compu
+### En Windows, con los .bat (lo más simple)
+
+1. En GitHub: **Code → Download ZIP** y descomprimilo en una carpeta (por ejemplo `Documentos\Lifty`).
+   Si tenés git: `git clone` es mejor, porque después se actualiza solo.
+2. Doble clic en **`instalar-lifty.bat`**: instala Node.js si no lo tenés, todo lo demás, y compila Lifty.
+   Al final te ofrece generar el instalador `.exe` y abrir Lifty.
+3. Para abrirlo después: **`iniciar-lifty.bat`**.
+4. Para pasar a una versión nueva: **`actualizar-lifty.bat`** (con git baja los cambios solo; si bajaste el
+   ZIP, te explica qué hacer). Tus datos no se tocan.
+
+### Con el instalador
 
 Los instaladores se generan en GitHub: **Actions → "Instaladores de escritorio" → Run workflow**. Al terminar,
 en la corrida aparecen `Lifty-Windows` (instalador `.exe`), `Lifty-Linux` (`.AppImage`) y `Lifty-macOS` (`.dmg`).
@@ -61,7 +74,14 @@ Si creás un tag `v0.1.0`, también se publican en "Releases".
 
 Tus datos quedan en `%APPDATA%\Lifty\data` (Windows) o `~/.config/Lifty/data` (Linux), con una copia de
 seguridad automática por día (se guardan las últimas 14). Desde **Más → Copia de seguridad** podés descargar
-todo en un archivo.
+todo en Excel o en un archivo para restaurar.
+
+### Si algo no anda
+
+- Si una pantalla falla, Lifty muestra el error con un botón para volver (en vez de quedar en negro).
+- En el programa: **F5** recarga y **Ctrl+Shift+I** abre las herramientas (pestaña *Console*: lo que esté en
+  rojo es el error).
+- El programa guarda un registro en `%APPDATA%\Lifty\lifty.log`.
 
 ### Desde el código (para desarrollar)
 
@@ -104,12 +124,15 @@ apps/desktop    El programa de escritorio (Electron): arranca el servidor y abre
   uso (vence en 10 minutos) o la contraseña; cada uno recibe un token propio que se puede revocar desde
   **Conectar dispositivos**.
 
-### Agregar un módulo (por ejemplo, Peso)
+### Agregar un módulo (hábitos, gimnasio…)
 
-Lifty guarda todo como registros genéricos, así que un módulo nuevo no necesita tocar la base de datos:
+Lifty guarda todo como registros genéricos, así que un módulo nuevo no necesita tocar la base de datos.
+**Peso** está hecho así y sirve de ejemplo (`weightSchema` en `packages/core/src/schema.ts`, cálculos en
+`packages/core/src/weight.ts` y la pantalla en `apps/web/src/pages/Weight.tsx`):
 
-1. En `packages/core/src/schema.ts`, definí el esquema (por ejemplo `weightSchema` con `date`, `kg`, `note`) y
-   sumalo a `ENTITY_SCHEMAS` y `EntityTypes`. Con eso el servidor ya lo valida y lo sincroniza.
-2. Si tiene cálculos (promedios, tendencia), ponelos en `packages/core` con sus tests.
+1. En `packages/core/src/schema.ts`, definí el esquema y sumalo a `ENTITY_SCHEMAS`, `EntityTypes` y `LiftyData`
+   (y a `toLiftyData` en `store.ts`). Con eso el servidor ya lo valida y lo sincroniza.
+2. Si tiene cálculos, ponelos en `packages/core` con sus tests.
 3. En `apps/web/src/pages/` creá la pantalla, registrala en `App.tsx` y en el menú (`Layout.tsx` / `More.tsx`).
-   Para guardar: `mutate('weight', 'upsert', registro)`; para leer: `useSync().records.weight`.
+   Para guardar: `mutate('entidad', 'upsert', registro)`; para leer: `useData()`.
+4. Sumá la ruta al recorrido de prueba (`apps/desktop/src/smoke-tour.ts`).

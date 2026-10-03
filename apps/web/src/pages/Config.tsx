@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { ACCOUNT_TYPES, monthOf, newId, type Account, type Category } from '@lifty/core';
 import { Icon } from '../components/Icon';
-import { Chips, Field, PageHeader, Section, Sheet, Toggle, toast } from '../components/ui';
+import { Chips, Field, PageHeader, Section, Segmented, Sheet, Toggle, toast } from '../components/ui';
+import { getTheme, setTheme, type Theme } from '../lib/theme';
 import { money, parseAmount } from '../lib/format';
 import { useData, useMonth, useToday } from '../lib/store';
 import { mutate } from '../lib/sync';
@@ -284,6 +285,12 @@ function AccountForm({ account, onClose }: { account: Account | null; onClose: (
 
 export function SettingsPage() {
   const data = useData();
+  // Si llegan ajustes nuevos (de otro dispositivo), el formulario se recarga.
+  return <SettingsForm key={data.settings.updatedAt} />;
+}
+
+function SettingsForm() {
+  const data = useData();
   const s = data.settings;
   const [name, setName] = useState(s.ownerName);
   const [rate, setRate] = useState(String(s.usdRate).replace('.', ','));
@@ -333,6 +340,31 @@ export function SettingsPage() {
           Guardar
         </button>
       </form>
+      <ThemePicker />
     </div>
+  );
+}
+
+function ThemePicker() {
+  const [theme, set] = useState<Theme>(getTheme());
+  return (
+    <Section title="Apariencia">
+      <div className="card pad form">
+        <Segmented
+          label="Tema"
+          value={theme}
+          onChange={(t) => {
+            set(t);
+            setTheme(t);
+          }}
+          options={[
+            { value: 'auto', label: 'Automático' },
+            { value: 'light', label: 'Claro' },
+            { value: 'dark', label: 'Oscuro' },
+          ]}
+        />
+        <p className="muted small">Se guarda en este dispositivo. "Automático" sigue el modo del sistema.</p>
+      </div>
+    </Section>
   );
 }

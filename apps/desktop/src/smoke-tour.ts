@@ -101,9 +101,20 @@ export async function smokeTour(): Promise<string[]> {
   }
   check('guardar movimiento');
 
-  // Tildar un pendiente y abrir el cierre de mes.
+  // Anotar un peso.
+  await go('/peso');
+  clickText('.page-head button', 'Anotar peso');
+  if (!(await waitFor('.sheet .amount-input input'))) problems.push('peso: no se abrió el formulario');
+  type($('.sheet .amount-input input'), '80,5');
+  $<HTMLButtonElement>('.sheet-foot .btn-primary')?.click();
+  if (!(await waitFor('.chart svg'))) problems.push('peso: no se guardó el pesaje');
+  check('peso');
+
+  // Tildar un pendiente, tildar todos y abrir el cierre de mes.
   await go('/presupuesto');
   $<HTMLButtonElement>('.planned .check')?.click();
+  await sleep(150);
+  clickText('.section-head button', 'Tildar todos');
   await sleep(150);
   clickText('.receipt button', 'Cerrar mes');
   await sleep(150);

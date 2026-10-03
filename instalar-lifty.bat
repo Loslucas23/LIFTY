@@ -40,6 +40,9 @@ rem ---- 2) Dependencias ----
 echo [2/4] Instalando dependencias (la primera vez tarda unos minutos)...
 call npm install
 if errorlevel 1 goto :error
+echo        Descargando el motor de la ventana (Electron, solo la primera vez)...
+call node node_modules\electron\install.js
+if errorlevel 1 goto :error
 
 rem ---- 3) Compilar ----
 echo [3/4] Compilando Lifty...
@@ -47,6 +50,12 @@ call npm run build
 if errorlevel 1 goto :error
 call npm run build -w @lifty/desktop
 if errorlevel 1 goto :error
+
+rem En pruebas automaticas (LIFTY_NO_PROMPT=1) no se pregunta nada.
+if defined LIFTY_NO_PROMPT (
+  echo Listo.
+  exit /b 0
+)
 
 rem ---- 4) Instalador opcional ----
 echo.
@@ -72,5 +81,5 @@ exit /b 0
 :error
 echo.
 echo  Algo fallo. Copia el mensaje de arriba y pasamelo.
-pause
+if not defined LIFTY_NO_PROMPT pause
 exit /b 1

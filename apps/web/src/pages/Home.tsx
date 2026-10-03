@@ -1,4 +1,4 @@
-import { monthLabel, monthOf } from '@lifty/core';
+import { monthLabel, monthOf, weightStats } from '@lifty/core';
 import { Icon } from '../components/Icon';
 import { PlannedList } from '../components/Planned';
 import { openTxForm } from '../components/TxForm';
@@ -13,10 +13,14 @@ export function Home() {
   const month = monthOf(today);
   const b = useMonth(month);
   const { category } = useLookups();
-  const pending = [...b.income.planned, ...b.fixed.items].filter((l) => !l.confirmed);
+  // Lo más urgente primero (lo vencido arriba).
+  const pending = [...b.income.planned, ...b.fixed.items]
+    .filter((l) => !l.confirmed)
+    .sort((a, b) => (a.day ?? 99) - (b.day ?? 99));
   const limits = b.categories.filter((c) => c.limit);
   const recent = data.transactions.slice(0, 6);
   const name = data.settings.ownerName;
+  const weight = weightStats(data.weights, { heightCm: data.settings.heightCm, goalKg: data.settings.goalWeightKg });
   const empty = data.transactions.length === 0 && data.incomes.length === 0 && data.fixed.length === 0;
 
   return (
@@ -133,6 +137,23 @@ export function Home() {
           </Empty>
         )}
       </Section>
+
+      {weight.latest && (
+        <Section>
+          <a className="card tile-link" href="#/peso">
+            <Icon name="scale" />
+            <span className="tile-text">
+              <strong>Peso</strong>
+              <span className="muted small">
+                {weight.change7 !== null
+                  ? `${weight.change7 > 0 ? '+' : weight.change7 < 0 ? '−' : ''}${Math.abs(weight.change7).toLocaleString('es-UY')} kg en la semana`
+                  : 'Último pesaje'}
+              </span>
+            </span>
+            <strong>{weight.latest.kg.toLocaleString('es-UY', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} kg</strong>
+          </a>
+        </Section>
+      )}
 
       {b.card.total > 0 && (
         <Section>

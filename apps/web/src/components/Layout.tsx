@@ -11,6 +11,7 @@ const NAV: { href: string; label: string; icon: IconName; match: RegExp }[] = [
   { href: '/anio', label: 'Año', icon: 'calendar', match: /^\/anio/ },
   { href: '/tarjeta', label: 'Tarjeta', icon: 'card', match: /^\/tarjeta/ },
   { href: '/ahorro', label: 'Ahorro', icon: 'piggy', match: /^\/ahorro/ },
+  { href: '/peso', label: 'Peso', icon: 'scale', match: /^\/peso/ },
   {
     href: '/mas',
     label: 'Más',
@@ -62,7 +63,7 @@ export function Layout({ route, children }: { route: string; children: ReactNode
           <TabLink
             key={n.href}
             n={n}
-            on={n.match.test(route) || (n.href === '/mas' && /^\/(anio|tarjeta|ahorro)/.test(route))}
+            on={n.match.test(route) || (n.href === '/mas' && /^\/(anio|tarjeta|ahorro|peso)/.test(route))}
             first={i === 2}
           />
         ))}

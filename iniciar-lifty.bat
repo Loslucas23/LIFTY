@@ -6,5 +6,9 @@ if not exist "apps\desktop\dist\main.cjs" (
   pause
   exit /b 1
 )
-cd /d "%~dp0apps\desktop"
-start "Lifty" /min cmd /c "npx electron ."
+if not exist "node_modules\.bin\electron.cmd" (
+  echo Faltan dependencias. Ejecuta instalar-lifty.bat
+  pause
+  exit /b 1
+)
+start "Lifty" /min cmd /c ""%~dp0node_modules\.bin\electron.cmd" "%~dp0apps\desktop""
