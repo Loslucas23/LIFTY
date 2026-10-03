@@ -74,6 +74,7 @@ export async function smokeTour(): Promise<string[]> {
     '/alimentacion',
     '/deudas',
     '/stock',
+    '/rutinas',
     '/',
   ];
   for (const r of routes) await go(r);
@@ -413,9 +414,38 @@ export async function smokeTour(): Promise<string[]> {
   await sleep(150);
   if (!(await until(() => [...document.querySelectorAll('.shop-row')].some((r) => r.textContent?.includes(stockName)))))
     problems.push('stock: la lista de compras no tiene lo que queda poco');
+  // Lista compartida: agregar lo sugerido, tildar y terminar la compra.
+  clickText('.section-head button', 'Agregar todo');
+  if (!(await until(() => !!$('.shop-row .check[aria-pressed="false"]'))))
+    problems.push('lista de compras: no se agregó lo sugerido');
+  [...document.querySelectorAll<HTMLElement>('.shop-row')]
+    .find((r) => r.textContent?.includes(stockName) && r.querySelector('.check'))
+    ?.querySelector<HTMLButtonElement>('.check')
+    ?.click();
+  await sleep(150);
+  clickText('.shop-total button', 'Terminé');
+  if (await waitFor('.sheet .purchase-line', 2000)) {
+    $<HTMLButtonElement>('.sheet-foot .btn-primary')?.click();
+    await sleep(300);
+  } else problems.push('lista de compras: "Terminé" no abrió la compra');
   check('stock');
   await go('/movimientos');
   if (!document.body.textContent?.includes('Compra del súper')) problems.push('stock: la compra no cargó el gasto');
+
+  // Rutinas: crear un hábito desde las ideas (si no está) y tildarlo.
+  await go('/rutinas');
+  const habit = () =>
+    [...document.querySelectorAll<HTMLElement>('.habit-row')].find((r) => r.textContent?.includes('Tender la cama'));
+  if (!habit()) {
+    clickText('.chips .chip', 'Tender la cama');
+    if (await waitFor('.sheet .day-picker')) await saveSheet('nuevo hábito');
+    else problems.push('rutinas: no se abrió el formulario');
+  }
+  const pressed = () => habit()?.querySelector('.habit-check')?.getAttribute('aria-pressed');
+  const before = pressed();
+  habit()?.querySelector<HTMLButtonElement>('.habit-check')?.click();
+  if (!(await until(() => pressed() !== before))) problems.push('rutinas: no se pudo tildar el hábito');
+  check('rutinas');
 
   // Modo privado (tecla P): oculta los montos y se vuelve a mostrar.
   await go('/');

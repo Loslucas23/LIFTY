@@ -22,6 +22,7 @@ import { Savings } from './pages/Savings';
 import { Weight } from './pages/Weight';
 import { Reports } from './pages/Reports';
 import { Stock } from './pages/Stock';
+import { Routines } from './pages/Routines';
 import { usePrivacy } from './lib/privacy';
 import { Year } from './pages/Year';
 
@@ -49,6 +50,7 @@ const ROUTES: [string, (p: Record<string, string>) => ReactNode][] = [
   ['/alimentacion', () => <Food />],
   ['/deudas', () => <Debts />],
   ['/stock', () => <Stock />],
+  ['/rutinas', () => <Routines />],
 ];
 
 export function App() {

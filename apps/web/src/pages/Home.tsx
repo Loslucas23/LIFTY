@@ -4,6 +4,7 @@ import {
   daysInMonth,
   debtTotals,
   foodCardMonth,
+  habitsToday,
   monthInsights,
   monthLabel,
   monthOf,
@@ -45,6 +46,7 @@ export function Home() {
   const debts = debtTotals(data);
   const foodCards = data.accounts.filter((a) => a.type === 'food' && !a.archived);
   const d = b.daily;
+  const routines = habitsToday(data.habits, data.habitLogs, today);
   const stock = data.stockItems.length ? stockOverview(data.stockItems, data.stockMoves, today, data.settings) : null;
 
   return (
@@ -290,6 +292,17 @@ export function Home() {
                   : 'Debés'
             }
             value={money(Math.round(debts.owedToMe > 0 ? debts.owedToMe : debts.iOwe))}
+          />
+        )}
+        {routines.due.length > 0 && (
+          <Tile
+            href="#/rutinas"
+            icon="check"
+            title="Rutinas de hoy"
+            text={
+              routines.doneCount === routines.due.length ? '¡Todo hecho!' : `Faltan ${routines.due.length - routines.doneCount}`
+            }
+            value={`${routines.doneCount}/${routines.due.length}`}
           />
         )}
         {stock && (

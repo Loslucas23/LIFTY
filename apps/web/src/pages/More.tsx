@@ -30,7 +30,10 @@ const GROUPS: { title: string; items: { href: string; icon: IconName; label: str
   },
   {
     title: 'Salud',
-    items: [{ href: '/peso', icon: 'scale', label: 'Peso', hint: 'Pesajes, tendencia, IMC y meta' }],
+    items: [
+      { href: '/rutinas', icon: 'check', label: 'Rutinas', hint: 'Hábitos del día, estudio, agua, ejercicio y rachas' },
+      { href: '/peso', icon: 'scale', label: 'Peso', hint: 'Pesajes, tendencia, IMC y meta' },
+    ],
   },
   {
     title: 'Lifty',

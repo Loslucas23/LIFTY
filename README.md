@@ -25,6 +25,8 @@ claras y reglas simples.
 | **Importar Excel** | Trae tu `finanzas.xlsm` y antes de importar te muestra, mes a mes, si los totales dan igual que en la planilla y por qué no cuando no. Se puede importar varias veces sin duplicar. |
 | **Exportar y respaldo** | Todo a un `.xlsx` (resumen, movimientos, sueldos, fijos, cuentas, metas, deudas, peso). Copia de seguridad automática todos los días y restaurar. |
 | **Stock de la casa** | Comida, limpieza e higiene: cuánto tenés, cuánto usás por día (aprende de lo que anotás y de cuando contás lo que hay), cuántos días te dura y qué día se termina. Lista de compras automática para cubrir hasta la próxima compra, con cantidades redondeadas al paquete, costo estimado y si te alcanza la tarjeta de alimentación; se puede compartir por WhatsApp. "Registrar compra" suma al stock y carga el gasto en un paso. Precios por unidad (si subieron, dónde está más barato), vencimientos (se usa primero lo más viejo), lo que tirás y cuánto gasta la casa por mes. |
+| **Lista de compras compartida** | Se sincroniza entre la compu y el celular: tildás en el súper y al terminar se registra la compra (stock + gasto). Se le suma lo que falta según el stock o cualquier cosa suelta. |
+| **Rutinas** | Hábitos por momento del día y días de la semana (estudiar 60 min, 8 vasos de agua, ejercicio lunes/miércoles/viernes, medicación…): tildar o sumar, racha (los días que no tocan no la cortan), últimos 7 días y horas de estudio de la semana. |
 | **Peso** | Pesajes con promedio de 7 días, cambio semanal y mensual, IMC y meta. |
 | **Detalles** | Modo privado (el ojo arriba, o la tecla **P**): oculta los montos. En la compu: **N** nuevo movimiento, **/** buscar. Tema claro, oscuro o automático. |
 

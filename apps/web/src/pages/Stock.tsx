@@ -6,13 +6,13 @@ import {
   monthOf,
   newId,
   round2,
-  shoppingListText,
   STOCK_PLACES,
   STOCK_UNITS,
   stockItemSchema,
   stockOverview,
   UNIT_LABEL,
   type StockItem,
+  type ShopEntry,
   type StockMove,
   type StockPlace,
   type StockStatus,
@@ -170,7 +170,10 @@ export function Stock() {
             onChange={setTab}
             options={[
               { value: 'tengo', label: 'Lo que tengo' },
-              { value: 'lista', label: `Comprar${o.shopping.length ? ` (${o.shopping.length})` : ''}` },
+              {
+                value: 'lista',
+                label: `Comprar${data.shopEntries.filter((e) => !e.checked).length ? ` (${data.shopEntries.filter((e) => !e.checked).length})` : o.shopping.length ? ` (${o.shopping.length})` : ''}`,
+              },
               { value: 'vence', label: 'Vence' },
             ]}
           />
@@ -739,29 +742,72 @@ function StockEmpty({ onNew }: { onNew: () => void }) {
   );
 }
 
+/**
+ * Lista de compras compartida: se guarda y se sincroniza (tildás en el súper desde el celular).
+ * Arriba lo que ya está en la lista; abajo lo que Lifty sugiere según tu stock.
+ */
 function ShoppingList({ onBuy, onOpen }: { onBuy: (lines: PurchaseLine[]) => void; onOpen: (id: string) => void }) {
   const data = useData();
   const today = useToday();
   const o = useOverview();
-  const [skip, setSkip] = useState<Set<string>>(new Set());
-  const [extra, setExtra] = useState<string[]>([]);
-  const [qty, setQty] = useState<Record<string, string>>({});
-  const rows = [...o.shopping, ...o.statuses.filter((s) => extra.includes(s.item.id) && s.need === 'ok')];
-  const quantityOf = (s: StockStatus) => parseAmount(qty[s.item.id] ?? '') ?? (s.toBuy || s.item.packSize || 1);
-  const chosen = rows.filter((s) => !skip.has(s.item.id));
-  const unitPrice = (s: StockStatus) => s.prices.last ?? s.prices.average;
-  const total = round2(chosen.reduce((sum, s) => sum + (unitPrice(s) ?? 0) * quantityOf(s), 0));
-  const noPrice = chosen.filter((s) => unitPrice(s) === null).length;
+  const [text, setText] = useState('');
+  const entries = data.shopEntries;
+  const inList = new Set(entries.map((e) => e.itemId).filter(Boolean));
+  const suggested = o.shopping.filter((s) => !inList.has(s.item.id));
+  const statusOf = (id: string | null) => (id ? o.statuses.find((s) => s.item.id === id) : undefined);
+  const unitPrice = (s?: StockStatus) => (s ? (s.prices.last ?? s.prices.average) : null);
+  const cost = (e: ShopEntry) => {
+    const p = unitPrice(statusOf(e.itemId));
+    return p !== null && e.quantity ? p * e.quantity : null;
+  };
+  const total = round2(entries.filter((e) => !e.checked).reduce((s, e) => s + (cost(e) ?? 0), 0));
+  const checked = entries.filter((e) => e.checked);
   const food = data.accounts.find((a) => a.type === 'food' && !a.archived);
   const foodLeft = food ? (foodCardMonth(data, food.id, monthOf(today), today)?.available ?? null) : null;
-  const others = o.statuses.filter((s) => s.need === 'ok' && !extra.includes(s.item.id));
 
+  const add = (s: StockStatus) =>
+    mutate('shopEntry', 'upsert', {
+      id: newId(),
+      updatedAt: '',
+      itemId: s.item.id,
+      name: s.item.name,
+      quantity: s.toBuy || s.item.packSize || 1,
+      unit: UNIT_LABEL[s.item.unit],
+      checked: false,
+    });
+  const addText = () => {
+    const name = text.trim();
+    if (!name) return;
+    const item = data.stockItems.find((i) => i.name.toLowerCase() === name.toLowerCase() && !i.archived);
+    const st = item ? statusOf(item.id) : undefined;
+    if (st) add(st);
+    else
+      mutate('shopEntry', 'upsert', { id: newId(), updatedAt: '', itemId: null, name, quantity: null, unit: '', checked: false });
+    setText('');
+  };
+  const finish = () => {
+    const lines: PurchaseLine[] = checked
+      .filter((e) => e.itemId && statusOf(e.itemId))
+      .map((e) => {
+        const p = unitPrice(statusOf(e.itemId));
+        const q = e.quantity ?? 1;
+        return { itemId: e.itemId!, quantity: q, price: p !== null ? round2(p * q) : null, expiry: null };
+      });
+    // Lo tildado sale de la lista (se puede deshacer).
+    const removed = checked;
+    for (const e of removed) mutate('shopEntry', 'delete', e.id);
+    toast(`Saqué ${removed.length} de la lista`, {
+      action: { label: 'Deshacer', run: () => removed.forEach((e) => mutate('shopEntry', 'upsert', e)) },
+    });
+    if (lines.length) onBuy(lines);
+  };
   const share = async () => {
-    const text = `Lista de compras\n${shoppingListText(chosen.map((s) => ({ status: s, quantity: quantityOf(s) })))}`;
+    const pending = entries.filter((e) => !e.checked);
+    const txt = `Lista de compras\n${pending.map((e) => `• ${e.name}${e.quantity ? `: ${e.quantity.toLocaleString('es-UY')} ${e.unit}` : ''}`).join('\n')}`;
     try {
-      if (navigator.share) await navigator.share({ text });
+      if (navigator.share) await navigator.share({ text: txt });
       else {
-        await navigator.clipboard.writeText(text);
+        await navigator.clipboard.writeText(txt);
         toast('Lista copiada: pegala donde quieras');
       }
     } catch {
@@ -769,113 +815,137 @@ function ShoppingList({ onBuy, onOpen }: { onBuy: (lines: PurchaseLine[]) => voi
     }
   };
 
-  if (!rows.length)
-    return (
-      <Empty icon="cart" title="No hace falta comprar nada">
-        Con lo que usás, lo que tenés te alcanza hasta la próxima compra ({data.settings.shoppingDays} días).
-        {others.length > 0 && (
-          <button className="btn" onClick={() => setExtra([others[0].item.id])}>
-            Agregar algo igual
-          </button>
-        )}
-      </Empty>
-    );
-
   return (
-    <Section
-      title="Lista de compras"
-      action={
-        <button className="link" onClick={() => void share()}>
-          Compartir
-        </button>
-      }
-    >
-      <div className="card list">
-        {rows.map((s) => {
-          const on = !skip.has(s.item.id);
-          const price = unitPrice(s);
-          return (
-            <div key={s.item.id} className={`tx-row static shop-row ${on ? '' : 'off'}`}>
-              <button
-                className="check"
-                aria-pressed={on}
-                aria-label={on ? `Sacar ${s.item.name} de la lista` : `Volver a poner ${s.item.name}`}
-                onClick={() => {
-                  const next = new Set(skip);
-                  if (on) next.add(s.item.id);
-                  else next.delete(s.item.id);
-                  setSkip(next);
-                }}
-              >
-                <Icon name="check" size={16} />
-              </button>
-              <button className="tx-main" onClick={() => onOpen(s.item.id)}>
-                <span className="tx-title">
-                  {s.item.icon} {s.item.name}
-                </span>
-                <span className="tx-meta">
-                  {s.reason}
-                  {price !== null ? ` · ~${money(Math.round(price * quantityOf(s)))}` : ' · sin precio'}
-                </span>
-              </button>
-              <label className="shop-qty">
-                <input
-                  inputMode="decimal"
-                  value={qty[s.item.id] ?? String(quantityOf(s)).replace('.', ',')}
-                  onChange={(e) => setQty({ ...qty, [s.item.id]: e.target.value })}
-                  aria-label={`Cantidad de ${s.item.name}`}
-                />
-                <span>{UNIT_LABEL[s.item.unit]}</span>
-              </label>
-            </div>
-          );
-        })}
-      </div>
-      {others.length > 0 && (
-        <select
-          value=""
-          onChange={(e) => e.target.value && setExtra([...extra, e.target.value])}
-          aria-label="Agregar otro producto a la lista"
+    <>
+      <Section
+        title={`Lista de compras${entries.length ? ` (${entries.filter((e) => !e.checked).length})` : ''}`}
+        action={
+          entries.length > 0 && (
+            <button className="link" onClick={() => void share()}>
+              Compartir
+            </button>
+          )
+        }
+      >
+        <form
+          className="add-row shop-add"
+          onSubmit={(e) => {
+            e.preventDefault();
+            addText();
+          }}
         >
-          <option value="">+ Agregar otro producto a la lista…</option>
-          {others.map((s) => (
-            <option key={s.item.id} value={s.item.id}>
-              {s.item.icon} {s.item.name} (tenés {fmtQty(s.quantity, s.item.unit)})
-            </option>
-          ))}
-        </select>
-      )}
-      <div className="card pad shop-total">
-        <div className="limit-head">
-          <span>
-            Estimado ({chosen.length} producto{chosen.length === 1 ? '' : 's'})
-          </span>
-          <strong>~{money(Math.round(total))}</strong>
-        </div>
-        {noPrice > 0 && <p className="muted small">{noPrice} sin precio todavía: se completa cuando registres la compra.</p>}
-        {foodLeft !== null && (
-          <p className={`small ${foodLeft >= total ? 'text-income' : 'text-expense'}`}>
-            🍽️ En la tarjeta de alimentación te quedan {money(Math.round(foodLeft))}:{' '}
-            {foodLeft >= total ? 'te alcanza' : `te faltan ~${money(Math.round(total - foodLeft))}`}.
+          <input
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+            placeholder="Agregar algo (ej: velas, pan)…"
+            list="lifty-stock-names"
+            aria-label="Agregar a la lista"
+          />
+          <datalist id="lifty-stock-names">
+            {data.stockItems
+              .filter((i) => !i.archived)
+              .map((i) => (
+                <option key={i.id} value={i.name} />
+              ))}
+          </datalist>
+          <button className="btn" type="submit" disabled={!text.trim()}>
+            <Icon name="plus" />
+          </button>
+        </form>
+        {entries.length === 0 ? (
+          <p className="muted small">
+            La lista está vacía. Se comparte entre tus dispositivos: tildá en el súper desde el celular.
           </p>
+        ) : (
+          <div className="card list">
+            {entries.map((e) => {
+              const c = cost(e);
+              return (
+                <div key={e.id} className={`tx-row static shop-row ${e.checked ? 'off' : ''}`}>
+                  <button
+                    className="check"
+                    aria-pressed={e.checked}
+                    aria-label={e.checked ? `Destildar ${e.name}` : `Tildar ${e.name}`}
+                    onClick={() => mutate('shopEntry', 'upsert', { ...e, checked: !e.checked })}
+                  >
+                    <Icon name="check" size={16} />
+                  </button>
+                  <button className="tx-main" onClick={() => e.itemId && onOpen(e.itemId)}>
+                    <span className="tx-title">{e.name}</span>
+                    <span className="tx-meta">
+                      {[
+                        e.quantity ? `${e.quantity.toLocaleString('es-UY')} ${e.unit}` : null,
+                        c !== null ? `~${money(Math.round(c))}` : null,
+                      ]
+                        .filter(Boolean)
+                        .join(' · ') || (e.itemId ? '' : 'no está en el stock')}
+                    </span>
+                  </button>
+                  <button
+                    className="icon-btn"
+                    aria-label={`Sacar ${e.name}`}
+                    onClick={() => {
+                      mutate('shopEntry', 'delete', e.id);
+                      toast(`${e.name} fuera de la lista`, {
+                        action: { label: 'Deshacer', run: () => mutate('shopEntry', 'upsert', e) },
+                      });
+                    }}
+                  >
+                    <Icon name="x" size={16} />
+                  </button>
+                </div>
+              );
+            })}
+          </div>
         )}
-        <button
-          className="btn btn-primary"
-          disabled={!chosen.length}
-          onClick={() =>
-            onBuy(
-              chosen.map((s) => {
-                const q = quantityOf(s);
-                const price = unitPrice(s);
-                return { itemId: s.item.id, quantity: q, price: price !== null ? round2(price * q) : null, expiry: null };
-              }),
-            )
+        {entries.length > 0 && (
+          <div className="card pad shop-total">
+            <div className="limit-head">
+              <span>Falta comprar (estimado)</span>
+              <strong>~{money(Math.round(total))}</strong>
+            </div>
+            {foodLeft !== null && total > 0 && (
+              <p className={`small ${foodLeft >= total ? 'text-income' : 'text-expense'}`}>
+                🍽️ En la tarjeta de alimentación te quedan {money(Math.round(foodLeft))}:{' '}
+                {foodLeft >= total ? 'te alcanza' : `te faltan ~${money(Math.round(total - foodLeft))}`}.
+              </p>
+            )}
+            <button className="btn btn-primary" disabled={!checked.length} onClick={finish}>
+              <Icon name="cart" /> Terminé: registrar lo tildado ({checked.length})
+            </button>
+          </div>
+        )}
+      </Section>
+
+      {suggested.length > 0 && (
+        <Section
+          title="Te falta según tu stock"
+          action={
+            <button className="link" onClick={() => suggested.forEach(add)}>
+              Agregar todo
+            </button>
           }
         >
-          <Icon name="cart" /> Ya compré esto
-        </button>
-      </div>
-    </Section>
+          <div className="card list">
+            {suggested.map((s) => (
+              <div key={s.item.id} className="tx-row static shop-row">
+                <span className="tx-icon">{s.item.icon}</span>
+                <button className="tx-main" onClick={() => onOpen(s.item.id)}>
+                  <span className="tx-title">{s.item.name}</span>
+                  <span className="tx-meta">
+                    {s.reason} Comprar {fmtQty(s.toBuy, s.item.unit)}
+                    {s.estimatedCost !== null ? ` · ~${money(Math.round(s.estimatedCost))}` : ''}
+                  </span>
+                </button>
+                <button className="btn btn-ghost small" onClick={() => add(s)} aria-label={`Agregar ${s.item.name} a la lista`}>
+                  <Icon name="plus" size={16} />
+                </button>
+              </div>
+            ))}
+          </div>
+        </Section>
+      )}
+    </>
   );
 }
 

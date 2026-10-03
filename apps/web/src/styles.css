@@ -2663,3 +2663,58 @@ button.tx-main {
   text-align: left;
   align-items: flex-start;
 }
+
+/* Lista compartida y rutinas */
+.shop-add {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.shop-add input {
+  flex: 1;
+}
+.routine-progress {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.habit-row.done .tx-title {
+  color: var(--muted);
+}
+.habit-row .check[aria-pressed='true'] {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-ink);
+}
+.habit-week {
+  display: flex;
+  gap: 3px;
+  margin-top: 4px;
+}
+.habit-week i {
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+  background: color-mix(in srgb, var(--bad) 25%, var(--surface-2));
+}
+.habit-week i.ok {
+  background: var(--accent);
+}
+.habit-week i.off {
+  background: var(--surface-2);
+}
+.day-picker {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.day-picker .chip {
+  min-width: 40px;
+  justify-content: center;
+}
+.day-picker .chip.on {
+  background: color-mix(in srgb, var(--accent) 16%, var(--surface));
+  border-color: var(--accent);
+  color: var(--accent);
+  font-weight: 700;
+}

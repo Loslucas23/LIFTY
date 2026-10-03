@@ -314,6 +314,46 @@ export const stockMoveSchema = z.object({
 });
 export type StockMove = z.infer<typeof stockMoveSchema>;
 
+/** Lista de compras compartida (se tilda en el súper y se ve en todos los dispositivos). */
+export const shopEntrySchema = z.object({
+  ...base,
+  /** Si es un producto del stock; si no, es algo suelto ("velas de cumpleaños"). */
+  itemId: id.nullable().default(null),
+  name: z.string().trim().min(1).max(60),
+  quantity: z.number().min(0).nullable().default(null),
+  unit: z.string().max(10).default(''),
+  checked: z.boolean().default(false),
+});
+export type ShopEntry = z.infer<typeof shopEntrySchema>;
+
+/** Rutinas y hábitos: tomar agua, estudiar, ejercicio, tender la cama… */
+export const HABIT_AREAS = ['rutina', 'estudio', 'salud', 'casa', 'otro'] as const;
+export const HABIT_TIMES = ['mañana', 'tarde', 'noche', 'cualquiera'] as const;
+export const habitSchema = z.object({
+  ...base,
+  name: z.string().trim().min(1).max(60),
+  icon: z.string().max(8).default('✅'),
+  area: z.enum(HABIT_AREAS).default('rutina'),
+  time: z.enum(HABIT_TIMES).default('cualquiera'),
+  /** Días de la semana (0 = domingo … 6 = sábado). */
+  days: z.array(z.number().int().min(0).max(6)).min(1).max(7).default([0, 1, 2, 3, 4, 5, 6]),
+  /** Meta del día (1 = hecho / no hecho; 8 vasos; 60 minutos…). */
+  target: z.number().positive().max(10000).default(1),
+  unit: z.string().max(12).default(''),
+  sort: z.number().default(0),
+  archived: z.boolean().default(false),
+});
+export type Habit = z.infer<typeof habitSchema>;
+
+/** Lo hecho de un hábito en un día. El id es `${habitId}:${fecha}`. */
+export const habitLogSchema = z.object({
+  ...base,
+  habitId: id,
+  date,
+  value: z.number().min(0).max(100000),
+});
+export type HabitLog = z.infer<typeof habitLogSchema>;
+
 export const ENTITY_SCHEMAS = {
   account: accountSchema,
   category: categorySchema,
@@ -328,6 +368,9 @@ export const ENTITY_SCHEMAS = {
   debt: debtSchema,
   stockItem: stockItemSchema,
   stockMove: stockMoveSchema,
+  shopEntry: shopEntrySchema,
+  habit: habitSchema,
+  habitLog: habitLogSchema,
 } as const;
 
 export type EntityName = keyof typeof ENTITY_SCHEMAS;
@@ -347,6 +390,9 @@ export interface EntityTypes {
   debt: Debt;
   stockItem: StockItem;
   stockMove: StockMove;
+  shopEntry: ShopEntry;
+  habit: Habit;
+  habitLog: HabitLog;
 }
 
 export function isEntityName(value: string): value is EntityName {
@@ -381,4 +427,7 @@ export interface LiftyData {
   debts: Debt[];
   stockItems: StockItem[];
   stockMoves: StockMove[];
+  shopEntries: ShopEntry[];
+  habits: Habit[];
+  habitLogs: HabitLog[];
 }
