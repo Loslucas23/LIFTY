@@ -1,5 +1,14 @@
 import { useState } from 'react';
-import { accountBalances, addMonths, daysInMonth, monthLabel, monthOf, round2, type MonthBudget, type TxLine } from '@lifty/core';
+import {
+  accountBalances,
+  addMonths,
+  daysInMonth,
+  moneyCheck,
+  monthLabel,
+  monthOf,
+  type MonthBudget,
+  type TxLine,
+} from '@lifty/core';
 import { openBudgetEditor, openBudgetWizard, openExplain, openFixedForm, openIncomeForm } from '../components/Editors';
 import { Icon } from '../components/Icon';
 import { PlannedList } from '../components/Planned';
@@ -353,7 +362,8 @@ function CloseMonth({ b, onClose }: { b: MonthBudget; onClose: () => void }) {
   const balances = accountBalances(data, monthEnd < today ? monthEnd : today).filter(
     (x) => (x.account.type === 'bank' || x.account.type === 'cash') && !x.account.archived,
   );
-  const fromAccounts = round2(balances.reduce((s, x) => s + x.balanceUYU, 0));
+  // Lo disponible según tus cuentas al terminar el mes: sin el ahorro apartado ni lo que debés de la tarjeta.
+  const fromAccounts = Math.round(moneyCheck(data, monthEnd < today ? monthEnd : today, b).available);
   const accountsSet = balances.some((x) => x.balance !== 0);
   const [text, setText] = useState(String(b.closing?.realBalance ?? Math.round(b.result)).replace('.', ','));
   const [note, setNote] = useState(b.closing?.note ?? '');
@@ -404,7 +414,7 @@ function CloseMonth({ b, onClose }: { b: MonthBudget; onClose: () => void }) {
         </p>
         {accountsSet && (
           <button type="button" className="chip chip-add" onClick={() => setText(String(fromAccounts))}>
-            Usar la suma de tus cuentas: {money(fromAccounts)}
+            Usar lo que dicen tus cuentas: {money(fromAccounts)}
           </button>
         )}
         <Field label="Saldo real" error={value === null ? 'Escribí un monto' : null}>

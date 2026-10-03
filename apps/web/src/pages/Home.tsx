@@ -17,6 +17,7 @@ import {
 import { confirmPlanned } from '../lib/actions';
 import { openBudgetEditor, openBudgetWizard, openExplain, openFixedForm, openIncomeForm, openMenu } from '../components/Editors';
 import { Icon, type IconName } from '../components/Icon';
+import { useMoneyCheck } from '../components/MoneyCheck';
 import { openTxForm } from '../components/TxForm';
 import { TxRow } from '../components/TxRow';
 import { Empty, Progress, Section, toast } from '../components/ui';
@@ -144,6 +145,8 @@ export function Home() {
       </div>
 
       <SurplusProposal month={month} />
+
+      {!empty && <MoneyMismatch />}
 
       {empty && (
         <Section>
@@ -444,6 +447,26 @@ function EventRow({ event: e }: { event: UpcomingEvent }) {
       </button>
       <span className="planned-amount">{money(e.amount)}</span>
     </li>
+  );
+}
+
+/** Aviso si lo que hay en las cuentas no coincide con lo que dice el presupuesto. */
+function MoneyMismatch() {
+  const c = useMoneyCheck();
+  if (Math.abs(c.difference) < 100) return null;
+  return (
+    <a className="card pad tile-link mismatch" href="#/cuentas">
+      <span aria-hidden="true">⚖️</span>
+      <span className="tile-text">
+        <strong>Tus cuentas no cuadran por {money(Math.round(Math.abs(c.difference)))}</strong>
+        <span className="muted small">
+          {c.difference < 0
+            ? 'En tus cuentas hay menos plata de la que dice tu presupuesto: ¿algún gasto sin anotar?'
+            : 'En tus cuentas hay más plata de la que dice tu presupuesto: ¿algún ingreso sin anotar?'}
+        </span>
+      </span>
+      <Icon name="right" size={18} />
+    </a>
   );
 }
 

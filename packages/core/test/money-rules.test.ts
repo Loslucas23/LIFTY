@@ -15,6 +15,7 @@ import {
   incomeSchema,
   initialBalanceFor,
   monthInsights,
+  moneyCheck,
   noSpendDays,
   netWorthAt,
   seedRecords,
@@ -437,5 +438,79 @@ describe('etiquetas y días sin gastar', () => {
     });
     // Del 1 al 11: se gastó el 2 y el 6 → 9 días sin gastar; racha del 7 al 10 = 4 días.
     expect(noSpendDays(d, '2026-10', '2026-10-11')).toEqual({ days: 9, of: 11, streak: 4 });
+  });
+});
+
+describe('¿dónde está tu plata?', () => {
+  it('lo de tus cuentas cuadra con el presupuesto (ahorro en cuenta, tarjeta, préstamos, gasto dividido)', () => {
+    const brouAhorro = goalSchema.parse({ id: 'g-brou', name: 'Colchón', accountId: 'acc-brou' });
+    const d = data({
+      incomes: [salary],
+      fixed: [rent],
+      goals: [brouAhorro],
+      transactions: [
+        tx({
+          date: '2026-10-05',
+          kind: 'income',
+          amount: 40000,
+          accountId: 'acc-brou',
+          linkKind: 'salary',
+          linkId: 'job',
+          linkMonth: '2026-10',
+        }),
+        tx({ date: '2026-10-06', kind: 'expense', amount: 1000, accountId: 'acc-brou' }),
+        // Ahorro que queda en el BROU, apartado: no sale de la cuenta.
+        tx({ date: '2026-10-06', kind: 'saving', amount: 5000, accountId: 'acc-brou', goalId: 'g-brou' }),
+        // Compra en 3 cuotas: este mes cuenta 1000, faltan 2000 de meses que vienen.
+        tx({ date: '2026-10-07', kind: 'expense', amount: 3000, accountId: 'acc-tarjeta', installments: 3 }),
+        // Gasto dividido en efectivo: la mitad es de Ana.
+        tx({
+          date: '2026-10-08',
+          kind: 'expense',
+          amount: 1000,
+          accountId: 'acc-efectivo',
+          sharedAmount: 500,
+          sharedWith: 'Ana',
+        }),
+      ],
+      debts: [
+        debtSchema.parse({
+          id: 'd1',
+          person: 'Juan',
+          direction: 'lent',
+          amount: 2000,
+          date: '2026-10-09',
+          accountId: 'acc-brou',
+        }),
+        debtSchema.parse({ id: 'd2', person: 'Ana', direction: 'lent', amount: 500, date: '2026-10-08', fromTxId: 'x' }),
+      ],
+    });
+    const c = moneyCheck(d, '2026-10-11');
+    // BROU 40000 − 1000 − 2000 = 37000 (el ahorro sigue ahí); efectivo −1000.
+    expect(c.cash).toBe(36000);
+    expect(c.savingsInAccounts).toBe(5000);
+    expect(c.cardOwed).toBe(1000);
+    expect(c.cardFuture).toBe(2000);
+    expect(c.owedToMe).toBe(2500);
+    expect(c.available).toBe(32500);
+    expect(c.budget.value).toBe(32500);
+    expect(c.difference).toBe(0);
+    // Falta pagar el alquiler (16000) este mes.
+    expect(c.pendingFixed).toBe(16000);
+    expect(c.untilMonthEnd).toBe(32500 - 16000);
+  });
+
+  it('muestra la diferencia cuando falta anotar un gasto', () => {
+    const d = data({
+      transactions: [tx({ date: '2026-10-05', kind: 'income', amount: 10000, accountId: 'acc-brou' })],
+    });
+    // El banco dice 9000: ajusto el saldo inicial y aparece la diferencia.
+    d.accounts = d.accounts.map((a) =>
+      a.id === 'acc-brou' ? { ...a, initialBalance: initialBalanceFor(d, 'acc-brou', 9000, '2026-10-11') } : a,
+    );
+    const c = moneyCheck(d, '2026-10-11');
+    expect(c.available).toBe(9000);
+    expect(c.budget.value).toBe(10000);
+    expect(c.difference).toBe(-1000);
   });
 });

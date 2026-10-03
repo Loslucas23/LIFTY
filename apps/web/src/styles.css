@@ -2530,3 +2530,31 @@ button.stat {
 .tag-input input::-webkit-calendar-picker-indicator {
   display: none !important;
 }
+
+/* ¿Dónde está tu plata? */
+.where {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.where-bar {
+  display: flex;
+  height: 12px;
+  border-radius: 999px;
+  overflow: hidden;
+  background: var(--surface-2);
+  gap: 2px;
+}
+.where-bar span {
+  min-width: 3px;
+}
+.where-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  margin-right: 6px;
+}
+.mismatch {
+  border-color: var(--warn);
+}

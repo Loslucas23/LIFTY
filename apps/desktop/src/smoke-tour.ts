@@ -356,6 +356,16 @@ export async function smokeTour(): Promise<string[]> {
   }
   check('tarjeta');
 
+  // ¿Dónde está tu plata? (cuadre de cuentas y presupuesto)
+  await go('/cuentas');
+  if (!(await waitFor('.where'))) problems.push('cuadre: no aparece "¿Dónde está tu plata?"');
+  if ($('.where button.link')?.textContent?.includes('Arreglarlo')) {
+    $<HTMLButtonElement>('.where button.link:last-of-type')?.click();
+    if (!(await waitFor('.action-list'))) problems.push('cuadre: no se abrió "Arreglarlo"');
+    await closeSheet();
+  }
+  check('cuadre');
+
   // Modo privado (tecla P): oculta los montos y se vuelve a mostrar.
   await go('/');
   const pressP = () => window.dispatchEvent(new KeyboardEvent('keydown', { key: 'p', bubbles: true }));

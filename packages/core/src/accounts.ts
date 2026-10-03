@@ -30,6 +30,7 @@ export function accountBalances(data: LiftyData, upTo: string): AccountBalance[]
   const rate = data.settings.usdRate;
   const flows = new Map<string, number>(data.accounts.map((a) => [a.id, 0]));
   const byId = new Map(data.accounts.map((a) => [a.id, a]));
+  const goalAccount = new Map(data.goals.filter((g) => g.accountId).map((g) => [g.id, g.accountId!]));
   const add = (accountId: string | null, amount: number, currency: Currency, r: number) => {
     if (!accountId) return;
     const acc = byId.get(accountId);
@@ -44,9 +45,15 @@ export function accountBalances(data: LiftyData, upTo: string): AccountBalance[]
         add(tx.accountId, tx.amount, tx.currency, r);
         break;
       case 'expense':
-      case 'saving':
         add(tx.accountId, -tx.amount, tx.currency, r);
         break;
+      case 'saving': {
+        // Si la meta tiene cuenta, la plata pasa (o queda) ahí, apartada. Si no, sale de tus cuentas.
+        add(tx.accountId, -tx.amount, tx.currency, r);
+        const to = tx.goalId ? goalAccount.get(tx.goalId) : undefined;
+        if (to) add(to, tx.amount, tx.currency, r);
+        break;
+      }
       case 'transfer':
         add(tx.accountId, -tx.amount, tx.currency, r);
         add(tx.toAccountId, tx.amount, tx.currency, r);
@@ -193,8 +200,11 @@ export function netWorthAt(data: LiftyData, date: string): NetWorth {
     else cash += b.balanceUYU;
   }
   let savings = 0;
+  // El ahorro guardado en una cuenta ya está en "cash": solo se suma el que está fuera de tus cuentas.
+  const inAccount = new Set(data.goals.filter((g) => g.accountId).map((g) => g.id));
   for (const t of data.transactions) {
-    if (t.kind === 'saving' && t.date <= date) savings += convert(t.amount, t.currency, 'UYU', txRateOf(t, rate));
+    if (t.kind === 'saving' && t.date <= date && !(t.goalId && inAccount.has(t.goalId)))
+      savings += convert(t.amount, t.currency, 'UYU', txRateOf(t, rate));
   }
   let owedToMe = 0;
   let iOwe = 0;

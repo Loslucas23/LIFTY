@@ -53,7 +53,19 @@ function acc(id: string, name: string, type: Account['type'], icon: string, colo
 }
 
 function goal(id: string, name: string, currency: Goal['currency'], icon: string, color: string): Goal {
-  return { id, updatedAt: at, name, currency, target: null, targetMonth: null, startMonth: null, icon, color, archived: false };
+  return {
+    id,
+    updatedAt: at,
+    name,
+    currency,
+    target: null,
+    targetMonth: null,
+    startMonth: null,
+    accountId: null,
+    icon,
+    color,
+    archived: false,
+  };
 }
 
 /** Datos iniciales, inspirados en la hoja "parametros" de la planilla. Ids fijos: el seed es idempotente. */

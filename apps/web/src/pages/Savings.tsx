@@ -116,6 +116,13 @@ export function Savings() {
                   )}
                 </div>
                 <p className="goal-value">{money(g.balance, g.currency)}</p>
+                {goal && (
+                  <p className="muted small">
+                    {goal.accountId
+                      ? `Guardado en ${data.accounts.find((a) => a.id === goal.accountId)?.name ?? 'una cuenta'}`
+                      : 'Guardado fuera de tus cuentas'}
+                  </p>
+                )}
                 {g.currency === 'USD' && <p className="muted small">≈ {money(Math.round(g.balanceUYU))}</p>}
                 {g.target && <Progress value={g.balance} max={g.target} label={`Avance de ${g.name}`} />}
                 {plan && <PlanLine plan={plan} />}
@@ -445,6 +452,8 @@ function GoalForm({ goal, onClose }: { goal: Goal | null; onClose: () => void })
   const [currency, setCurrency] = useState<Currency>(goal?.currency ?? 'UYU');
   const [target, setTarget] = useState(goal?.target ? String(goal.target) : '');
   const [targetMonth, setTargetMonth] = useState(goal?.targetMonth ?? '');
+  const [accountId, setAccountId] = useState<string | null>(goal?.accountId ?? null);
+  const places = data.accounts.filter((a) => (a.type === 'bank' || a.type === 'cash') && (!a.archived || a.id === accountId));
   const t = parseAmount(target) ?? 0;
   const balance = goal ? (goalBalances(data).find((g) => g.goalId === goal.id)?.balance ?? 0) : 0;
   const monthsLeft = targetMonth ? Math.max(1, monthDiff(month, targetMonth) + 1) : 0;
@@ -462,6 +471,7 @@ function GoalForm({ goal, onClose }: { goal: Goal | null; onClose: () => void })
       targetMonth: targetMonth || null,
       // Desde cuándo se ahorra: para saber si vas adelantado o atrasado.
       startMonth: targetMonth ? (goal?.startMonth ?? month) : null,
+      accountId,
       archived: goal?.archived ?? false,
     });
     toast('Meta guardada');
@@ -522,6 +532,24 @@ function GoalForm({ goal, onClose }: { goal: Goal | null; onClose: () => void })
             options={[
               { value: 'UYU', label: 'Pesos' },
               { value: 'USD', label: 'Dólares' },
+            ]}
+          />
+        </Field>
+        <Field
+          label="¿Dónde la tenés guardada?"
+          hint={
+            accountId
+              ? 'Ahorrar no saca la plata de esa cuenta: queda ahí, apartada, y no cuenta para gastar.'
+              : 'Fuera de tus cuentas (alcancía, otro banco…): ahorrar la saca de la cuenta de donde sale.'
+          }
+        >
+          <Chips
+            label="Dónde está guardada"
+            value={accountId}
+            onChange={setAccountId}
+            options={[
+              { value: null, label: 'Fuera de mis cuentas' },
+              ...places.map((a) => ({ value: a.id as string | null, label: a.name, icon: a.icon })),
             ]}
           />
         </Field>

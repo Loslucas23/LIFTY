@@ -11,6 +11,7 @@ import {
 } from '@lifty/core';
 import { openExplain, openMenu, openPrompt } from '../components/Editors';
 import { Icon } from '../components/Icon';
+import { WhereIsMyMoney } from '../components/MoneyCheck';
 import { openTxForm } from '../components/TxForm';
 import { Chips, Field, PageHeader, Section, Sheet, Toggle, toast } from '../components/ui';
 import { money, parseAmount } from '../lib/format';
@@ -128,7 +129,8 @@ export function Accounts() {
             intro: 'La suma de tus bancos y el efectivo, en pesos (los dólares a la cotización actual).',
             rows: money_.map((b) => ({ label: b.account.name, value: b.balanceUYU, op: '+' as const })),
             result: { label: 'Total', value: totalMoney },
-            footnote: 'Cada saldo es: saldo inicial + ingresos − gastos − ahorros ± transferencias ± préstamos.',
+            footnote:
+              'Cada saldo es: saldo inicial + ingresos − gastos ± transferencias ± préstamos. El ahorro sale de la cuenta solo si la meta está guardada fuera de tus cuentas.',
           })
         }
       >
@@ -149,6 +151,8 @@ export function Accounts() {
           </a>
         </div>
       </section>
+
+      <WhereIsMyMoney />
 
       <Section title="Bancos y efectivo">
         <div className="card list">{money_.map(row)}</div>

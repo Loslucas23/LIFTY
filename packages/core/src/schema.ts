@@ -170,6 +170,11 @@ export const goalSchema = z.object({
   targetMonth: month.nullable().default(null),
   /** Desde cuándo se ahorra para la meta (para saber si vas atrasado o adelantado). */
   startMonth: month.nullable().default(null),
+  /**
+   * Dónde está guardada la plata (ej: BROU dólares). Si se indica, ahorrar no la saca de tus
+   * cuentas: queda en esa cuenta, apartada. Si no, se considera guardada fuera de tus cuentas.
+   */
+  accountId: id.nullable().default(null),
   color,
   icon,
   archived: z.boolean().default(false),
