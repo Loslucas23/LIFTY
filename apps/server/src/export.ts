@@ -1,6 +1,12 @@
 import ExcelJS from 'exceljs';
 import {
+  accountBalances,
   computeMonths,
+  countsInBudget,
+  debtStatus,
+  goalBalances,
+  goalPlans,
+  offBudgetAccounts,
   effectiveStartMonth,
   monthLabel,
   monthOf,
@@ -78,9 +84,12 @@ export async function exportWorkbook(data: LiftyData, today = todayISO()): Promi
     { header: 'Monto en $', key: 'uyu', width: 14, money: true },
     { header: 'Categoría / meta', key: 'categoria', width: 22 },
     { header: 'Cuenta', key: 'cuenta', width: 18 },
+    { header: 'A la cuenta', key: 'destino', width: 18 },
     { header: 'Detalle', key: 'detalle', width: 32 },
     { header: 'Cuotas', key: 'cuotas', width: 8 },
+    { header: 'Cuenta en el presupuesto', key: 'presupuesto', width: 12 },
   ]);
+  const off = offBudgetAccounts(data);
   for (const t of [...data.transactions].sort((a, b) => a.date.localeCompare(b.date))) {
     movs.addRow({
       fecha: new Date(`${t.date}T12:00:00Z`),
@@ -90,8 +99,10 @@ export async function exportWorkbook(data: LiftyData, today = todayISO()): Promi
       uyu: txToUYU(t, rate),
       categoria: t.kind === 'saving' ? (goal.get(t.goalId ?? '') ?? 'Ahorro') : (category.get(t.categoryId ?? '') ?? ''),
       cuenta: account.get(t.accountId ?? '') ?? '',
+      destino: account.get(t.toAccountId ?? '') ?? '',
       detalle: t.description,
       cuotas: t.installments > 1 ? t.installments : null,
+      presupuesto: countsInBudget(t, off) ? 'Sí' : 'No',
     });
   }
   movs.getColumn('fecha').numFmt = 'dd/mm/yyyy';
@@ -142,6 +153,88 @@ export async function exportWorkbook(data: LiftyData, today = todayISO()): Promi
     });
   }
   finish(fijos);
+
+  // ---- Cuentas ----
+  const cuentas = sheet(wb, 'Cuentas', [
+    { header: 'Cuenta', key: 'cuenta', width: 22 },
+    { header: 'Tipo', key: 'tipo', width: 16 },
+    { header: 'Moneda', key: 'moneda', width: 8 },
+    { header: 'Saldo', key: 'saldo', width: 14, money: true },
+    { header: 'Saldo en $', key: 'uyu', width: 14, money: true },
+  ]);
+  const ACCOUNT_TYPE = {
+    bank: 'Banco',
+    cash: 'Efectivo',
+    credit: 'Tarjeta de crédito',
+    food: 'Alimentación (aparte)',
+  } as const;
+  for (const b of accountBalances(data, today)) {
+    if (b.account.archived && b.balance === 0) continue;
+    cuentas.addRow({
+      cuenta: b.account.name,
+      tipo: ACCOUNT_TYPE[b.account.type],
+      moneda: b.account.currency,
+      saldo: b.balance,
+      uyu: b.balanceUYU,
+    });
+  }
+  finish(cuentas);
+
+  // ---- Metas de ahorro ----
+  const balances = goalBalances(data);
+  if (balances.length) {
+    const plans = new Map(goalPlans(data, today).map((p) => [p.goal.id, p]));
+    const metas = sheet(wb, 'Metas', [
+      { header: 'Meta', key: 'meta', width: 24 },
+      { header: 'Moneda', key: 'moneda', width: 8 },
+      { header: 'Ahorrado', key: 'ahorrado', width: 14, money: true },
+      { header: 'Objetivo', key: 'objetivo', width: 14, money: true },
+      { header: 'Para', key: 'para', width: 10 },
+      { header: 'Separar por mes', key: 'porMes', width: 16, money: true },
+    ]);
+    for (const g of balances) {
+      const goalRecord = data.goals.find((x) => x.id === g.goalId);
+      const plan = g.goalId ? plans.get(g.goalId) : undefined;
+      metas.addRow({
+        meta: g.name,
+        moneda: g.currency,
+        ahorrado: g.balance,
+        objetivo: g.target,
+        para: goalRecord?.targetMonth ?? '',
+        porMes: plan && plan.status !== 'done' ? plan.perMonth : null,
+      });
+    }
+    finish(metas);
+  }
+
+  // ---- Deudas ----
+  if (data.debts.length) {
+    const deudas = sheet(wb, 'Deudas', [
+      { header: 'Persona', key: 'persona', width: 20 },
+      { header: 'Tipo', key: 'tipo', width: 12 },
+      { header: 'Fecha', key: 'fecha', width: 12 },
+      { header: 'Monto', key: 'monto', width: 12, money: true },
+      { header: 'Moneda', key: 'moneda', width: 8 },
+      { header: 'Pagado', key: 'pagado', width: 12, money: true },
+      { header: 'Falta', key: 'falta', width: 12, money: true },
+      { header: 'Detalle', key: 'detalle', width: 28 },
+    ]);
+    for (const d of data.debts) {
+      const s = debtStatus(d);
+      deudas.addRow({
+        persona: d.person,
+        tipo: d.direction === 'lent' ? 'Me debe' : 'Le debo',
+        fecha: new Date(`${d.date}T12:00:00Z`),
+        monto: d.amount,
+        moneda: d.currency,
+        pagado: s.paid,
+        falta: s.done ? 0 : s.remaining,
+        detalle: d.description,
+      });
+    }
+    deudas.getColumn('fecha').numFmt = 'dd/mm/yyyy';
+    finish(deudas);
+  }
 
   // ---- Peso ----
   if (data.weights.length) {

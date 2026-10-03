@@ -11,7 +11,7 @@ const GROUPS: { title: string; items: { href: string; icon: IconName; label: str
       { href: '/tarjeta', icon: 'card', label: 'Tarjeta de crédito', hint: 'Cuotas, resumen y lo que vas a pagar' },
       { href: '/ahorro', icon: 'piggy', label: 'Ahorro', hint: 'Meta del mes y metas con fecha' },
       { href: '/deudas', icon: 'people', label: 'Deudas y préstamos', hint: 'Lo que te deben y lo que debés' },
-      { href: '/anio', icon: 'chart', label: 'Informes', hint: 'El año mes a mes, tendencias y patrimonio' },
+      { href: '/informes', icon: 'chart', label: 'Informes', hint: 'El año mes a mes, tendencias y patrimonio' },
     ],
   },
   {

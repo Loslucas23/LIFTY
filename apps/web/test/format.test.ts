@@ -12,7 +12,7 @@ describe('parseAmount', () => {
 
   it('hace cuentas simples como la planilla', () => {
     expect(parseAmount('8000+5600')).toBe(13600);
-    expect(parseAmount('626+900-20')).toBe(1506);
+    expect(parseAmount('600+900-20')).toBe(1480);
     expect(parseAmount('-370')).toBe(-370);
   });
 

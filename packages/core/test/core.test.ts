@@ -44,17 +44,17 @@ describe('meses', () => {
 describe('sueldo', () => {
   it('calcula el líquido con los descuentos de Uruguay como en la planilla', () => {
     const b = netBreakdown({
-      gross: 50400,
+      gross: 48000,
       netOverride: null,
       deductions: [...URUGUAY_DEDUCTIONS.slice(0, 4), { label: 'IRPF', percent: 0, extraBase: 0, fixed: 240 }],
     });
-    // 15% + 3% + 0,1% + 1,5% de 50400 + 240 de IRPF
-    expect(b.totalDeductions).toBeCloseTo(7560 + 1512 + 50.4 + 756 + 240, 2);
-    expect(b.net).toBeCloseTo(50400 - 10118.4, 2);
+    // 15% + 3% + 0,1% + 1,5% de 48000 + 240 de IRPF
+    expect(b.totalDeductions).toBeCloseTo(7200 + 1440 + 48 + 720 + 240, 2);
+    expect(b.net).toBeCloseTo(48000 - 9648, 2);
   });
 
   it('respeta el líquido manual', () => {
-    expect(netBreakdown({ gross: 39106, netOverride: 31993, deductions: URUGUAY_DEDUCTIONS }).net).toBe(31993);
+    expect(netBreakdown({ gross: 38000, netOverride: 31000, deductions: URUGUAY_DEDUCTIONS }).net).toBe(31000);
   });
 
   it('aguinaldo: 1/12 del semestre en junio y diciembre', () => {
@@ -162,9 +162,9 @@ describe('presupuesto mensual', () => {
     expect(feb.fixed.total).toBe(16000); // el gimnasio terminó en enero
     expect(feb.card.total).toBeCloseTo(139.6, 2); // cuota 2 de 3
 
-    d.closings = [{ id: '2026-01', updatedAt: '', realBalance: 23595.5, note: '' }];
+    d.closings = [{ id: '2026-01', updatedAt: '', realBalance: 20500.5, note: '' }];
     const feb2 = computeMonth(d, '2026-02', '2026-02-01');
-    expect(feb2.carryover).toMatchObject({ amount: 23595.5, source: 'real' });
+    expect(feb2.carryover).toMatchObject({ amount: 20500.5, source: 'real' });
   });
 
   it('confirmar un sueldo o un fijo reemplaza lo planificado (sin contarlo dos veces)', () => {

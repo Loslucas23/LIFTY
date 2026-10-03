@@ -1,5 +1,6 @@
 import { useRef, useState } from 'react';
-import { ENTITY_NAMES, isEntityName, type EntityName, type Mutation } from '@lifty/core';
+import { ENTITY_NAMES, isEntityName, monthLabel, type EntityName, type Mutation } from '@lifty/core';
+import { money } from '../lib/format';
 import { Icon } from '../components/Icon';
 import { PageHeader, Section, toast } from '../components/ui';
 import { navigate } from '../lib/router';
@@ -11,6 +12,79 @@ interface ImportPreview {
   settings: Record<string, unknown>;
   summary: { label: string; count: number }[];
   warnings: string[];
+  comparison?: {
+    month: string;
+    parts: { label: string; excel: number; lifty: number; note: string | null; explained: boolean }[];
+  }[];
+}
+
+const INCOME_PARTS = ['Sueldos', 'Aguinaldo', 'Otros ingresos'];
+const EXPENSE_PARTS = ['Gastos fijos', 'Gastos del día a día', 'Tarjeta'];
+
+/** Totales de cada mes según la planilla y según Lifty, con el porqué de cada diferencia. */
+function Comparison({ months }: { months: NonNullable<ImportPreview['comparison']> }) {
+  const total = (m: (typeof months)[number], labels: string[], key: 'excel' | 'lifty') =>
+    m.parts.filter((p) => labels.includes(p.label)).reduce((s, p) => s + p[key], 0);
+  const withNotes = months.filter((m) => m.parts.some((p) => p.note));
+  const unexplained = months.some((m) => m.parts.some((p) => !p.explained));
+  return (
+    <div className="compare">
+      <h3>Comparación con tu planilla</h3>
+      <p className="muted small">
+        {withNotes.length === 0
+          ? 'Todos los meses dan igual que en tu planilla.'
+          : unexplained
+            ? 'Hay meses que no coinciden y no sé explicar por qué: revisalos antes de importar.'
+            : `${months.length - withNotes.length} de ${months.length} meses dan igual. En los demás te explico la diferencia.`}
+      </p>
+      <div className="table-wrap">
+        <table className="table compare-table">
+          <thead>
+            <tr>
+              <th scope="col">Mes</th>
+              <th scope="col">Ingresos planilla</th>
+              <th scope="col">Ingresos Lifty</th>
+              <th scope="col">Gastos planilla</th>
+              <th scope="col">Gastos Lifty</th>
+              <th scope="col" aria-label="Coincide" />
+            </tr>
+          </thead>
+          <tbody>
+            {months.map((m) => {
+              const ok = !m.parts.some((p) => p.note);
+              const bad = m.parts.some((p) => !p.explained);
+              return (
+                <tr key={m.month}>
+                  <th scope="row">{monthLabel(m.month, false)}</th>
+                  <td>{money(Math.round(total(m, INCOME_PARTS, 'excel')))}</td>
+                  <td>{money(Math.round(total(m, INCOME_PARTS, 'lifty')))}</td>
+                  <td>{money(Math.round(total(m, EXPENSE_PARTS, 'excel')))}</td>
+                  <td>{money(Math.round(total(m, EXPENSE_PARTS, 'lifty')))}</td>
+                  <td>{ok ? '✅' : bad ? '❌' : 'ℹ️'}</td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+      {withNotes.length > 0 && (
+        <ul className="warnings compare-notes">
+          {withNotes.flatMap((m) =>
+            m.parts
+              .filter((p) => p.note)
+              .map((p) => (
+                <li key={`${m.month}-${p.label}`} className={p.explained ? '' : 'text-bad'}>
+                  <strong>
+                    {monthLabel(m.month, false)}, {p.label.toLowerCase()}:
+                  </strong>{' '}
+                  planilla {money(p.excel)}, Lifty {money(p.lifty)}. {p.note}
+                </li>
+              )),
+          )}
+        </ul>
+      )}
+    </div>
+  );
 }
 
 export function ImportExcel() {
@@ -54,7 +128,8 @@ export function ImportExcel() {
         <p>
           Lifty lee las hojas <strong>Fijos</strong> (sueldos, gastos fijos y dólar), <strong>movimientos</strong>,{' '}
           <strong>Tarjeta</strong> (rearma las compras en cuotas) y <strong>RESUMEN</strong> (los meses que marcaste como
-          terminados, con su total real).
+          terminados, con su total real). Antes de importar te muestra, mes a mes, si los totales dan igual que en tu planilla y
+          por qué no cuando no.
         </p>
         <p className="muted small">Podés importar la misma planilla varias veces: no duplica, actualiza.</p>
         <input
@@ -91,6 +166,7 @@ export function ImportExcel() {
                 ))}
               </ul>
             )}
+            {preview.comparison && preview.comparison.length > 0 && <Comparison months={preview.comparison} />}
             <div className="btn-row">
               <button className="btn btn-primary" onClick={apply}>
                 Importar todo

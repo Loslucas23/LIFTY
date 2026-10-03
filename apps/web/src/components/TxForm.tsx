@@ -295,7 +295,13 @@ function TxForm({
   return (
     <Sheet
       title={
-        tx ? `Editar ${KIND_LABEL[kind].toLowerCase()}` : linked ? `Confirmar ${preset?.description ?? ''}` : 'Nuevo movimiento'
+        tx
+          ? `Editar ${KIND_LABEL[kind].toLowerCase()}`
+          : preset?.linkKind === 'cardbill'
+            ? `Pagar el ${(preset.description ?? 'resumen').toLowerCase()}`
+            : linked
+              ? `Confirmar ${preset?.description ?? ''}`
+              : 'Nuevo movimiento'
       }
       onClose={onClose}
       footer={

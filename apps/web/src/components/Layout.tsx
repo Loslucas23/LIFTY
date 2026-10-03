@@ -1,4 +1,6 @@
-import type { ReactNode } from 'react';
+import { useEffect, type ReactNode } from 'react';
+import { togglePrivacy } from '../lib/privacy';
+import { navigate } from '../lib/router';
 import { useSync } from '../lib/store';
 import { sync } from '../lib/sync';
 import { Icon, type IconName } from './Icon';
@@ -12,7 +14,7 @@ const NAV: { href: string; label: string; icon: IconName; match: RegExp }[] = [
   { href: '/cuentas', label: 'Cuentas', icon: 'bank', match: /^\/(cuentas|deudas)/ },
   { href: '/alimentacion', label: 'Alimentación', icon: 'food', match: /^\/alimentacion/ },
   { href: '/tarjeta', label: 'Tarjeta', icon: 'card', match: /^\/tarjeta/ },
-  { href: '/anio', label: 'Informes', icon: 'calendar', match: /^\/(anio|informes)/ },
+  { href: '/informes', label: 'Informes', icon: 'chart', match: /^\/(anio|informes)/ },
   { href: '/peso', label: 'Peso', icon: 'scale', match: /^\/peso/ },
   {
     href: '/mas',
@@ -25,9 +27,51 @@ const NAV: { href: string; label: string; icon: IconName; match: RegExp }[] = [
 /** En el celular entran 4 + el botón de agregar. */
 const MOBILE = ['/', '/movimientos', '/presupuesto', '/mas'];
 
-export function Layout({ route, children }: { route: string; children: ReactNode }) {
+/** Atajos en la compu: N = nuevo movimiento, / = buscar, P = modo privado. */
+function useShortcuts() {
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.ctrlKey || e.metaKey || e.altKey || e.defaultPrevented) return;
+      const t = e.target as HTMLElement | null;
+      if (t && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName))) return;
+      if (document.querySelector('.sheet')) return;
+      const key = e.key.toLowerCase();
+      if (key === 'n') {
+        e.preventDefault();
+        openTxForm();
+      } else if (key === '/') {
+        e.preventDefault();
+        navigate('/movimientos');
+        setTimeout(() => document.querySelector<HTMLInputElement>('input[aria-label="Buscar movimientos"]')?.focus(), 150);
+      } else if (key === 'p') {
+        togglePrivacy();
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => {
+      window.removeEventListener('keydown', onKey);
+    };
+  }, []);
+}
+
+function PrivacyButton({ on }: { on: boolean }) {
   return (
-    <div className="shell">
+    <button
+      className="icon-btn privacy-btn"
+      onClick={togglePrivacy}
+      aria-pressed={on}
+      aria-label={on ? 'Mostrar los montos' : 'Ocultar los montos'}
+      title={on ? 'Mostrar los montos (P)' : 'Ocultar los montos (P)'}
+    >
+      <Icon name={on ? 'eyeOff' : 'eye'} size={18} />
+    </button>
+  );
+}
+
+export function Layout({ route, privacy, children }: { route: string; privacy: boolean; children: ReactNode }) {
+  useShortcuts();
+  return (
+    <div className={`shell ${privacy ? 'is-private' : ''}`}>
       <aside className="sidebar">
         <a className="brand" href="#/">
           <img src="./icon.svg" alt="" width={32} height={32} />
@@ -46,7 +90,11 @@ export function Layout({ route, children }: { route: string; children: ReactNode
         </nav>
         <div className="sidebar-foot">
           <SyncBadge />
+          <PrivacyButton on={privacy} />
         </div>
+        <p className="shortcuts muted small">
+          Atajos: <kbd>N</kbd> nuevo · <kbd>/</kbd> buscar · <kbd>P</kbd> ocultar montos
+        </p>
       </aside>
 
       <main className="main">
@@ -55,7 +103,10 @@ export function Layout({ route, children }: { route: string; children: ReactNode
             <img src="./icon.svg" alt="" width={26} height={26} />
             <span>Lifty</span>
           </a>
-          <SyncBadge />
+          <div className="mobile-top-actions">
+            <PrivacyButton on={privacy} />
+            <SyncBadge />
+          </div>
         </div>
         {children}
       </main>

@@ -126,11 +126,11 @@ export function IncomeForm({ income, month, onClose }: { income: IncomeSource | 
       <div className="form">
         {error && <p className="field-error">{error}</p>}
         <Field label="Nombre">
-          <input data-autofocus value={name} onChange={(e) => setName(e.target.value)} placeholder="Ej: Sueldo Equim" />
+          <input data-autofocus value={name} onChange={(e) => setName(e.target.value)} placeholder="Ej: Sueldo de la empresa" />
         </Field>
         <div className="row">
           <Field label="Sueldo nominal">
-            <input inputMode="decimal" value={gross} onChange={(e) => setGross(e.target.value)} placeholder="50400" />
+            <input inputMode="decimal" value={gross} onChange={(e) => setGross(e.target.value)} placeholder="45000" />
           </Field>
           <Field label="Moneda">
             <Chips

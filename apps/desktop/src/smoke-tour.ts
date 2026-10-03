@@ -57,6 +57,7 @@ export async function smokeTour(): Promise<string[]> {
     '/movimientos',
     '/presupuesto',
     '/anio',
+    '/informes',
     '/tarjeta',
     '/ahorro',
     '/mas',
@@ -80,8 +81,8 @@ export async function smokeTour(): Promise<string[]> {
   await go('/sueldos');
   if (!clickText('.page-head button', 'Agregar')) problems.push('sueldos: no encontré "Agregar"');
   if (!(await waitFor('.sheet'))) problems.push('sueldos: no se abrió el formulario');
-  type($('.sheet input[placeholder="Ej: Sueldo Equim"]'), 'Sueldo de prueba');
-  type($('.sheet input[placeholder="50400"]'), '50400');
+  type($('.sheet input[placeholder="Ej: Sueldo de la empresa"]'), 'Sueldo de prueba');
+  type($('.sheet input[placeholder="45000"]'), '45000');
   await sleep(100);
   check('formulario de sueldo');
   $<HTMLButtonElement>('.sheet-foot .btn-primary')?.click();
@@ -323,6 +324,33 @@ export async function smokeTour(): Promise<string[]> {
   if (!(await waitFor('.sheet .explain-result'))) problems.push('ahorro: no se explica el plan de la meta');
   await closeSheet();
   check('ahorro');
+
+  // Tarjeta: pagar el resumen (es una transferencia, no un gasto).
+  await go('/tarjeta');
+  for (let i = 0; i < 3 && !$('.statement .btn-primary'); i++) {
+    $<HTMLButtonElement>('.month-picker [aria-label="Mes siguiente"]')?.click();
+    await sleep(200);
+  }
+  if (!$('.statement .btn-primary')) problems.push('tarjeta: no aparece "Pagar" en el resumen');
+  else {
+    $<HTMLButtonElement>('.statement .btn-primary')?.click();
+    if (!(await waitFor('.sheet-foot .btn-primary'))) problems.push('tarjeta: no se abrió el pago del resumen');
+    $<HTMLButtonElement>('.sheet-foot .btn-primary')?.click();
+    await sleep(300);
+    if (!$('.statement')?.textContent?.includes('Pagaste')) problems.push('tarjeta: el pago del resumen no quedó registrado');
+  }
+  check('tarjeta');
+
+  // Modo privado (tecla P): oculta los montos y se vuelve a mostrar.
+  await go('/');
+  const pressP = () => window.dispatchEvent(new KeyboardEvent('keydown', { key: 'p', bubbles: true }));
+  pressP();
+  await sleep(150);
+  if (!$('.hero-value')?.textContent?.includes('•••')) problems.push('modo privado: los montos no se ocultaron');
+  pressP();
+  await sleep(150);
+  if ($('.hero-value')?.textContent?.includes('•••')) problems.push('modo privado: los montos no volvieron');
+  check('modo privado');
 
   await go('/');
   return problems;

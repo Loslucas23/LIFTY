@@ -1,8 +1,10 @@
 import { useState } from 'react';
 import { MONTH_NAMES, monthOf, parseMonth, type MonthBudget } from '@lifty/core';
+import { Bar, niceStep } from '../components/charts';
 import { Icon } from '../components/Icon';
 import { useWidth } from '../components/useWidth';
 import { PageHeader } from '../components/ui';
+import { ReportTabs } from './Reports';
 import { compact, money } from '../lib/format';
 import { navigate } from '../lib/router';
 import { useMonths, useToday } from '../lib/store';
@@ -15,7 +17,8 @@ export function Year({ year: yearParam }: { year?: string }) {
 
   return (
     <div className="page">
-      <PageHeader title="Resumen del año" subtitle="Ingresos, gastos y saldo de cada mes" />
+      <PageHeader title="Informes" subtitle="Ingresos, gastos y saldo de cada mes del año" />
+      <ReportTabs active="anio" />
       <div className="month-picker">
         <button className="icon-btn" onClick={() => navigate(`/anio/${year - 1}`, { replace: true })} aria-label="Año anterior">
           <Icon name="left" />
@@ -168,19 +171,4 @@ function YearChart({ months, today }: { months: MonthBudget[]; today: string }) 
       </div>
     </figure>
   );
-}
-
-/** Barra con la punta redondeada (4px) y la base recta sobre el eje. */
-function Bar({ x, w, y0, y1, fill }: { x: number; w: number; y0: number; y1: number; fill: string }) {
-  const h = y0 - y1;
-  if (h <= 0.5) return null;
-  const r = Math.min(4, h, w / 2);
-  const d = `M${x},${y0} V${y1 + r} Q${x},${y1} ${x + r},${y1} H${x + w - r} Q${x + w},${y1} ${x + w},${y1 + r} V${y0} Z`;
-  return <path d={d} fill={fill} />;
-}
-
-function niceStep(raw: number): number {
-  const pow = 10 ** Math.floor(Math.log10(Math.max(raw, 1)));
-  const n = raw / pow;
-  return (n <= 1 ? 1 : n <= 2 ? 2 : n <= 5 ? 5 : 10) * pow;
 }

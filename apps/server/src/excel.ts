@@ -1,14 +1,19 @@
 import ExcelJS from 'exceljs';
 import {
   addMonths,
+  applyMutation,
+  computeMonths,
+  formatMoney,
   makeMonth,
   monthOf,
   parseEntity,
   seedRecords,
+  toLiftyData,
   URUGUAY_DEDUCTIONS,
   type Category,
   type EntityName,
   type EntityTypes,
+  type RecordStore,
   type Settings,
 } from '@lifty/core';
 
@@ -31,6 +36,23 @@ export interface ImportResult {
   settings: Partial<Settings>;
   summary: { label: string; count: number }[];
   warnings: string[];
+  /** Totales de cada mes según la planilla y según Lifty, con el porqué de cada diferencia. */
+  comparison: MonthComparison[];
+}
+
+export interface ComparisonPart {
+  label: string;
+  excel: number;
+  lifty: number;
+  /** Por qué no coinciden (null si coinciden). */
+  note: string | null;
+  /** false = diferencia que Lifty no sabe explicar. */
+  explained: boolean;
+}
+
+export interface MonthComparison {
+  month: string;
+  parts: ComparisonPart[];
 }
 
 type Cell = string | number | Date | null;
@@ -154,7 +176,7 @@ const KEYWORDS: [RegExp, string][] = [
   [/alquiler|deposito|ute|ose|gas\b|expensas/, 'cat-casa'],
   [/antel|claro|movistar|internet|celular/, 'cat-servicios'],
   [/stm|cabify|uber|omnibus|nafta|taxi/, 'cat-transporte'],
-  [/ingles|curso|python|pytho|facultad|udemy|platzi|computadora/, 'cat-estudios'],
+  [/ingles|curso|python|facultad|udemy|platzi|computadora/, 'cat-estudios'],
   [/gimnasio|gym|medic|farmacia|mutualista|dentista|rayo/, 'cat-salud'],
   [/barber|peluqu|higiene|ropa/, 'cat-personal'],
   [/youtube|spotify|netflix|music|disney|hbo|prime|icloud|google/, 'cat-suscripciones'],
@@ -365,6 +387,23 @@ export async function importWorkbook(buffer: Buffer | ArrayBuffer | Uint8Array):
     if (!existing) purchases.set(key, { name, amount, currency, of, minN: n, minMonth: monthOf(date), date });
     else if (n < existing.minN) Object.assign(existing, { minN: n, minMonth: monthOf(date), date });
   }
+  // La planilla puede pasar los dólares de la tarjeta con otra cotización (ej: "*40").
+  let cardRate = rate;
+  for (const r of card?.rows ?? []) {
+    const f = r.raw('monto UYU');
+    const formula = f && typeof f === 'object' && 'formula' in f ? String(f.formula) : '';
+    const m = formula.match(/\*\s*(\d+(?:\.\d+)?)\s*\)*\s*$/);
+    if (m && norm(r.get('Moneda')) === 'usd') {
+      cardRate = Number(m[1]);
+      break;
+    }
+    if (m) cardRate = Number(m[1]);
+  }
+  if (cardRate !== rate && [...purchases.values()].some((p) => p.currency === 'USD')) {
+    warnings.push(
+      `En la hoja Tarjeta los dólares se pasan a pesos a ${cardRate} (no a ${rate}): las compras de la tarjeta en dólares quedan con esa cotización.`,
+    );
+  }
   for (const [key, p] of purchases) {
     const count = p.of - p.minN + 1;
     add(
@@ -375,7 +414,7 @@ export async function importWorkbook(buffer: Buffer | ArrayBuffer | Uint8Array):
         kind: 'expense',
         amount: Math.round(p.amount * count * 100) / 100,
         currency: p.currency,
-        fxRate: p.currency === 'USD' ? rate : 1,
+        fxRate: p.currency === 'USD' ? cardRate : 1,
         accountId: 'acc-tarjeta',
         categoryId: guessCategory(p.name) ?? 'cat-otros',
         description: p.minN > 1 ? `${p.name} (cuotas ${p.minN} a ${p.of} de ${p.of})` : p.name,
@@ -415,5 +454,107 @@ export async function importWorkbook(buffer: Buffer | ArrayBuffer | Uint8Array):
     settings,
     summary: [...counts.entries()].map(([label, count]) => ({ label, count })),
     warnings,
+    comparison: compareWithSheet(wb, out, settings, year),
   };
+}
+
+const money = (v: number) => formatMoney(Math.round(v * 100) / 100, 'UYU');
+
+/** ¿La celda es un número escrito a mano (no una fórmula)? */
+function isLiteral(v: ExcelJS.CellValue): boolean {
+  return typeof v === 'number';
+}
+
+/** Un ajuste a mano al final de la fórmula, como "SUMIFS(...)-1030". */
+function manualOffset(v: ExcelJS.CellValue): number | null {
+  if (!v || typeof v !== 'object' || !('formula' in v)) return null;
+  const m = String(v.formula).match(/\)\s*([+-])\s*(\d+(?:\.\d+)?)\s*$/);
+  return m ? Number(m[2]) * (m[1] === '-' ? -1 : 1) : null;
+}
+
+/**
+ * Compara mes a mes los totales que calcula la planilla (hojas INGRESOS, Gastos y AHORRO)
+ * con los que calcula Lifty con lo importado, y explica cada diferencia.
+ */
+function compareWithSheet(
+  wb: ExcelJS.Workbook,
+  records: ImportedRecord[],
+  settings: Partial<Settings>,
+  year: number,
+): MonthComparison[] {
+  const incomeT = findTable(sheet(wb, 'INGRESOS'), ['mesnro', 'Sueldo', 'Aguinaldo', 'Extras']);
+  const expenseT = findTable(sheet(wb, 'Gastos'), ['Mesnro', 'Monto fijo', 'Monto Variable', 'Tarjeta']);
+  const savingT = findTable(sheet(wb, 'AHORRO'), ['MESNRO', 'MONTO UYU']);
+  if (!incomeT && !expenseT && !savingT) return [];
+
+  const store: RecordStore = {};
+  for (const { entity, record } of seedRecords()) {
+    applyMutation(store, { entity, op: 'upsert', id: record.id, updatedAt: record.updatedAt, record });
+  }
+  for (const { entity, record } of records) {
+    applyMutation(store, { entity, op: 'upsert', id: record.id, updatedAt: record.updatedAt, record });
+  }
+  const data = toLiftyData(store);
+  data.settings = { ...data.settings, ...settings };
+  const months = computeMonths(data, makeMonth(year, 1), makeMonth(year, 12), `${year}-12-31`);
+
+  const rowFor = (t: ReturnType<typeof findTable>, key: string, m: number) =>
+    t?.rows.find((r) => Math.round(num(r.get(key)) ?? 0) === m);
+  const out: MonthComparison[] = [];
+  for (const b of months) {
+    const m = Number(b.month.slice(5));
+    const inc = rowFor(incomeT, 'mesnro', m);
+    const exp = rowFor(expenseT, 'Mesnro', m);
+    const sav = rowFor(savingT, 'MESNRO', m);
+    const sum = (kind: string) => b.income.planned.filter((l) => l.kind === kind).reduce((s, l) => s + l.amount, 0);
+    const salary = sum('salary');
+    const aguinaldo = sum('aguinaldo');
+    const parts: ComparisonPart[] = [];
+    const part = (
+      label: string,
+      row: Table['rows'][number] | undefined,
+      column: string,
+      lifty: number,
+      explain?: (excel: number) => string | null,
+    ) => {
+      if (!row) return;
+      const excel = num(row.get(column)) ?? 0;
+      const raw = row.raw(column);
+      const diff = Math.round((lifty - excel) * 100) / 100;
+      let note: string | null = null;
+      let explained = true;
+      if (Math.abs(diff) >= 1) {
+        const offset = manualOffset(raw);
+        if (isLiteral(raw)) {
+          note = `En la planilla está escrito a mano (${money(excel)}); Lifty lo calcula con lo cargado.`;
+        } else if (offset !== null && Math.abs(lifty - (excel - offset)) < 1) {
+          note = `La planilla le ${offset < 0 ? 'resta' : 'suma'} ${money(Math.abs(offset))} a mano a la fórmula.`;
+        } else {
+          note = explain?.(excel) ?? null;
+          if (!note) {
+            note = `Lifty da ${money(lifty)} y la planilla ${money(excel)}: revisá este mes.`;
+            explained = false;
+          }
+        }
+      }
+      parts.push({ label, excel: Math.round(excel * 100) / 100, lifty: Math.round(lifty * 100) / 100, note, explained });
+    };
+    part('Sueldos', inc, 'Sueldo', salary);
+    part('Aguinaldo', inc, 'Aguinaldo', aguinaldo, (excel) =>
+      aguinaldo > excel
+        ? `Lifty calcula el aguinaldo por semestre (se cobra en junio y diciembre) y el proporcional cuando termina un trabajo: ${money(aguinaldo)}.`
+        : `La planilla calcula el aguinaldo como medio sueldo (${money(excel)}); Lifty lo calcula por lo cobrado en el semestre.`,
+    );
+    part('Otros ingresos', inc, 'Extras', b.income.total - salary - aguinaldo);
+    part('Gastos fijos', exp, 'Monto fijo', b.fixed.total);
+    part('Gastos del día a día', exp, 'Monto Variable', b.variable.total);
+    part('Tarjeta', exp, 'Tarjeta', b.card.total);
+    part('Ahorro', sav, 'MONTO UYU', b.savings.total, () =>
+      sav && (isLiteral(sav.raw('MONTO')) || isLiteral(sav.raw('MONTO USD')))
+        ? 'En la planilla el ahorro de este mes está escrito a mano; Lifty suma los ahorros cargados.'
+        : null,
+    );
+    out.push({ month: b.month, parts });
+  }
+  return out;
 }

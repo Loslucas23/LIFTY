@@ -1,9 +1,13 @@
 import { formatMoney, monthLabel, type Currency } from '@lifty/core';
 
-export const money = (amount: number, currency: Currency = 'UYU') => formatMoney(amount, currency);
+import { isPrivate } from './privacy';
+
+export const money = (amount: number, currency: Currency = 'UYU') =>
+  isPrivate() ? (currency === 'USD' ? 'US$ •••' : '$ •••') : formatMoney(amount, currency);
 
 /** Monto compacto para gráficos: $ 12,3 mil */
 export function compact(amount: number): string {
+  if (isPrivate()) return '•••';
   const abs = Math.abs(amount);
   const sign = amount < 0 ? '-' : '';
   if (abs >= 1_000_000) return `${sign}$ ${(abs / 1_000_000).toLocaleString('es-UY', { maximumFractionDigits: 1 })} M`;
@@ -29,7 +33,7 @@ export { monthLabel };
 
 /**
  * Interpreta montos como los escribe la gente: "1.234,50", "1234.5", "$ 900" y también
- * cuentas simples como en la planilla: "8000+5600" o "626+900-20".
+ * cuentas simples como en la planilla: "8000+5600" o "600+900-20".
  */
 export function parseAmount(input: string): number | null {
   const clean = input.replace(/[$\sUSDuyu]/g, '');

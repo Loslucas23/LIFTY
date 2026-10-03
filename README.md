@@ -8,19 +8,24 @@ copia: todo eso se calcula solo y se carga en segundos desde el celular.
 
 ## Qué hace
 
+Regla de oro: **todo número se puede tocar para ver de dónde sale** ("¿De dónde sale?"). Nada de IA: cuentas
+claras y reglas simples.
+
 | | |
 |---|---|
-| **Inicio** | Cuánto te queda este mes, cuánto podés gastar por día, lo que falta pagar o cobrar y tus topes por categoría. |
-| **Movimientos** | Gastos, ingresos y ahorros día a día. Cuentas en el monto como en Excel (`8000+5600`), pesos o dólares, reintegros. |
-| **Presupuesto mensual** | Lo que viene del mes anterior + sueldos + aguinaldo + extras − gastos fijos − día a día − tarjeta − ahorro. Los fijos y el sueldo se tildan cuando los pagás o cobrás. Al terminar el mes lo cerrás con el saldo real y ese saldo pasa al mes siguiente. |
-| **Sueldos** | Nominal → líquido con los descuentos de Uruguay (jubilatorio, FONASA, FRL, SNIS, IRPF; todo editable), vigencia desde/hasta y aguinaldo en junio y diciembre (proporcional si el trabajo termina antes). |
-| **Tarjeta** | Compras en cuotas: cada cuota cae en su mes. Cuánto vas a pagar los próximos 6 meses. |
-| **Ahorro** | Metas en pesos y en dólares, depósitos y retiros. |
-| **Año** | Resumen mes a mes (como la hoja RESUMEN) con gráfico de ingresos y gastos. |
-| **Importar Excel** | Trae tu `finanzas.xlsm`: sueldos, fijos, movimientos, tarjeta y meses cerrados. Se puede importar varias veces sin duplicar. |
-| **Exportar a Excel** | Descargá todo en un `.xlsx` (resumen mes a mes, movimientos, sueldos, fijos, peso) desde **Más → Copia de seguridad**. |
-| **Peso** | Anotá tus pesajes: tendencia con promedio de 7 días, cambio semanal y mensual, IMC y meta. |
-| **Para el día a día** | "Lo de siempre": tus gastos más repetidos a un toque (con categoría, cuenta y monto). Duplicar un movimiento. Avisos de lo que vence o ya venció. "Tildar todos" los fijos. Cuánto gastaste por categoría comparado con el mes anterior. Tema claro u oscuro. |
+| **Inicio** | **Hoy podés gastar $X** y **esta semana te quedan $Y** (se recalcula todos los días), avisos ("a este ritmo terminás con…", "te pasás en Comida el día 22", "gastaste 30% más en salidas que el mes pasado"), lo que vence o se cobra en los próximos 7 días con tilde, proponer pasar al ahorro lo que sobró el mes pasado y primeros pasos. |
+| **Movimientos** | Gastos, ingresos, ahorros y **Mover** (transferencias entre cuentas, que no son gasto). Montos como en Excel (`8000+5600`), pesos o dólares, reintegros, dividir un gasto con alguien, "Lo de siempre", deshacer, duplicar. Filtros por mes, tipo, categoría y cuenta. |
+| **Presupuesto mensual** | Asistente de 3 pasos (cuánto entra → qué pagás sí o sí → cuánto querés gastar en cada cosa) con "sin asignar" en vivo y la meta de ahorro primero. Presupuesto por categoría para todos los meses o uno solo. Gastos fijos con día de vencimiento, frecuencia (mensual, cada 2/3/6 meses, anual o una vez), "Ya no lo pago", "Lo pago este mes y después no" y "Cambiar el monto desde este mes". Cierre de mes asistido con el saldo real de tus cuentas. |
+| **Sueldos** | Nominal → líquido con los descuentos de Uruguay (todo editable) o líquido a mano, vigencia desde/hasta, aguinaldo por semestre en junio y diciembre (proporcional si el trabajo termina antes) o "no genera aguinaldo". |
+| **Ahorro** | Meta mensual (monto o % de lo que entra) que se aparta primero. Metas con fecha ("US$ 2.000 para diciembre"): cuánto separar por mes y si vas adelantado o atrasado. Depósitos y retiros en pesos y dólares. |
+| **Cuentas** | Saldo de BROU, Itaú, efectivo, dólares y tarjetas; plata disponible; ajustar saldo. **Deudas y préstamos** con pagos parciales. |
+| **Tarjeta de alimentación** | Va **aparte**: no es plata, no entra en ingresos, gastos ni presupuesto. Su saldo, la carga mensual y cuánto te queda por día para el súper. |
+| **Tarjeta de crédito** | Compras en cuotas (monto total o por cuota, desde qué mes) y en dólares. Resumen de cada mes en pesos y dólares, **Pagar** (es una transferencia, no un gasto), próximos 6 meses y cuotas que faltan. |
+| **Informes** | El año mes a mes con gráfico. Tendencias: patrimonio, cuánto ahorrás de lo que entra, en qué se te va la plata, qué días gastás más y los gastos más grandes. |
+| **Importar Excel** | Trae tu `finanzas.xlsm` y antes de importar te muestra, mes a mes, si los totales dan igual que en la planilla y por qué no cuando no. Se puede importar varias veces sin duplicar. |
+| **Exportar y respaldo** | Todo a un `.xlsx` (resumen, movimientos, sueldos, fijos, cuentas, metas, deudas, peso). Copia de seguridad automática todos los días y restaurar. |
+| **Peso** | Pesajes con promedio de 7 días, cambio semanal y mensual, IMC y meta. |
+| **Detalles** | Modo privado (el ojo arriba, o la tecla **P**): oculta los montos. En la compu: **N** nuevo movimiento, **/** buscar. Tema claro, oscuro o automático. |
 
 ## Cómo se conectan la compu y el celular
 
@@ -92,6 +97,7 @@ npm install
 npm run dev          # servidor en :4321 + app web con recarga en http://localhost:5173
 npm run desktop      # el programa de escritorio
 npm test             # tests
+LIFTY_EXCEL=ruta/a/finanzas.xlsm npm test -w @lifty/server   # compara la importación con los totales de tu planilla
 npm run import-excel -- ruta/a/finanzas.xlsm   # importa la planilla directo a ~/.lifty
 ```
 

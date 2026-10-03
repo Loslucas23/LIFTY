@@ -105,38 +105,50 @@ describe('importar Excel', () => {
     const fijos = wb.addWorksheet('Fijos');
     fijos.addRow(['', 'Sueldo nominal', 'Aporte jubilatorio', 'IRPF', 'SUELDO LIQUIDO', 'Desde', 'Hasta']);
     fijos.addRow([
-      'Sueldo Equim',
-      50400,
-      { formula: 'B2*0.15', result: 7560 },
+      'Sueldo Empresa',
+      48000,
+      { formula: 'B2*0.15', result: 7200 },
       240,
-      { formula: 'B2-C2', result: 40176.6 },
+      { formula: 'B2-C2', result: 40800 },
       new Date(Date.UTC(2026, 4, 6)),
       new Date(Date.UTC(2026, 8, 6)),
     ]);
     fijos.addRow([]);
     fijos.addRow(['', 'Gastos', 'Monto', 'Desde', 'desdenro', 'hasta', 'Dólar', 40]);
-    fijos.addRow(['', 'Alquiler', 16000, new Date(Date.UTC(2026, 1, 1)), 2, new Date(Date.UTC(2026, 11, 31))]);
+    fijos.addRow(['', 'Alquiler', 15000, new Date(Date.UTC(2026, 1, 1)), 2, new Date(Date.UTC(2026, 11, 31))]);
     fijos.addRow([
       '',
-      'antel2',
-      { formula: '626+900', result: 1526 },
+      'celular2',
+      { formula: '600+900', result: 1500 },
       new Date(Date.UTC(2026, 3, 14)),
       4,
       new Date(Date.UTC(2026, 11, 31)),
     ]);
     const movs = wb.addWorksheet('movimientos');
     movs.addRow(['fecha', 'Monto', 'Ahorros', 'Categoria', 'subcategoria', 'Moneda', 'Banco', 'Descripcion']);
-    movs.addRow([new Date(Date.UTC(2026, 0, 15)), 9000, 'Ingresos', 'Ingresos', 'Cumpleaños', 'UYU', 'BROU', null]);
-    movs.addRow([new Date(Date.UTC(2026, 0, 16)), 326, 'Gastos', 'Otros', 'Comida Basura', 'UYU', 'BROU', null]);
+    movs.addRow([new Date(Date.UTC(2026, 0, 15)), 5000, 'Ingresos', 'Ingresos', 'Cumpleaños', 'UYU', 'BROU', null]);
+    movs.addRow([new Date(Date.UTC(2026, 0, 16)), 300, 'Gastos', 'Otros', 'Comida rápida', 'UYU', 'BROU', null]);
     movs.addRow([new Date(Date.UTC(2026, 2, 6)), 50, 'Ahorros', 'DÓLARES', 'ahorro', 'USD', 'BROU', null]);
     const card = wb.addWorksheet('Tarjeta');
-    card.addRow(['Fecha', 'Gasto', 'Monto', 'Moneda', 'Cuota', 'de']);
-    card.addRow([new Date(Date.UTC(2026, 2, 3)), 'Pytho', 934, 'UYU', 1, 6]);
-    card.addRow([new Date(Date.UTC(2026, 3, 3)), 'Pytho', 934, 'UYU', 2, 6]);
-    card.addRow([new Date(Date.UTC(2026, 2, 5)), 'Youtube music', 3.49, 'USD', 3, 12]);
+    card.addRow(['Fecha', 'Gasto', 'Monto', 'Moneda', 'Cuota', 'de', 'monto UYU']);
+    const toUYU = (row: number, result: number) => ({ formula: `IF(D${row}="UYU",C${row},C${row}*39)`, result });
+    card.addRow([new Date(Date.UTC(2026, 2, 3)), 'Curso online', 900, 'UYU', 1, 6, toUYU(2, 900)]);
+    card.addRow([new Date(Date.UTC(2026, 3, 3)), 'Curso online', 900, 'UYU', 2, 6, toUYU(3, 900)]);
+    card.addRow([new Date(Date.UTC(2026, 2, 5)), 'Youtube music', 3.49, 'USD', 3, 12, toUYU(4, 136.11)]);
+    // Totales de la planilla: marzo con la fórmula, abril con la tarjeta escrita a mano.
+    const gastos = wb.addWorksheet('Gastos');
+    gastos.addRow(['Mes', 'Mesnro', 'Monto fijo', 'Monto Variable', 'Tarjeta']);
+    gastos.addRow([
+      'Marzo',
+      3,
+      { formula: 'SUMIFS(x)', result: 15000 },
+      { formula: 'SUMIFS(y)', result: 0 },
+      { formula: 'SUMIF(z)', result: 1036.11 },
+    ]);
+    gastos.addRow(['Abril', 4, { formula: 'SUMIFS(x)', result: 16500 }, { formula: 'SUMIFS(y)', result: 0 }, 5000]);
     const res = wb.addWorksheet('RESUMEN');
     res.addRow(['Mes', 'mesnro', 'TERMINO MES', 'Total real']);
-    res.addRow(['Enero', 1, 'Si', 23595.5]);
+    res.addRow(['Enero', 1, 'Si', 20500.5]);
     res.addRow(['Febrero', 2, 'NO', 0]);
     res.addRow(['Julio', 7, 'Si', 0]);
     return Buffer.from(await wb.xlsx.writeBuffer());
@@ -149,22 +161,22 @@ describe('importar Excel', () => {
 
     expect(of('income')).toEqual([
       expect.objectContaining({
-        name: 'Sueldo Equim',
-        gross: 50400,
+        name: 'Sueldo Empresa',
+        gross: 48000,
         netOverride: null,
         startMonth: '2026-05',
         endMonth: '2026-09',
       }),
     ]);
     expect(of('fixed').map((f) => [f.name, f.amount, f.categoryId])).toEqual([
-      ['Alquiler', 16000, 'cat-casa'],
-      ['Antel2', 1526, 'cat-servicios'],
+      ['Alquiler', 15000, 'cat-casa'],
+      ['Celular2', 1500, 'cat-servicios'],
     ]);
     const txs = of('transaction');
     expect(txs.find((t) => t.description === 'Cumpleaños')).toMatchObject({ kind: 'income', accountId: 'acc-brou' });
     expect(txs.find((t) => t.kind === 'saving')).toMatchObject({ currency: 'USD', goalId: 'goal-usd', fxRate: 40 });
-    expect(txs.find((t) => t.description === 'Pytho')).toMatchObject({
-      amount: 5604,
+    expect(txs.find((t) => t.description === 'Curso online')).toMatchObject({
+      amount: 5400,
       installments: 6,
       firstInstallmentMonth: '2026-03',
     });
@@ -173,7 +185,7 @@ describe('importar Excel', () => {
       installments: 10,
       firstInstallmentMonth: '2026-03',
     });
-    expect(of('closing')).toEqual([expect.objectContaining({ id: '2026-01', realBalance: 23595.5 })]);
+    expect(of('closing')).toEqual([expect.objectContaining({ id: '2026-01', realBalance: 20500.5 })]);
     expect(result.settings).toMatchObject({ usdRate: 40, startMonth: '2026-01' });
     expect(result.warnings.some((w) => w.includes('2026-07'))).toBe(true);
 
@@ -182,11 +194,30 @@ describe('importar Excel', () => {
     expect(again.records.map((r) => r.record.id)).toEqual(result.records.map((r) => r.record.id));
   });
 
+  it('usa la cotización de la hoja Tarjeta y compara los totales con la planilla', async () => {
+    const result = await importWorkbook(await workbook());
+    const yt = result.records.find((r) => (r.record as { description?: string }).description?.startsWith('Youtube'));
+    expect(yt?.record).toMatchObject({ currency: 'USD', fxRate: 39 });
+    expect(result.warnings.some((w) => w.includes('a 39'))).toBe(true);
+    const march = result.comparison.find((m) => m.month === '2026-03')!;
+    // Curso 900 + Youtube US$ 3,49 × 39 = 1036,11: igual que la planilla.
+    expect(march.parts.find((p) => p.label === 'Tarjeta')).toMatchObject({ excel: 1036.11, lifty: 1036.11, note: null });
+    expect(march.parts.find((p) => p.label === 'Gastos fijos')).toMatchObject({ lifty: 15000, note: null });
+    const april = result.comparison.find((m) => m.month === '2026-04')!;
+    expect(april.parts.find((p) => p.label === 'Tarjeta')).toMatchObject({ excel: 5000, explained: true });
+    expect(april.parts.find((p) => p.label === 'Tarjeta')!.note).toContain('a mano');
+  });
+
+  // Prueba con tu planilla real (nunca se sube al repositorio): LIFTY_EXCEL=ruta\finanzas.xlsm npm test
   const real = process.env.LIFTY_EXCEL;
-  it.skipIf(!real || !fs.existsSync(real))('lee la planilla real (LIFTY_EXCEL)', async () => {
+  it.skipIf(!real || !fs.existsSync(real))('lee la planilla real y explica cada diferencia con sus totales', async () => {
     const result = await importWorkbook(fs.readFileSync(real!));
-    console.log(result.summary, result.warnings);
     expect(result.records.length).toBeGreaterThan(10);
+    expect(result.comparison.length).toBe(12);
+    const unexplained = result.comparison.flatMap((m) =>
+      m.parts.filter((p) => !p.explained).map((p) => `${m.month} ${p.label}: ${p.note}`),
+    );
+    expect(unexplained).toEqual([]);
   });
 });
 
@@ -214,10 +245,21 @@ describe('exportar Excel', () => {
     expect(res.headers['content-type']).toContain('spreadsheetml');
     const wb = new ExcelJS.Workbook();
     await wb.xlsx.load(res.rawPayload as never);
-    expect(wb.worksheets.map((w) => w.name)).toEqual(['Resumen', 'Movimientos', 'Sueldos', 'Gastos fijos', 'Peso']);
+    expect(wb.worksheets.map((w) => w.name)).toEqual([
+      'Resumen',
+      'Movimientos',
+      'Sueldos',
+      'Gastos fijos',
+      'Cuentas',
+      'Metas',
+      'Peso',
+    ]);
     const movs = wb.getWorksheet('Movimientos')!;
-    expect(movs.getRow(2).getCell(8).value).toBe('Cabify');
+    expect(movs.getRow(2).getCell(9).value).toBe('Cabify');
+    expect(movs.getRow(2).getCell(11).value).toBe('Sí');
     expect(movs.getRow(2).getCell(6).value).toBe('Transporte');
     expect(wb.getWorksheet('Resumen')!.rowCount).toBeGreaterThan(1);
+    // Las cuentas (BROU, Itaú, efectivo…) aparecen con su saldo.
+    expect(wb.getWorksheet('Cuentas')!.rowCount).toBeGreaterThan(3);
   });
 });

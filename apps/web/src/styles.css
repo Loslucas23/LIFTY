@@ -1711,6 +1711,7 @@ button.tx-row:hover {
 }
 .tag {
   display: inline-block;
+  white-space: nowrap;
   margin-left: 6px;
   padding: 1px 8px;
   border-radius: 999px;
@@ -2224,4 +2225,159 @@ button.tx-row:hover {
   font-size: 11px;
   color: var(--muted);
   text-transform: capitalize;
+}
+
+/* Tarjeta: resumen del mes */
+button.stat {
+  text-align: left;
+  color: var(--ink);
+}
+.statement {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.statement-total {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  text-align: left;
+  color: var(--ink);
+}
+.statement-value {
+  font-size: 30px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+.month-bars .link {
+  text-align: left;
+  padding: 0;
+}
+
+/* Informes */
+.report-tabs {
+  display: flex;
+  gap: 4px;
+  padding: 4px;
+  border-radius: 12px;
+  background: var(--surface-2);
+  align-self: flex-start;
+}
+.report-tabs a {
+  padding: 6px 16px;
+  border-radius: 9px;
+  color: var(--muted);
+  font-weight: 600;
+}
+.report-tabs a.on {
+  background: var(--surface);
+  color: var(--ink);
+  box-shadow: var(--shadow);
+}
+.chart .line {
+  fill: none;
+  stroke: var(--series-1);
+  stroke-width: 2.5;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+.chart .area {
+  fill: color-mix(in srgb, var(--series-1) 12%, transparent);
+}
+.chart .grid-zero {
+  stroke: var(--muted);
+  opacity: 0.6;
+}
+.bar-fill.bar-good {
+  background: var(--accent);
+}
+.trends {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.trends li + li {
+  border-top: 1px solid var(--line);
+}
+.trend {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  text-align: left;
+  color: var(--ink);
+}
+.trend-name {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+.spark {
+  display: flex;
+  align-items: flex-end;
+  gap: 3px;
+  height: 34px;
+  width: 120px;
+  flex: none;
+}
+.spark i {
+  flex: 1;
+  border-radius: 3px 3px 1px 1px;
+  background: color-mix(in srgb, var(--series-2) 45%, var(--surface-2));
+}
+.spark i.now {
+  background: var(--series-2);
+}
+
+/* Importar: comparación con la planilla */
+.compare {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 12px 0;
+}
+.compare h3 {
+  font-size: 15px;
+}
+.compare-table td,
+.compare-table th {
+  white-space: nowrap;
+}
+.compare-notes li {
+  font-size: 13px;
+}
+
+/* Modo privado y atajos */
+.mobile-top-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.sidebar-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+}
+.privacy-btn[aria-pressed='true'] {
+  color: var(--accent);
+}
+.shortcuts {
+  display: none;
+  margin: 8px 0 0;
+}
+.shortcuts kbd {
+  font: inherit;
+  font-weight: 700;
+  padding: 0 5px;
+  border-radius: 5px;
+  border: 1px solid var(--line);
+  background: var(--surface);
+}
+@media (min-width: 900px) {
+  .shortcuts {
+    display: block;
+  }
 }

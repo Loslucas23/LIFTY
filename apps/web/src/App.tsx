@@ -20,6 +20,8 @@ import { Movements } from './pages/Movements';
 import { FixedList, Incomes } from './pages/Plans';
 import { Savings } from './pages/Savings';
 import { Weight } from './pages/Weight';
+import { Reports } from './pages/Reports';
+import { usePrivacy } from './lib/privacy';
 import { Year } from './pages/Year';
 
 const ROUTES: [string, (p: Record<string, string>) => ReactNode][] = [
@@ -30,6 +32,7 @@ const ROUTES: [string, (p: Record<string, string>) => ReactNode][] = [
   ['/presupuesto/:month', (p) => <Budget month={p.month} />],
   ['/anio', () => <Year />],
   ['/anio/:year', (p) => <Year year={p.year} />],
+  ['/informes', () => <Reports />],
   ['/tarjeta', () => <Card />],
   ['/ahorro', () => <Savings />],
   ['/mas', () => <More />],
@@ -49,6 +52,8 @@ const ROUTES: [string, (p: Record<string, string>) => ReactNode][] = [
 export function App() {
   const route = useRoute();
   const { status, records } = useSync();
+  // Al prender o apagar el modo privado se vuelve a dibujar todo con los montos ocultos.
+  const privacy = usePrivacy();
 
   useEffect(() => {
     const off = onSyncError((msg) => toast(msg, { tone: 'error' }));
@@ -92,7 +97,9 @@ export function App() {
 
   return (
     <>
-      <Layout route={route}>{page ?? <Home />}</Layout>
+      <Layout route={route} privacy={privacy}>
+        {page ?? <Home />}
+      </Layout>
       <TxFormHost />
       <EditorsHost />
       <Toasts />

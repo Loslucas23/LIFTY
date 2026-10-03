@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   accountBalances,
   applyMutation,
+  cardStatements,
   computeMonth,
   debtSchema,
   debtStatus,
@@ -343,5 +344,52 @@ describe('lo que viene', () => {
       ['Alquiler', '2026-10-10', true],
       ['Internet', '2026-10-14', false],
     ]);
+  });
+});
+
+describe('resumen de la tarjeta', () => {
+  it('separa pesos y dólares, y pagar el resumen no es gasto', () => {
+    const d = data(
+      {
+        transactions: [
+          // Heladera en 3 cuotas desde septiembre: en octubre cae la 2.ª.
+          tx({
+            date: '2026-09-02',
+            kind: 'expense',
+            amount: 9000,
+            accountId: 'acc-tarjeta',
+            installments: 3,
+            categoryId: 'cat-casa',
+          }),
+          tx({ date: '2026-10-03', kind: 'expense', amount: 20, currency: 'USD', fxRate: 40, accountId: 'acc-tarjeta' }),
+          // Pago parcial del resumen de octubre desde el BROU.
+          tx({
+            date: '2026-10-05',
+            kind: 'transfer',
+            amount: 2000,
+            accountId: 'acc-brou',
+            toAccountId: 'acc-tarjeta',
+            linkKind: 'cardbill',
+            linkId: 'acc-tarjeta',
+            linkMonth: '2026-10',
+          }),
+        ],
+      },
+      { usdRate: 40 },
+    );
+    const b = computeMonth(d, '2026-10', '2026-10-11');
+    const [s] = cardStatements(d, b);
+    expect(s.uyu).toBe(3000);
+    expect(s.usd).toBe(20);
+    expect(s.totalUYU).toBe(3800);
+    expect(s.paidUYU).toBe(2000);
+    expect(s.pendingUYU).toBe(1000);
+    expect(s.pendingUSD).toBe(20);
+    expect(s.status).toBe('partial');
+    // El pago no suma a los gastos del mes: solo la cuota y la compra en dólares.
+    expect(b.expenses).toBe(3800);
+    // La deuda con la tarjeta baja con el pago (9000 + 800 − 2000).
+    const card = accountBalances(d, '2026-10-31').find((a) => a.account.id === 'acc-tarjeta')!;
+    expect(card.balance).toBe(-7800);
   });
 });
