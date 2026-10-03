@@ -387,6 +387,9 @@ export async function smokeTour(): Promise<string[]> {
 
   // Stock: producto, compra con precio (y gasto), uso, conteo y lista de compras.
   await go('/stock');
+  // La pestaña se recuerda entre visitas: arrancar siempre desde "Lo que tengo".
+  clickText('.page .segmented button', 'Lo que tengo');
+  await sleep(100);
   const stockName = `Arroz prueba ${Date.now() % 100000}`;
   clickText('.page-head button', 'Producto');
   if (await waitFor('.sheet input[placeholder="Ej: Arroz"]')) {
