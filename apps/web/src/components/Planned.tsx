@@ -1,7 +1,7 @@
 import { addMonths, monthLabel, type PlannedLine } from '@lifty/core';
-import { confirmPlanned, deletePlanned, stopPlanned, unconfirmPlanned } from '../lib/actions';
+import { changePlannedAmount, confirmPlanned, deletePlanned, stopPlanned, unconfirmPlanned } from '../lib/actions';
 import { mutate } from '../lib/sync';
-import { openFixedForm, openIncomeForm, openMenu, type MenuAction } from './Editors';
+import { openFixedForm, openIncomeForm, openMenu, openPrompt, type MenuAction } from './Editors';
 import { money } from '../lib/format';
 import { useData, useLookups, useToday } from '../lib/store';
 import { Icon } from './Icon';
@@ -60,9 +60,24 @@ export function PlannedList({ lines, month }: { lines: PlannedLine[]; month: str
           { label: `${verb[0].toUpperCase()}${verb.slice(1)}, pero con otro monto…`, run: editTx },
         ];
     const next = addMonths(month, 1);
+    const changeFrom = (kind: 'fixed' | 'income') => ({
+      label: 'Cambiar el monto desde este mes',
+      hint: 'Los meses anteriores quedan como estaban',
+      run: () =>
+        openPrompt({
+          title: `${line.name}: nuevo monto`,
+          label: `Monto desde ${monthLabel(month).toLowerCase()} (${line.currency === 'USD' ? 'US$' : '$'})`,
+          initial: String(line.plannedOriginal),
+          onSubmit: (v) => {
+            if (v <= 0) return 'Tiene que ser mayor a 0';
+            changePlannedAmount(data, kind, line.refId, month, v);
+          },
+        }),
+    });
     if (line.kind === 'fixed' && data.fixed.some((f) => f.id === line.refId)) {
       actions.push(
-        { label: 'Editar gasto fijo', hint: 'Monto, día, categoría, desde/hasta', run: () => openFixedForm(line.refId, month) },
+        changeFrom('fixed'),
+        { label: 'Editar gasto fijo', hint: 'Monto, día, categoría, frecuencia', run: () => openFixedForm(line.refId, month) },
         {
           label: 'Ya no lo pago',
           hint: `Sale del presupuesto desde ${monthLabel(month).toLowerCase()}`,
@@ -79,6 +94,7 @@ export function PlannedList({ lines, month }: { lines: PlannedLine[]; month: str
     const income = data.incomes.find((i) => i.id === line.refId);
     if (line.kind === 'salary' && income) {
       actions.push(
+        changeFrom('income'),
         { label: 'Editar sueldo', hint: 'Nominal, descuentos, desde/hasta', run: () => openIncomeForm(line.refId, month) },
         {
           label: 'Ya no lo cobro',

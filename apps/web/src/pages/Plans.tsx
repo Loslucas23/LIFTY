@@ -1,5 +1,14 @@
 import { useState } from 'react';
-import { isActiveIn, monthLabel, monthOf, netBreakdown, type FixedExpense, type IncomeSource } from '@lifty/core';
+import {
+  everyLabel,
+  isActiveIn,
+  monthLabel,
+  monthOf,
+  netBreakdown,
+  sinkingFunds,
+  type FixedExpense,
+  type IncomeSource,
+} from '@lifty/core';
 import { Icon } from '../components/Icon';
 import { FixedForm, IncomeForm } from '../components/PlanForms';
 import { Empty, PageHeader, Section } from '../components/ui';
@@ -74,8 +83,12 @@ export function FixedList() {
   const { category } = useLookups();
   const [editing, setEditing] = useState<FixedExpense | 'new' | null>(null);
   const active = data.fixed.filter((f) => isActiveIn(month, f.startMonth, f.endMonth));
+  const monthly = active.filter((f) => (f.everyMonths ?? 1) === 1 && f.endMonth !== f.startMonth);
+  const periodic = active.filter((f) => !monthly.includes(f));
   const other = data.fixed.filter((f) => !active.includes(f));
-  const total = active.reduce((s, f) => s + (f.currency === 'USD' ? f.amount * data.settings.usdRate : f.amount), 0);
+  const total = monthly.reduce((s, f) => s + (f.currency === 'USD' ? f.amount * data.settings.usdRate : f.amount), 0);
+  const funds = sinkingFunds(data, month);
+  const fundsTotal = funds.reduce((s, f) => s + f.perMonth, 0);
 
   const row = (f: FixedExpense) => {
     const cat = f.categoryId ? category.get(f.categoryId) : undefined;
@@ -87,7 +100,19 @@ export function FixedList() {
         <span className="tx-main">
           <span className="tx-title">{f.name}</span>
           <span className="tx-meta">
-            {[f.dayOfMonth ? `día ${f.dayOfMonth}` : null, period(f.startMonth, f.endMonth)].filter(Boolean).join(' · ')}
+            {[
+              (f.everyMonths ?? 1) > 1 || f.endMonth === f.startMonth
+                ? everyLabel(f.everyMonths ?? 1, f.startMonth, f.endMonth)
+                : null,
+              f.dayOfMonth ? `día ${f.dayOfMonth}` : null,
+              f.endMonth === f.startMonth ? monthLabel(f.startMonth) : period(f.startMonth, f.endMonth),
+              (() => {
+                const fund = funds.find((x) => x.id === f.id);
+                return fund ? `próximo: ${monthLabel(fund.nextMonth).toLowerCase()}` : null;
+              })(),
+            ]
+              .filter(Boolean)
+              .join(' · ')}
           </span>
         </span>
         <span className="tx-amount">{money(f.amount, f.currency)}</span>
@@ -99,7 +124,7 @@ export function FixedList() {
     <div className="page">
       <PageHeader
         title="Gastos fijos"
-        subtitle={active.length ? `${money(total)} por mes ahora` : 'Lo que pagás todos los meses'}
+        subtitle={monthly.length ? `${money(total)} por mes ahora` : 'Lo que pagás todos los meses (o cada tanto)'}
         back="/mas"
         actions={
           <button className="btn btn-primary" onClick={() => setEditing('new')}>
@@ -114,9 +139,21 @@ export function FixedList() {
         </Empty>
       ) : (
         <>
-          {active.length > 0 && (
-            <Section title="Vigentes">
-              <div className="card list">{active.map(row)}</div>
+          {monthly.length > 0 && (
+            <Section title="Todos los meses">
+              <div className="card list">{monthly.map(row)}</div>
+            </Section>
+          )}
+          {periodic.length > 0 && (
+            <Section
+              title="Anuales, cada N meses o una sola vez"
+              action={fundsTotal > 0 && <span className="muted small">Apartá {money(fundsTotal)} por mes</span>}
+            >
+              <div className="card list">{periodic.map(row)}</div>
+              <p className="muted small">
+                Patente, contribución, seguro, matrícula… Cuentan en el presupuesto solo el mes en que vencen; para no tener
+                sustos, conviene apartar un poco cada mes.
+              </p>
             </Section>
           )}
           {other.length > 0 && (

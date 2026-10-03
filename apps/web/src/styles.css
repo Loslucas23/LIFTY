@@ -2079,3 +2079,79 @@ button.tx-row:hover {
   display: block;
   font-size: 11px;
 }
+
+/* Inicio: gasto diario, avisos, primeros pasos */
+.hero[role='button'] {
+  cursor: pointer;
+}
+.hero[role='button']:focus-visible {
+  outline: 3px solid var(--accent);
+  outline-offset: 3px;
+}
+.hero-stats > button {
+  text-align: left;
+  font: inherit;
+  border: 0;
+  cursor: pointer;
+}
+.hero-stats small {
+  font-size: 12px;
+  font-weight: 500;
+  opacity: 0.8;
+}
+.insights {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.insight {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-left-width: 4px;
+  text-align: left;
+  color: var(--ink);
+}
+.insight .grow {
+  flex: 1;
+}
+.insight-good {
+  border-left-color: var(--accent);
+}
+.insight-warn {
+  border-left-color: var(--warn);
+}
+.insight-bad {
+  border-left-color: var(--bad);
+}
+.insight-info {
+  border-left-color: #3b82f6;
+}
+.tiles {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 10px;
+}
+.tiles:empty {
+  display: none;
+}
+.surplus {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 7%, var(--surface));
+}
+.planned-main:disabled {
+  cursor: default;
+  color: inherit;
+  opacity: 1;
+}

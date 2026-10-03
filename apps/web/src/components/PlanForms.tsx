@@ -37,6 +37,11 @@ export function IncomeForm({ income, month, onClose }: { income: IncomeSource | 
   );
   const [startMonth, setStartMonth] = useState(income?.startMonth ?? month ?? monthOf(today));
   const [endMonth, setEndMonth] = useState<string | null>(income?.endMonth ?? null);
+  const [freq, setFreq] = useState({
+    every: income?.everyMonths ?? 1,
+    once: !!income && income.endMonth === income.startMonth,
+  });
+  const recurringMonthly = freq.every === 1 && !freq.once;
   const [aguinaldo, setAguinaldo] = useState(income?.aguinaldo ?? true);
   const [payDay, setPayDay] = useState(income?.payDay ? String(income.payDay) : '');
   const [accountId, setAccountId] = useState<string | null>(income?.accountId ?? null);
@@ -58,8 +63,9 @@ export function IncomeForm({ income, month, onClose }: { income: IncomeSource | 
     deductions,
     currency,
     startMonth,
-    endMonth,
-    aguinaldo,
+    endMonth: freq.once ? startMonth : endMonth,
+    everyMonths: freq.once ? 1 : freq.every,
+    aguinaldo: recurringMonthly && aguinaldo,
     payDay: payDay ? Math.min(31, Math.max(1, Number(payDay))) : null,
     categoryId: income?.categoryId ?? 'cat-sueldo',
     accountId,
@@ -210,13 +216,16 @@ export function IncomeForm({ income, month, onClose }: { income: IncomeSource | 
           <strong>{money(b.net, currency)}</strong>
         </div>
 
+        <FrequencyPicker every={freq.every} once={freq.once} onChange={setFreq} />
         <div className="row">
-          <Field label="Desde">
+          <Field label={freq.once ? 'Mes' : freq.every === 1 ? 'Desde' : 'Primera vez'}>
             <input type="month" value={startMonth} onChange={(e) => e.target.value && setStartMonth(e.target.value)} />
           </Field>
-          <Field label="Hasta (opcional)">
-            <input type="month" value={endMonth ?? ''} onChange={(e) => setEndMonth(e.target.value || null)} />
-          </Field>
+          {!freq.once && (
+            <Field label="Hasta (opcional)">
+              <input type="month" value={endMonth ?? ''} onChange={(e) => setEndMonth(e.target.value || null)} />
+            </Field>
+          )}
         </div>
         <Field label="Día de cobro (opcional)">
           <input
@@ -239,8 +248,12 @@ export function IncomeForm({ income, month, onClose }: { income: IncomeSource | 
             ]}
           />
         </Field>
-        <Toggle checked={aguinaldo} onChange={setAguinaldo} label="Genera aguinaldo" />
-        {aguinaldo && (agJune || agDec) && (
+        {recurringMonthly ? (
+          <Toggle checked={aguinaldo} onChange={setAguinaldo} label="Genera aguinaldo (no para seguro de paro)" />
+        ) : (
+          <p className="muted small">Lo que no se cobra todos los meses (salario vacacional, bonos) no genera aguinaldo.</p>
+        )}
+        {recurringMonthly && aguinaldo && (agJune || agDec) && (
           <p className="muted small">
             Aguinaldo estimado {year}: {agJune ? `junio ${money(agJune.amount, currency)}` : ''}
             {agJune && agDec ? ' · ' : ''}
@@ -264,6 +277,10 @@ export function FixedForm({ fixed, month, onClose }: { fixed: FixedExpense | nul
   const [day, setDay] = useState(fixed?.dayOfMonth ? String(fixed.dayOfMonth) : '');
   const [startMonth, setStartMonth] = useState(fixed?.startMonth ?? month ?? monthOf(today));
   const [endMonth, setEndMonth] = useState<string | null>(fixed?.endMonth ?? null);
+  const [freq, setFreq] = useState({
+    every: fixed?.everyMonths ?? 1,
+    once: !!fixed && fixed.endMonth === fixed.startMonth,
+  });
   const [error, setError] = useState<string | null>(null);
 
   const save = () => {
@@ -278,7 +295,8 @@ export function FixedForm({ fixed, month, onClose }: { fixed: FixedExpense | nul
       accountId,
       dayOfMonth: day ? Math.min(31, Math.max(1, Number(day))) : null,
       startMonth,
-      endMonth,
+      endMonth: freq.once ? startMonth : endMonth,
+      everyMonths: freq.once ? 1 : freq.every,
     });
     if (!result.success) return setError('Escribí un monto mayor a 0.');
     mutate('fixed', 'upsert', result.data);
@@ -374,18 +392,57 @@ export function FixedForm({ fixed, month, onClose }: { fixed: FixedExpense | nul
             placeholder="Ej: 10"
           />
         </Field>
+        <FrequencyPicker every={freq.every} once={freq.once} onChange={setFreq} />
         <div className="row">
-          <Field label="Desde">
+          <Field label={freq.once ? 'Mes' : freq.every === 1 ? 'Desde' : 'Primera vez'}>
             <input type="month" value={startMonth} onChange={(e) => e.target.value && setStartMonth(e.target.value)} />
           </Field>
-          <Field label="Hasta (opcional)">
-            <input type="month" value={endMonth ?? ''} onChange={(e) => setEndMonth(e.target.value || null)} />
-          </Field>
+          {!freq.once && (
+            <Field label="Hasta (opcional)">
+              <input type="month" value={endMonth ?? ''} onChange={(e) => setEndMonth(e.target.value || null)} />
+            </Field>
+          )}
         </div>
+        {!freq.once && freq.every > 1 && (parseAmount(amount) ?? 0) > 0 && (
+          <p className="note">
+            Para pagarlo sin sustos, apartá {money((parseAmount(amount) ?? 0) / freq.every, currency)} por mes. Solo cuenta en el
+            presupuesto el mes en que vence.
+          </p>
+        )}
         <p className="muted small">
-          Si dejás de pagarlo, poné el mes de fin en vez de borrarlo: así los meses anteriores no cambian.
+          Si dejás de pagarlo, usá "Ya no lo pago" en vez de borrarlo: así los meses anteriores no cambian.
         </p>
       </div>
     </Sheet>
+  );
+}
+
+/** Cada cuánto se repite: todos los meses, cada N meses, una vez al año o una sola vez. */
+function FrequencyPicker({
+  every,
+  once,
+  onChange,
+}: {
+  every: number;
+  once: boolean;
+  onChange: (v: { every: number; once: boolean }) => void;
+}) {
+  const value = once ? 'once' : String(every);
+  return (
+    <Field label="¿Cada cuánto?">
+      <Chips
+        label="Frecuencia"
+        value={value}
+        onChange={(v) => onChange(v === 'once' ? { every: 1, once: true } : { every: Number(v), once: false })}
+        options={[
+          { value: '1', label: 'Todos los meses' },
+          { value: '2', label: 'Cada 2 meses' },
+          { value: '3', label: 'Cada 3 meses' },
+          { value: '6', label: 'Cada 6 meses' },
+          { value: '12', label: 'Una vez al año' },
+          { value: 'once', label: 'Una sola vez' },
+        ]}
+      />
+    </Field>
   );
 }

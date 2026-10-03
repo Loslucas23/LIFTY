@@ -3,6 +3,7 @@ import { Icon } from '../components/Icon';
 import { Empty, Field, PageHeader, Section, toast } from '../components/ui';
 import { navigate } from '../lib/router';
 import { useSync } from '../lib/store';
+import { local as prefs } from '../lib/local';
 import { api, ApiError, forgetDevice, pairDevice } from '../lib/sync';
 
 interface Pairing {
@@ -28,7 +29,11 @@ export function Connect() {
 
   const loadDevices = () =>
     api<{ devices: Device[] }>('/devices')
-      .then((r) => setDevices(r.devices))
+      .then((r) => {
+        setDevices(r.devices);
+        // Para "Primeros pasos": ya hay un celular vinculado.
+        if (r.devices.length > 0) prefs.set('lifty-paired', '1');
+      })
       .catch(() => setDevices(null));
 
   useEffect(() => {

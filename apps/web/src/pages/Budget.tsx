@@ -1,6 +1,6 @@
 import { useState } from 'react';
-import { monthLabel, monthOf, addMonths, type MonthBudget, type TxLine } from '@lifty/core';
-import { openBudgetEditor, openBudgetWizard, openFixedForm, openIncomeForm } from '../components/Editors';
+import { accountBalances, addMonths, daysInMonth, monthLabel, monthOf, round2, type MonthBudget, type TxLine } from '@lifty/core';
+import { openBudgetEditor, openBudgetWizard, openExplain, openFixedForm, openIncomeForm } from '../components/Editors';
 import { Icon } from '../components/Icon';
 import { PlannedList } from '../components/Planned';
 import { openTxForm } from '../components/TxForm';
@@ -158,18 +158,50 @@ function dateIn(month: string, today: string): string {
 
 /** El plan: lo que entra, lo comprometido, lo repartido y lo que queda sin asignar. */
 function PlanCard({ b }: { b: MonthBudget }) {
-  const available = b.carryover.amount + b.income.total - b.fixed.total - b.savings.total;
+  const reserve = b.savingsGoal.reserve;
+  const available = b.carryover.amount + b.income.total - b.fixed.total - reserve;
   const spentBudgeted = b.categories.filter((c) => c.limit !== null).reduce((s, c) => s + c.spent, 0);
+  const explain = () =>
+    openExplain({
+      title: '¿De dónde sale "sin asignar"?',
+      intro: 'Es lo que te queda libre después de los gastos fijos, el ahorro y lo que repartiste en las categorías.',
+      rows: [
+        ...(b.carryover.amount ? [{ label: 'Viene del mes anterior', value: b.carryover.amount }] : []),
+        { label: 'Ingresos del mes', value: b.income.total, op: '+' as const },
+        { label: 'Gastos fijos', value: b.fixed.total, op: '−' as const },
+        {
+          label: 'Ahorro',
+          value: reserve,
+          op: '−' as const,
+          note:
+            b.savingsGoal.target > 0
+              ? `meta ${money(b.savingsGoal.target)}, ahorrado ${money(b.savingsGoal.saved)}`
+              : 'lo ahorrado',
+        },
+        { label: 'Presupuesto por categoría', value: b.plan.assigned, op: '−' as const },
+        { label: 'Gastado sin presupuesto', value: b.plan.unbudgeted, op: '−' as const },
+      ],
+      result: { label: b.plan.unassigned < 0 ? 'Te pasaste' : 'Sin asignar', value: b.plan.unassigned },
+      footnote: `Si cumplís el presupuesto terminás el mes con ${money(b.plan.projected)} (lo de arriba menos lo que te falta gastar de cada categoría y lo que falta ahorrar).`,
+    });
   return (
     <section className="card plan-card">
       <h2>Plan del mes</h2>
-      <dl>
+      <dl className="explainable-list" onClick={explain}>
         <div className="receipt-row">
           <dt>
             Para gastar <small>· ingresos − fijos − ahorro</small>
           </dt>
           <dd>{money(available)}</dd>
         </div>
+        {b.savingsGoal.target > 0 && (
+          <div className="receipt-row">
+            <dt>
+              Meta de ahorro <small>· {b.savingsGoal.pending > 0 ? `faltan ${money(b.savingsGoal.pending)}` : 'cumplida'}</small>
+            </dt>
+            <dd>{money(b.savingsGoal.target)}</dd>
+          </div>
+        )}
         <div className="receipt-row">
           <dt>Presupuesto por categoría</dt>
           <dd>{money(b.plan.assigned)}</dd>
@@ -181,7 +213,7 @@ function PlanCard({ b }: { b: MonthBudget }) {
           </div>
         )}
         <div className="receipt-row receipt-total">
-          <dt>{b.plan.unassigned < 0 ? 'Te pasaste' : 'Sin asignar'}</dt>
+          <dt className="explainable">{b.plan.unassigned < 0 ? 'Te pasaste' : 'Sin asignar'}</dt>
           <dd className={b.plan.unassigned < 0 ? 'text-bad' : 'text-income'}>{money(Math.abs(b.plan.unassigned))}</dd>
         </div>
       </dl>
@@ -197,6 +229,7 @@ function PlanCard({ b }: { b: MonthBudget }) {
       {b.plan.unassigned < 0 && (
         <p className="text-bad small">Estás planeando gastar más de lo que entra: bajá algún presupuesto.</p>
       )}
+      <p className="muted small">Tocá los números para ver de dónde salen.</p>
     </section>
   );
 }
@@ -240,8 +273,23 @@ function Receipt({ b, onClose }: { b: MonthBudget; onClose: () => void }) {
             </dd>
           </div>
         ))}
-        <div className="receipt-row receipt-total">
-          <dt>{b.closing ? 'Proyectado' : 'Te queda (proyectado)'}</dt>
+        <div
+          className="receipt-row receipt-total"
+          onClick={() =>
+            openExplain({
+              title: '¿De dónde sale lo proyectado?',
+              rows: rows.map(([label, value]) => ({
+                label,
+                value: Math.abs(value),
+                op: value < 0 ? ('−' as const) : ('+' as const),
+              })),
+              result: { label: 'Te queda al final del mes', value: b.result },
+              footnote:
+                'Los sueldos y gastos fijos que no tildaste cuentan con lo planificado. Al cerrar el mes con el saldo real, ese número reemplaza al proyectado.',
+            })
+          }
+        >
+          <dt className="explainable">{b.closing ? 'Proyectado' : 'Te queda (proyectado)'}</dt>
           <dd className={b.result < 0 ? 'text-bad' : ''}>{money(b.result)}</dd>
         </div>
         {b.closing && (
@@ -299,13 +347,23 @@ function Receipt({ b, onClose }: { b: MonthBudget; onClose: () => void }) {
 }
 
 function CloseMonth({ b, onClose }: { b: MonthBudget; onClose: () => void }) {
+  const data = useData();
+  const today = useToday();
+  const monthEnd = `${b.month}-${String(daysInMonth(b.month)).padStart(2, '0')}`;
+  const balances = accountBalances(data, monthEnd < today ? monthEnd : today).filter(
+    (x) => (x.account.type === 'bank' || x.account.type === 'cash') && !x.account.archived,
+  );
+  const fromAccounts = round2(balances.reduce((s, x) => s + x.balanceUYU, 0));
+  const accountsSet = balances.some((x) => x.balance !== 0);
   const [text, setText] = useState(String(b.closing?.realBalance ?? Math.round(b.result)).replace('.', ','));
   const [note, setNote] = useState(b.closing?.note ?? '');
   const value = parseAmount(text);
+  const pending = [...b.fixed.items, ...b.income.planned].filter((l) => !l.confirmed);
+  const diff = value === null ? 0 : value - b.result;
   const save = () => {
     if (value === null) return;
     mutate('closing', 'upsert', { id: b.month, updatedAt: '', realBalance: value, note });
-    toast(`${monthLabel(b.month)} cerrado`);
+    toast(`${monthLabel(b.month)} cerrado: pasan ${money(value)} a ${monthLabel(addMonths(b.month, 1), false).toLowerCase()}`);
     onClose();
   };
   return (
@@ -325,13 +383,41 @@ function CloseMonth({ b, onClose }: { b: MonthBudget; onClose: () => void }) {
           save();
         }}
       >
+        {pending.length > 0 && (
+          <div className="note">
+            <p>
+              <strong>1.</strong> Quedaron {pending.length} cosas sin tildar (
+              {pending
+                .map((l) => l.name)
+                .slice(0, 3)
+                .join(', ')}
+              {pending.length > 3 ? '…' : ''}).
+            </p>
+            <button type="button" className="link small" onClick={() => confirmAll(data, pending, b.month)}>
+              Tildar todas como pagadas/cobradas
+            </button>
+          </div>
+        )}
         <p className="muted">
-          Lifty calculó que te quedaban <strong>{money(b.result)}</strong>. ¿Cuánto te quedó de verdad, sumando cuentas y
-          efectivo?
+          <strong>{pending.length > 0 ? '2. ' : ''}</strong>Lifty calculó que te quedaban <strong>{money(b.result)}</strong>.
+          ¿Cuánto te quedó de verdad, sumando cuentas y efectivo?
         </p>
+        {accountsSet && (
+          <button type="button" className="chip chip-add" onClick={() => setText(String(fromAccounts))}>
+            Usar la suma de tus cuentas: {money(fromAccounts)}
+          </button>
+        )}
         <Field label="Saldo real" error={value === null ? 'Escribí un monto' : null}>
           <input data-autofocus inputMode="decimal" value={text} onChange={(e) => setText(e.target.value)} />
         </Field>
+        {value !== null && Math.abs(diff) >= 1 && (
+          <p className={`note ${diff < 0 ? 'note-bad' : 'note-good'}`}>
+            {diff < 0
+              ? `Te quedó ${money(-diff)} menos de lo calculado: puede haber gastos sin cargar.`
+              : `Te quedó ${money(diff)} más de lo calculado.`}{' '}
+            El mes que viene arranca con {money(value)}.
+          </p>
+        )}
         <Field label="Nota (opcional)">
           <input value={note} onChange={(e) => setNote(e.target.value)} maxLength={200} placeholder="Ej: faltó cargar la feria" />
         </Field>
