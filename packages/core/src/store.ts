@@ -43,6 +43,7 @@ export function toLiftyData(store: RecordStore): LiftyData {
       (a, b) => (a.examDate ?? '9999').localeCompare(b.examDate ?? '9999') || a.name.localeCompare(b.name, 'es'),
     ),
     studySessions: list('studySession').sort((a, b) => b.date.localeCompare(a.date) || b.updatedAt.localeCompare(a.updatedAt)),
+    yearGoals: list('yearGoal').sort((a, b) => a.name.localeCompare(b.name, 'es')),
     reminders: list('reminder').sort((a, b) => a.date.localeCompare(b.date)),
     stockMoves: list('stockMove').sort((a, b) => a.date.localeCompare(b.date) || a.updatedAt.localeCompare(b.updatedAt)),
     weights: list('weight').sort((a, b) => a.date.localeCompare(b.date) || a.updatedAt.localeCompare(b.updatedAt)),

@@ -10,6 +10,7 @@ import {
   STOCK_UNITS,
   stockItemSchema,
   stockOverview,
+  storePrices,
   UNIT_LABEL,
   type StockItem,
   type ShopEntry,
@@ -54,7 +55,7 @@ const PRESETS: { name: string; icon: string; place: StockPlace; unit: StockUnit;
   { name: 'Jabón en polvo', icon: '🫧', place: 'limpieza', unit: 'kg', packSize: null },
 ];
 
-type Tab = 'tengo' | 'lista' | 'vence';
+type Tab = 'tengo' | 'lista' | 'vence' | 'precios';
 
 function useOverview() {
   const data = useData();
@@ -175,6 +176,7 @@ export function Stock() {
                 label: `Comprar${data.shopEntries.filter((e) => !e.checked).length ? ` (${data.shopEntries.filter((e) => !e.checked).length})` : o.shopping.length ? ` (${o.shopping.length})` : ''}`,
               },
               { value: 'vence', label: 'Vence' },
+              { value: 'precios', label: 'Precios' },
             ]}
           />
 
@@ -221,6 +223,8 @@ export function Stock() {
           )}
 
           {tab === 'lista' && <ShoppingList onBuy={(lines) => setBuying(lines)} onOpen={setViewing} />}
+
+          {tab === 'precios' && <PricesView />}
 
           {tab === 'vence' && (
             <Section title="Lo que vence (se usa primero lo más viejo)">
@@ -1110,5 +1114,81 @@ function PurchaseSheet({ initial, onClose }: { initial: PurchaseLine[]; onClose:
         )}
       </div>
     </Sheet>
+  );
+}
+
+/** Dónde conviene comprar: último precio por unidad de cada producto en cada súper. */
+function PricesView() {
+  const data = useData();
+  const today = useToday();
+  const r = useMemo(
+    () => storePrices(data.stockItems, data.stockMoves, today, data.settings),
+    [data.stockItems, data.stockMoves, today, data.settings],
+  );
+  if (!r.items.length)
+    return (
+      <Empty icon="cart" title="Todavía no hay precios">
+        Cuando registres compras con precio y dónde compraste, acá ves en qué súper conviene cada cosa.
+      </Empty>
+    );
+  const cheapest = r.basket[0];
+  return (
+    <>
+      {r.monthlySavings > 0 && (
+        <div className="note note-good">
+          Comprando cada cosa donde está más barata ahorrarías <strong>~{money(Math.round(r.monthlySavings))} por mes</strong>{' '}
+          (contra lo que pagás en promedio, con lo que consumís).
+        </div>
+      )}
+      {r.basket.length > 1 && (
+        <Section title="Si comprás todo en un solo lugar (un mes de consumo)">
+          <ul className="card month-bars">
+            {r.basket.map((b) => (
+              <li key={b.store}>
+                <span>{b.store}</span>
+                <div className="bar-track">
+                  <div
+                    className="bar-fill"
+                    style={{ width: `${(b.total / Math.max(...r.basket.map((x) => x.total))) * 100}%` }}
+                  />
+                </div>
+                <strong>
+                  {money(Math.round(b.total))}
+                  <small className="muted"> · {b.items} prod.</small>
+                </strong>
+              </li>
+            ))}
+          </ul>
+          <p className="muted small">
+            Solo cuenta los productos con precio en ese lugar: compará los que tienen la misma cantidad de productos.
+            {cheapest ? ` Con más productos y más barato: ${cheapest.store}.` : ''}
+          </p>
+        </Section>
+      )}
+      <Section title="Por producto">
+        <div className="card list">
+          {r.items.map((x) => (
+            <div key={x.item.id} className="tx-row static">
+              <span className="tx-icon">{x.item.icon}</span>
+              <span className="tx-main">
+                <span className="tx-title">
+                  {x.item.name}
+                  {x.spread !== null && x.spread >= 5 && <span className="tag tag-good">{x.spread}% de diferencia</span>}
+                </span>
+                <span className="tx-meta">
+                  {x.prices
+                    .map(
+                      (p, i) =>
+                        `${i === 0 && x.prices.length > 1 ? '✓ ' : ''}${p.store} ${money(p.unitPrice)}/${UNIT_LABEL[x.item.unit]}`,
+                    )
+                    .join(' · ')}
+                </span>
+              </span>
+            </div>
+          ))}
+        </div>
+        <p className="muted small">El último precio que pagaste en cada lugar (últimos 6 meses).</p>
+      </Section>
+    </>
   );
 }

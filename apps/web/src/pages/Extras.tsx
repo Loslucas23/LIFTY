@@ -9,12 +9,17 @@ import {
   reminderStatus,
   weekStart,
   weekSummary,
+  YEAR_GOAL_KINDS,
+  yearGoalSchema,
+  yearGoalStatus,
   type Reminder,
+  type YearGoal,
+  type YearGoalStatus,
 } from '@lifty/core';
-import { openExplain, openFixedForm, openMenu } from '../components/Editors';
+import { openExplain, openFixedForm, openMenu, openPrompt } from '../components/Editors';
 import { Icon } from '../components/Icon';
-import { Empty, Field, PageHeader, Section, Sheet, toast } from '../components/ui';
-import { dayLabel, money } from '../lib/format';
+import { Chips, Empty, Field, PageHeader, Section, Sheet, toast } from '../components/ui';
+import { dayLabel, money, parseAmount } from '../lib/format';
 import { useData, useLookups, useToday } from '../lib/store';
 import { mutate } from '../lib/sync';
 
@@ -403,6 +408,257 @@ function ReminderForm({ reminder, onClose }: { reminder: Partial<Reminder>; onCl
         <Field label="Nota">
           <input value={note} onChange={(e) => setNote(e.target.value)} placeholder="Ej: póliza 12345, BSE" maxLength={200} />
         </Field>
+      </div>
+    </Sheet>
+  );
+}
+
+// ---------------- Metas del año ----------------
+
+const GOAL_KIND_LABEL: Record<YearGoal['kind'], string> = {
+  savings: '🐷 Ahorrar',
+  weight: '⚖️ Peso',
+  study: '📚 Estudiar (horas)',
+  habit: '🔁 Un hábito (días)',
+  manual: '✍️ Otra (lo anoto yo)',
+};
+const GOAL_STATUS: Record<YearGoalStatus['status'], { label: string; tone: string }> = {
+  done: { label: '¡Lograda!', tone: 'tag-good' },
+  ahead: { label: 'Vas adelantado', tone: 'tag-good' },
+  'on-track': { label: 'Vas al día', tone: '' },
+  behind: { label: 'Vas atrasado', tone: 'tag-bad' },
+};
+
+export function YearGoals() {
+  const data = useData();
+  const today = useToday();
+  const year = Number(today.slice(0, 4));
+  const [editing, setEditing] = useState<Partial<YearGoal> | null>(null);
+  const goals = data.yearGoals.filter((g) => !g.archived && g.year === year).map((g) => yearGoalStatus(g, data, today));
+  const elapsed = goals[0]?.expected ?? 0;
+  const presets: Partial<YearGoal>[] = [
+    { name: 'Ahorrar en el año', icon: '🐷', kind: 'savings' },
+    { name: 'Llegar a mi peso', icon: '⚖️', kind: 'weight', target: data.settings.goalWeightKg ?? undefined },
+    { name: 'Horas de estudio', icon: '📚', kind: 'study', target: 200 },
+    ...data.habits
+      .filter((h) => !h.archived)
+      .slice(0, 3)
+      .map((h) => ({ name: `${h.name} (días)`, icon: h.icon, kind: 'habit' as const, refId: h.id, target: 150 })),
+    { name: 'Libros leídos', icon: '📖', kind: 'manual', target: 12, unit: 'libros' },
+  ];
+  return (
+    <div className="page">
+      <PageHeader
+        title={`Metas ${year}`}
+        subtitle="El avance sale solo de lo que ya cargás"
+        actions={
+          <button className="btn btn-primary" onClick={() => setEditing({})}>
+            <Icon name="plus" /> Meta
+          </button>
+        }
+      />
+      {goals.length === 0 && (
+        <Empty icon="chart" title="Ponete metas para el año">
+          El avance sale solo de lo que ya cargás: ahorro, peso, horas de estudio o días que cumpliste un hábito. Lifty te dice si
+          vas al día y cuánto te falta por mes.
+        </Empty>
+      )}
+      <div className="goal-grid">
+        {goals.map((s) => {
+          const st = GOAL_STATUS[s.status];
+          return (
+            <article key={s.goal.id} className="card goal">
+              <div className="goal-head">
+                <span className="goal-icon">{s.goal.icon}</span>
+                <div>
+                  <strong>{s.goal.name}</strong>
+                </div>
+                <button className="link small" onClick={() => setEditing(s.goal)}>
+                  Editar
+                </button>
+              </div>
+              <p className="muted small">{s.detail}</p>
+              <div className="year-progress" aria-label={`Avance ${Math.round(s.progress * 100)}%`}>
+                <span className="year-fill" style={{ width: `${s.progress * 100}%` }} />
+                <span className="year-mark" style={{ left: `${s.expected * 100}%` }} title="Donde deberías estar hoy" />
+              </div>
+              <div className="goal-plan">
+                <span className={`tag ${st.tone}`}>{st.label}</span>
+                <span className="small">
+                  {Math.round(s.progress * 100)}%{s.needed ? ` · te faltan ${s.needed}` : ''}
+                </span>
+              </div>
+              {s.goal.kind === 'manual' && (
+                <button
+                  className="btn"
+                  onClick={() =>
+                    openPrompt({
+                      title: s.goal.name,
+                      label: `¿Cuánto llevás?${s.goal.unit ? ` (${s.goal.unit})` : ''}`,
+                      initial: String(s.goal.manualValue),
+                      onSubmit: (v) => {
+                        if (v < 0) return 'Escribí un número';
+                        mutate('yearGoal', 'upsert', { ...s.goal, manualValue: v });
+                      },
+                    })
+                  }
+                >
+                  Actualizar
+                </button>
+              )}
+            </article>
+          );
+        })}
+      </div>
+      {goals.length > 0 && (
+        <p className="muted small">
+          La rayita marca dónde deberías estar hoy si vas parejo ({Math.round(elapsed * 100)}% del año).
+        </p>
+      )}
+      <Section title="Ideas">
+        <div className="chips">
+          {presets
+            .filter((p) => !data.yearGoals.some((g) => g.name === p.name && g.year === year && !g.archived))
+            .map((p) => (
+              <button key={p.name} className="chip" onClick={() => setEditing(p)}>
+                {p.icon} {p.name}
+              </button>
+            ))}
+        </div>
+      </Section>
+      {editing && <YearGoalForm goal={editing} year={year} onClose={() => setEditing(null)} />}
+    </div>
+  );
+}
+
+function YearGoalForm({ goal, year, onClose }: { goal: Partial<YearGoal>; year: number; onClose: () => void }) {
+  const data = useData();
+  const existing = goal.id ? (goal as YearGoal) : null;
+  const [name, setName] = useState(goal.name ?? '');
+  const [icon, setIcon] = useState(goal.icon ?? '🎯');
+  const [kind, setKind] = useState<YearGoal['kind']>(goal.kind ?? 'savings');
+  const [target, setTarget] = useState(goal.target ? String(goal.target) : '');
+  const [refId, setRefId] = useState<string>(goal.refId ?? '');
+  const [unit, setUnit] = useState(goal.unit ?? '');
+  const [error, setError] = useState<string | null>(null);
+  const save = () => {
+    const r = yearGoalSchema.safeParse({
+      ...(existing ?? {}),
+      id: existing?.id ?? newId(),
+      updatedAt: '',
+      name,
+      icon: icon || '🎯',
+      year: existing?.year ?? year,
+      kind,
+      target: parseAmount(target) ?? 0,
+      refId: kind === 'habit' || kind === 'study' ? refId || null : null,
+      unit,
+    });
+    if (!r.success || (kind === 'habit' && !refId))
+      return setError(kind === 'habit' && !refId ? 'Elegí el hábito.' : 'Poné el nombre y la meta.');
+    mutate('yearGoal', 'upsert', r.data);
+    toast('Meta guardada');
+    onClose();
+  };
+  return (
+    <Sheet
+      title={existing ? 'Editar meta' : 'Nueva meta del año'}
+      onClose={onClose}
+      footer={
+        <>
+          {existing && (
+            <button
+              className="btn btn-danger-ghost"
+              onClick={() => {
+                mutate('yearGoal', 'delete', existing.id);
+                toast('Meta borrada', { action: { label: 'Deshacer', run: () => mutate('yearGoal', 'upsert', existing) } });
+                onClose();
+              }}
+            >
+              Borrar
+            </button>
+          )}
+          <button className="btn btn-primary grow" onClick={save}>
+            Guardar
+          </button>
+        </>
+      }
+    >
+      <div className="form">
+        {error && <p className="field-error">{error}</p>}
+        <div className="row">
+          <Field label="Ícono">
+            <input className="emoji-input" value={icon} onChange={(e) => setIcon(e.target.value.slice(0, 4))} />
+          </Field>
+          <Field label="Meta">
+            <input
+              data-autofocus
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="Ej: Ahorrar para el auto"
+              maxLength={60}
+            />
+          </Field>
+        </div>
+        <Field label="¿Cómo se mide?">
+          <Chips
+            label="Tipo"
+            value={kind}
+            onChange={setKind}
+            options={YEAR_GOAL_KINDS.map((k) => ({ value: k, label: GOAL_KIND_LABEL[k] }))}
+          />
+        </Field>
+        {kind === 'habit' && (
+          <Field label="Hábito">
+            <select value={refId} onChange={(e) => setRefId(e.target.value)} aria-label="Hábito">
+              <option value="">Elegí…</option>
+              {data.habits
+                .filter((h) => !h.archived)
+                .map((h) => (
+                  <option key={h.id} value={h.id}>
+                    {h.icon} {h.name}
+                  </option>
+                ))}
+            </select>
+          </Field>
+        )}
+        {kind === 'study' && data.subjects.length > 0 && (
+          <Field label="Materia">
+            <select value={refId} onChange={(e) => setRefId(e.target.value)} aria-label="Materia">
+              <option value="">Todas</option>
+              {data.subjects.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.icon} {s.name}
+                </option>
+              ))}
+            </select>
+          </Field>
+        )}
+        <div className="row">
+          <Field
+            label={
+              kind === 'savings'
+                ? 'Cuánto ($)'
+                : kind === 'weight'
+                  ? 'Peso al que querés llegar (kg)'
+                  : kind === 'study'
+                    ? 'Horas'
+                    : kind === 'habit'
+                      ? 'Días en el año'
+                      : 'Meta'
+            }
+          >
+            <input inputMode="decimal" value={target} onChange={(e) => setTarget(e.target.value)} aria-label="Valor de la meta" />
+          </Field>
+          {kind === 'manual' && (
+            <Field label="En (opcional)">
+              <input value={unit} onChange={(e) => setUnit(e.target.value)} placeholder="libros" maxLength={12} />
+            </Field>
+          )}
+        </div>
+        {kind === 'savings' && (
+          <p className="muted small">Cuenta todo lo que pases al ahorro en el año (en pesos; los dólares a su cotización).</p>
+        )}
       </div>
     </Sheet>
   );

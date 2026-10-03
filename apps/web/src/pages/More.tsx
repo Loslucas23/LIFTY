@@ -12,6 +12,7 @@ const GROUPS: { title: string; items: { href: string; icon: IconName; label: str
       { href: '/ahorro', icon: 'piggy', label: 'Ahorro', hint: 'Meta del mes y metas con fecha' },
       { href: '/deudas', icon: 'people', label: 'Deudas y préstamos', hint: 'Lo que te deben y lo que debés' },
       { href: '/informes', icon: 'chart', label: 'Informes', hint: 'El año mes a mes, tendencias y patrimonio' },
+      { href: '/metas', icon: 'chart', label: 'Metas del año', hint: 'Ahorro, peso, estudio y hábitos: si vas al día' },
       { href: '/semana', icon: 'calendar', label: 'Tu semana', hint: 'Gastos, ahorro, rutinas, estudio y peso de la semana' },
     ],
   },

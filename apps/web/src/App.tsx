@@ -24,7 +24,7 @@ import { Reports } from './pages/Reports';
 import { Stock } from './pages/Stock';
 import { Routines } from './pages/Routines';
 import { Study } from './pages/Study';
-import { Recurring, Reminders, Week } from './pages/Extras';
+import { Recurring, Reminders, Week, YearGoals } from './pages/Extras';
 import { usePrivacy } from './lib/privacy';
 import { Year } from './pages/Year';
 
@@ -57,6 +57,7 @@ const ROUTES: [string, (p: Record<string, string>) => ReactNode][] = [
   ['/semana', () => <Week />],
   ['/suscripciones', () => <Recurring />],
   ['/vencimientos', () => <Reminders />],
+  ['/metas', () => <YearGoals />],
 ];
 
 export function App() {

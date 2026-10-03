@@ -79,6 +79,7 @@ export async function smokeTour(): Promise<string[]> {
     '/semana',
     '/suscripciones',
     '/vencimientos',
+    '/metas',
     '/',
   ];
   for (const r of routes) await go(r);
@@ -488,6 +489,22 @@ export async function smokeTour(): Promise<string[]> {
     await go(route);
     if (!$('.page-head')) problems.push(`${route}: no se dibujó`);
   }
+
+  // Metas del año: ahorro (si no está) y su avance.
+  await go('/metas');
+  if (!$('.year-progress')) {
+    clickText('.chips .chip', 'Ahorrar en el año');
+    if (await waitFor('.sheet input[aria-label="Valor de la meta"]')) {
+      type($('.sheet input[aria-label="Valor de la meta"]'), '60000');
+      await saveSheet('meta del año');
+    } else problems.push('metas: no se abrió el formulario');
+  }
+  if (!(await until(() => !!$('.year-progress')))) problems.push('metas: no muestra el avance');
+  check('metas');
+  await go('/stock');
+  clickText('.page .segmented button', 'Precios');
+  await sleep(150);
+  check('precios del stock');
 
   // Modo privado (tecla P): oculta los montos y se vuelve a mostrar.
   await go('/');

@@ -92,3 +92,58 @@ describe('resumen semanal', () => {
     expect(w.topCategories).toEqual([{ categoryId: 'cat-comida', amount: 800 }]);
   });
 });
+
+describe('dónde conviene comprar', () => {
+  it('compara el último precio por súper y calcula el ahorro', async () => {
+    const { stockItemSchema, stockMoveSchema, storePrices } = await import('../src');
+    let i = 0;
+    const mv = (m: Record<string, unknown>) =>
+      stockMoveSchema.parse({ id: `m${++i}`, updatedAt: String(i).padStart(3, '0'), itemId: 'arroz', ...m });
+    const arroz = stockItemSchema.parse({ id: 'arroz', name: 'Arroz', unit: 'kg' });
+    const moves = [
+      mv({ date: '2026-09-01', kind: 'buy', quantity: 2, price: 120, store: 'Disco' }),
+      mv({ date: '2026-09-15', kind: 'buy', quantity: 2, price: 100, store: 'Tata' }),
+      mv({ date: '2026-10-01', kind: 'count', quantity: 1 }),
+    ];
+    const r = storePrices([arroz], moves, '2026-10-01', { shoppingDays: 7 });
+    expect(r.items[0].prices.map((p) => [p.store, p.unitPrice])).toEqual([
+      ['Tata', 50],
+      ['Disco', 60],
+    ]);
+    expect(r.items[0]).toMatchObject({ best: 'Tata', spread: 20 });
+    // Usaste 3 kg en 30 días: en Tata saldría $ 150 por mes, en Disco $ 180.
+    expect(r.basket).toEqual([
+      { store: 'Tata', total: 150, items: 1 },
+      { store: 'Disco', total: 180, items: 1 },
+    ]);
+    // Promedio $ 55 el kg; en Tata $ 50: ahorrás $ 5 × 3 kg = $ 15 por mes.
+    expect(r.monthlySavings).toBe(15);
+  });
+});
+
+describe('metas del año', () => {
+  it('mide el avance contra lo esperado a esta altura del año', async () => {
+    const { yearGoalSchema, yearGoalStatus, weightSchema } = await import('../src');
+    const d = data({
+      transactions: [transactionSchema.parse({ id: 'a', date: '2026-03-01', kind: 'saving', amount: 30000 })],
+      weights: [
+        weightSchema.parse({ id: 'w1', date: '2026-01-05', kg: 85 }),
+        weightSchema.parse({ id: 'w2', date: '2026-06-30', kg: 80 }),
+      ],
+    });
+    // 30 de junio: pasó la mitad del año (181 de 365 días).
+    const ahorro = yearGoalStatus(
+      yearGoalSchema.parse({ id: 'g1', name: 'Ahorrar', year: 2026, kind: 'savings', target: 60000 }),
+      d,
+      '2026-06-30',
+    );
+    expect(ahorro).toMatchObject({ current: 30000, progress: 0.5, status: 'on-track', needed: '$ 4.286 por mes' }); // 30000 ÷ 7 meses (de junio a diciembre)
+    const peso = yearGoalStatus(
+      yearGoalSchema.parse({ id: 'g2', name: 'Bajar', year: 2026, kind: 'weight', target: 75 }),
+      d,
+      '2026-06-30',
+    );
+    // De 85 a 75: bajó 5 de 10 → 50%.
+    expect(peso).toMatchObject({ current: 80, progress: 0.5, status: 'on-track' });
+  });
+});

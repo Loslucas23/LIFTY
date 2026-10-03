@@ -31,6 +31,7 @@ claras y reglas simples.
 | **Tu semana** | Resumen de lunes a domingo: lo gastado contra la semana anterior y en qué, días sin gastar, ahorro, % de rutinas y mejor racha, horas de estudio, días de ejercicio y peso. |
 | **Lo que pagás siempre** | Suscripciones y gastos fijos ordenados por lo que salen por mes (los anuales repartidos), total por año y cuánto aumentó cada uno. |
 | **Vencimientos** | Cédula, libreta, pasaporte, seguro, service, garantías: aviso en Inicio con la anticipación que elijas y "Renové" que pasa a la próxima fecha. |
+| **Metas del año** | "Ahorrar $X", "llegar a 75 kg", "200 h de estudio", "150 días de gimnasio" o lo que anotes a mano: el avance sale solo de lo que cargás, contra dónde deberías estar hoy, y cuánto te falta por mes o por semana. |
 | **Peso** | Pesajes con promedio de 7 días, cambio semanal y mensual, IMC y meta. **Ejercicio y peso**: cuánto cambió tu peso las semanas que entrenaste 3+ veces contra las demás. |
 | **Detalles** | Modo privado (el ojo arriba, o la tecla **P**): oculta los montos. En la compu: **N** nuevo movimiento, **/** buscar. Tema claro, oscuro o automático. |
 

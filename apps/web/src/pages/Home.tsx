@@ -8,6 +8,7 @@ import {
   reminderStatus,
   weekStart,
   weekSummary,
+  yearGoalStatus,
   monthInsights,
   monthLabel,
   monthOf,
@@ -49,6 +50,9 @@ export function Home() {
   const debts = debtTotals(data);
   const foodCards = data.accounts.filter((a) => a.type === 'food' && !a.archived);
   const d = b.daily;
+  const yearGoals = data.yearGoals
+    .filter((g) => !g.archived && g.year === Number(today.slice(0, 4)))
+    .map((g) => yearGoalStatus(g, data, today));
   const week = weekSummary(data, weekStart(today), today);
   const dueReminders = data.reminders
     .filter((r) => !r.archived)
@@ -157,6 +161,8 @@ export function Home() {
       </div>
 
       <SurplusProposal month={month} />
+
+      <CloseReminder month={month} />
 
       {!empty && <MoneyMismatch />}
 
@@ -325,6 +331,15 @@ export function Home() {
                   : 'Debés'
             }
             value={money(Math.round(debts.owedToMe > 0 ? debts.owedToMe : debts.iOwe))}
+          />
+        )}
+        {yearGoals.length > 0 && (
+          <Tile
+            href="#/metas"
+            icon="chart"
+            title={`Metas ${today.slice(0, 4)}`}
+            text={`${yearGoals.filter((g) => g.status === 'behind').length ? `${yearGoals.filter((g) => g.status === 'behind').length} atrasada(s)` : 'Todas al día'}`}
+            value={`${Math.round((yearGoals.reduce((s, g) => s + g.progress, 0) / yearGoals.length) * 100)}%`}
           />
         )}
         <Tile
@@ -536,6 +551,43 @@ function MoneyMismatch() {
       </span>
       <Icon name="right" size={18} />
     </a>
+  );
+}
+
+/** Recordatorio para cerrar el mes: el último día del mes y los primeros días del siguiente. */
+function CloseReminder({ month }: { month: string }) {
+  const data = useData();
+  const today = useToday();
+  const day = Number(today.slice(8));
+  const lastDay = day === daysInMonth(month);
+  const target = lastDay ? month : addMonths(month, -1);
+  const b = useMonth(target);
+  const key = `lifty-close-${target}`;
+  const [dismissed, setDismissed] = useState(local.get(key) === '1');
+  const active = data.transactions.some((t) => monthOf(t.date) === target) || b.income.total > 0;
+  if (dismissed || b.closing || !active || (!lastDay && day > 10)) return null;
+  const name = monthLabel(target, false).toLowerCase();
+  return (
+    <section className="card pad surplus">
+      <p>
+        📒 {lastDay ? `Hoy termina ${name}` : `${name.charAt(0).toUpperCase()}${name.slice(1)} todavía no está cerrado`}. Poné lo
+        que te quedó de verdad y Lifty arranca el mes siguiente con ese número.
+      </p>
+      <div className="btn-row">
+        <a className="btn btn-primary" href={`#/presupuesto/${target}`}>
+          Cerrar {name}
+        </a>
+        <button
+          className="btn btn-ghost"
+          onClick={() => {
+            local.set(key, '1');
+            setDismissed(true);
+          }}
+        >
+          Ahora no
+        </button>
+      </div>
+    </section>
   );
 }
 

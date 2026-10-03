@@ -122,7 +122,7 @@ export function Layout({ route, privacy, children }: { route: string; privacy: b
             on={
               n.match.test(route) ||
               (n.href === '/mas' &&
-                /^\/(anio|informes|tarjeta|ahorro|peso|cuentas|deudas|alimentacion|stock|rutinas|estudio|semana|suscripciones|vencimientos)/.test(
+                /^\/(anio|informes|tarjeta|ahorro|peso|cuentas|deudas|alimentacion|stock|rutinas|estudio|semana|suscripciones|vencimientos|metas)/.test(
                   route,
                 ))
             }

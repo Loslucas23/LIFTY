@@ -391,6 +391,25 @@ export const reminderSchema = z.object({
 });
 export type Reminder = z.infer<typeof reminderSchema>;
 
+/** Metas del año: el avance sale solo de lo que ya cargás (ahorro, peso, estudio, hábitos) o se anota a mano. */
+export const YEAR_GOAL_KINDS = ['savings', 'weight', 'study', 'habit', 'manual'] as const;
+export const yearGoalSchema = z.object({
+  ...base,
+  name: z.string().trim().min(1).max(60),
+  icon: z.string().max(8).default('🎯'),
+  year: z.number().int().min(2000).max(2100),
+  kind: z.enum(YEAR_GOAL_KINDS),
+  /** savings: pesos ahorrados en el año. weight: peso al que querés llegar. study: horas. habit: días cumplidos. */
+  target: z.number().positive().max(100_000_000),
+  /** habit: el hábito; study: la materia (null = todas). */
+  refId: id.nullable().default(null),
+  /** manual: lo que llevás. */
+  manualValue: z.number().min(0).default(0),
+  unit: z.string().max(12).default(''),
+  archived: z.boolean().default(false),
+});
+export type YearGoal = z.infer<typeof yearGoalSchema>;
+
 export const ENTITY_SCHEMAS = {
   account: accountSchema,
   category: categorySchema,
@@ -411,6 +430,7 @@ export const ENTITY_SCHEMAS = {
   subject: subjectSchema,
   studySession: studySessionSchema,
   reminder: reminderSchema,
+  yearGoal: yearGoalSchema,
 } as const;
 
 export type EntityName = keyof typeof ENTITY_SCHEMAS;
@@ -436,6 +456,7 @@ export interface EntityTypes {
   subject: Subject;
   studySession: StudySession;
   reminder: Reminder;
+  yearGoal: YearGoal;
 }
 
 export function isEntityName(value: string): value is EntityName {
@@ -476,4 +497,5 @@ export interface LiftyData {
   subjects: Subject[];
   studySessions: StudySession[];
   reminders: Reminder[];
+  yearGoals: YearGoal[];
 }

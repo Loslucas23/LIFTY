@@ -3,7 +3,8 @@ import { countsInBudget, offBudgetAccounts, ownAmount, txRate } from './budget';
 import { exerciseVsWeight, habitsToday } from './habits';
 import { addMonths, daysInMonth, isActiveIn, monthOf } from './months';
 import { round2 } from './money';
-import type { FixedExpense, LiftyData, Reminder } from './schema';
+import type { FixedExpense, LiftyData, Reminder, Settings, StockItem, StockMove, YearGoal } from './schema';
+import { stockStatus } from './stock';
 import { addDays, dailyWeights, daysBetween } from './weight';
 
 // ---------------- Suscripciones y gastos que se repiten ----------------
@@ -162,4 +163,151 @@ export function weekSummary(data: LiftyData, from: string, today: string): WeekS
     workouts: ex.weeks[0]?.workouts ?? 0,
     weight: now !== null ? { avg: round2(now), change: before !== null ? round2(now - before) : null } : null,
   };
+}
+
+// ---------------- Dónde conviene comprar ----------------
+
+export interface StorePrices {
+  /** Por producto: último precio por unidad en cada súper (últimos 6 meses). */
+  items: {
+    item: StockItem;
+    prices: { store: string; unitPrice: number; date: string }[];
+    best: string | null;
+    spread: number | null;
+  }[];
+  stores: string[];
+  /** Si comprás lo que consumís en un mes todo en un súper (solo productos con precio ahí). */
+  basket: { store: string; total: number; items: number }[];
+  /** Comprando cada cosa donde está más barata, cuánto ahorrás por mes contra tu precio promedio. */
+  monthlySavings: number;
+}
+
+export function storePrices(
+  items: StockItem[],
+  moves: StockMove[],
+  today: string,
+  settings: Pick<Settings, 'shoppingDays'>,
+): StorePrices {
+  const since = addDays(today, -180);
+  const stores = new Set<string>();
+  const out: StorePrices['items'] = [];
+  const basket = new Map<string, { total: number; items: number }>();
+  let monthlySavings = 0;
+  for (const item of items.filter((i) => !i.archived)) {
+    const latest = new Map<string, { unitPrice: number; date: string }>();
+    for (const m of moves) {
+      if (m.itemId !== item.id || m.kind !== 'buy' || !m.price || !m.quantity || !m.store.trim() || m.date < since) continue;
+      const store = m.store.trim();
+      const prev = latest.get(store);
+      if (!prev || m.date >= prev.date) latest.set(store, { unitPrice: m.price / m.quantity, date: m.date });
+    }
+    if (!latest.size) continue;
+    const prices = [...latest.entries()]
+      .map(([store, p]) => ({ store, unitPrice: round2(p.unitPrice), date: p.date }))
+      .sort((a, b) => a.unitPrice - b.unitPrice);
+    prices.forEach((p) => stores.add(p.store));
+    const spread =
+      prices.length > 1
+        ? Math.round(((prices[prices.length - 1].unitPrice - prices[0].unitPrice) / prices[0].unitPrice) * 100)
+        : null;
+    out.push({ item, prices, best: prices.length > 1 ? prices[0].store : null, spread });
+    const s = stockStatus(item, moves, today, settings);
+    if (s.usage) {
+      const monthQty = s.usage.perDay * 30;
+      for (const p of prices) {
+        const b = basket.get(p.store) ?? { total: 0, items: 0 };
+        b.total += monthQty * p.unitPrice;
+        b.items++;
+        basket.set(p.store, b);
+      }
+      if (s.prices.average !== null) monthlySavings += monthQty * Math.max(0, s.prices.average - prices[0].unitPrice);
+    }
+  }
+  return {
+    items: out.sort((a, b) => (b.spread ?? -1) - (a.spread ?? -1)),
+    stores: [...stores].sort(),
+    basket: [...basket.entries()]
+      .map(([store, b]) => ({ store, total: round2(b.total), items: b.items }))
+      .sort((a, b) => b.items - a.items || a.total - b.total),
+    monthlySavings: round2(monthlySavings),
+  };
+}
+
+// ---------------- Metas del año ----------------
+
+export interface YearGoalStatus {
+  goal: YearGoal;
+  /** Lo que llevás (para peso: lo que bajaste o subiste desde el principio del año hacia la meta). */
+  current: number;
+  /** De 0 a 1. */
+  progress: number;
+  /** Lo que deberías llevar a esta altura del año si vas parejo (0 a 1). */
+  expected: number;
+  status: 'done' | 'ahead' | 'on-track' | 'behind';
+  /** Texto corto del avance ("$ 12.000 de $ 50.000", "78,4 kg → 75 kg"). */
+  detail: string;
+  /** Lo que falta por mes (o por semana para hábitos) para llegar. */
+  needed: string | null;
+}
+
+export function yearGoalStatus(goal: YearGoal, data: LiftyData, today: string): YearGoalStatus {
+  const from = `${goal.year}-01-01`;
+  const to = `${goal.year}-12-31`;
+  const last = today < to ? today : to;
+  const total = daysBetween(from, to) + 1;
+  const elapsed = Math.min(total, Math.max(0, daysBetween(from, last) + 1));
+  const expected = elapsed / total;
+  const monthsLeft = Math.max(1, 12 - Number(last.slice(5, 7)) + 1);
+  const rate = data.settings.usdRate;
+  const n = (v: number) => Math.round(v).toLocaleString('es-UY');
+  let current = 0;
+  let progress = 0;
+  let detail = '';
+  let needed: string | null = null;
+  if (goal.kind === 'savings') {
+    current = data.transactions
+      .filter((t) => t.kind === 'saving' && t.date >= from && t.date <= last)
+      .reduce((s, t) => s + t.amount * txRate(t, rate), 0);
+    progress = current / goal.target;
+    detail = `$ ${n(current)} de $ ${n(goal.target)}`;
+    if (current < goal.target) needed = `$ ${n((goal.target - current) / monthsLeft)} por mes`;
+  } else if (goal.kind === 'weight') {
+    const ws = dailyWeights(data.weights);
+    const start = ws.find((w) => w.date >= from) ?? ws[ws.length - 1];
+    const now = [...ws].reverse().find((w) => w.date <= last);
+    if (start && now) {
+      const totalChange = start.kg - goal.target;
+      current = now.kg;
+      progress = totalChange === 0 ? 1 : (start.kg - now.kg) / totalChange;
+      detail = `${now.kg.toLocaleString('es-UY')} kg → ${goal.target.toLocaleString('es-UY')} kg (empezaste en ${start.kg.toLocaleString('es-UY')})`;
+      const left = Math.abs(now.kg - goal.target);
+      if (progress < 1) needed = `${(Math.round((left / monthsLeft) * 10) / 10).toLocaleString('es-UY')} kg por mes`;
+    } else detail = 'Todavía no hay pesajes';
+  } else if (goal.kind === 'study') {
+    const minutes = data.studySessions
+      .filter((s) => s.date >= from && s.date <= last && (!goal.refId || s.subjectId === goal.refId))
+      .reduce((a, s) => a + s.minutes, 0);
+    current = round2(minutes / 60);
+    progress = current / goal.target;
+    detail = `${current.toLocaleString('es-UY')} h de ${n(goal.target)} h`;
+    if (progress < 1)
+      needed = `${(Math.round(((goal.target - current) / Math.max(1, (total - elapsed) / 7)) * 10) / 10).toLocaleString('es-UY')} h por semana`;
+  } else if (goal.kind === 'habit') {
+    const habit = data.habits.find((h) => h.id === goal.refId);
+    current = habit
+      ? data.habitLogs.filter((l) => l.habitId === habit.id && l.date >= from && l.date <= last && l.value >= habit.target).length
+      : 0;
+    progress = current / goal.target;
+    detail = `${n(current)} de ${n(goal.target)} días`;
+    if (progress < 1)
+      needed = `${(Math.round(((goal.target - current) / Math.max(1, (total - elapsed) / 7)) * 10) / 10).toLocaleString('es-UY')} días por semana`;
+  } else {
+    current = goal.manualValue;
+    progress = current / goal.target;
+    detail = `${n(current)} de ${n(goal.target)}${goal.unit ? ` ${goal.unit}` : ''}`;
+  }
+  progress = Math.max(0, Math.min(1, progress));
+  const status: YearGoalStatus['status'] =
+    progress >= 1 ? 'done' : progress >= expected + 0.05 ? 'ahead' : progress >= expected - 0.05 ? 'on-track' : 'behind';
+  return { goal, current: round2(current), progress, expected, status, detail, needed };
 }
