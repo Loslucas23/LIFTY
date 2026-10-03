@@ -2155,3 +2155,73 @@ button.tx-row:hover {
   color: inherit;
   opacity: 1;
 }
+
+/* Ahorro: metas con fecha y meta mensual */
+.tag-good {
+  background: color-mix(in srgb, var(--accent) 15%, var(--surface));
+  color: var(--accent);
+}
+.tag-bad {
+  background: color-mix(in srgb, var(--bad) 14%, var(--surface));
+  color: var(--bad);
+}
+.goal-plan {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  text-align: left;
+  color: var(--ink);
+  padding: 4px 0;
+}
+.goal-plan .tag {
+  margin-left: 0;
+}
+.monthly-goal {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.mini-bars {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 8px;
+  height: 90px;
+  margin-top: 4px;
+}
+.mini-bar {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+}
+.mini-bar-track {
+  position: relative;
+  flex: 1;
+  width: 100%;
+  max-width: 36px;
+  display: flex;
+  align-items: flex-end;
+}
+.mini-bar-fill {
+  width: 100%;
+  border-radius: 6px 6px 2px 2px;
+  background: color-mix(in srgb, var(--accent) 45%, var(--surface-2));
+}
+.mini-bar-fill.good {
+  background: var(--accent);
+}
+.mini-bar-goal {
+  position: absolute;
+  left: -3px;
+  right: -3px;
+  height: 2px;
+  background: var(--ink);
+  opacity: 0.6;
+}
+.mini-bar-label {
+  font-size: 11px;
+  color: var(--muted);
+  text-transform: capitalize;
+}

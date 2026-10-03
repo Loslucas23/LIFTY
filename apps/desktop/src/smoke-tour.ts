@@ -255,7 +255,8 @@ export async function smokeTour(): Promise<string[]> {
     problems.push('asistente: quedaron gastos fijos de más');
   clickText('.sheet-foot button', 'Siguiente');
   await sleep(200);
-  type($('.sheet .budget-input input'), '5000');
+  if (!type($('.sheet .savings-input input'), '2000')) problems.push('asistente: no aparece la meta de ahorro');
+  type($('.sheet .budget-input:not(.savings-input) input'), '5000');
   clickText('.sheet-foot button', 'Guardar presupuesto');
   if (!(await waitFor('.sheet .receipt-total'))) problems.push('asistente: no llegó al resumen');
   check('asistente');
@@ -293,6 +294,35 @@ export async function smokeTour(): Promise<string[]> {
   await sleep(150);
   check('presupuesto');
   await closeSheet();
+
+  // Inicio: "Hoy podés gastar" y de dónde sale.
+  await go('/');
+  if (!(await waitFor('.hero[role="button"]'))) problems.push('inicio: no aparece "Hoy podés gastar"');
+  else if (!$('.hero')?.textContent?.match(/Hoy (podés gastar|te pasaste)/))
+    problems.push('inicio: el número grande no es el de hoy');
+  $<HTMLElement>('.hero[role="button"]')?.click();
+  if (!(await waitFor('.sheet .explain-result'))) problems.push('inicio: no se abrió "¿de dónde sale?"');
+  check('explicación del gasto diario');
+  await closeSheet();
+
+  // Ahorro: meta mensual (cargada en el asistente) y una meta con fecha.
+  await go('/ahorro');
+  if (!(await waitFor('.monthly-goal'))) problems.push('ahorro: no aparece la meta mensual del asistente');
+  clickText('.page-head button', 'Nueva meta');
+  if (!(await waitFor('.sheet input[type="month"]'))) problems.push('ahorro: no se abrió el formulario de meta');
+  type($('.sheet input[placeholder="Ej: Viaje a Brasil"]'), 'Meta prueba');
+  type($('.sheet input[placeholder="Ej: 60000"]'), '24000');
+  type($('.sheet input[type="month"]'), `${new Date().getFullYear() + 1}-12`);
+  await sleep(150);
+  if (!$('.sheet .note-good')?.textContent?.includes('por mes')) problems.push('ahorro: no calcula cuánto separar por mes');
+  $<HTMLButtonElement>('.sheet-foot .btn-primary')?.click();
+  await sleep(250);
+  const goal = [...document.querySelectorAll<HTMLElement>('.goal')].find((g) => g.textContent?.includes('Meta prueba'));
+  if (!goal?.querySelector('.goal-plan')) problems.push('ahorro: la meta con fecha no muestra el plan');
+  goal?.querySelector<HTMLButtonElement>('.goal-plan')?.click();
+  if (!(await waitFor('.sheet .explain-result'))) problems.push('ahorro: no se explica el plan de la meta');
+  await closeSheet();
+  check('ahorro');
 
   await go('/');
   return problems;

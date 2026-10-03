@@ -39,10 +39,21 @@ export function BudgetWizard({ month, onClose }: { month: string; onClose: () =>
   const unbudgetedSpent = round2(
     b.categories.filter((c) => !c.categoryId || !parseAmount(amounts[c.categoryId] ?? '')).reduce((s, c) => s + c.spent, 0),
   );
-  const available = round2(b.carryover.amount + b.income.total - b.fixed.total - b.savings.total);
+  // Meta de ahorro: se aparta primero, antes de repartir.
+  const st = data.settings;
+  const [savingsPercent, setSavingsPercent] = useState(st.savingsMode === 'percent');
+  const [savingsText, setSavingsText] = useState(st.savingsMode === 'none' ? '' : String(st.savingsValue));
+  const savingsValue = parseAmount(savingsText) ?? 0;
+  const savingsTarget = round2(savingsPercent ? (Math.max(0, b.income.total) * savingsValue) / 100 : savingsValue);
+  const reserve = Math.max(savingsTarget, b.savings.total);
+  const available = round2(b.carryover.amount + b.income.total - b.fixed.total - reserve);
   const unassigned = round2(available - assigned - unbudgetedSpent);
 
   const saveCategories = () => {
+    const mode = savingsValue > 0 ? (savingsPercent ? 'percent' : 'amount') : 'none';
+    if (mode !== st.savingsMode || (mode !== 'none' && savingsValue !== st.savingsValue)) {
+      mutate('settings', 'upsert', { ...st, savingsMode: mode, savingsValue: mode === 'none' ? 0 : savingsValue });
+    }
     for (const c of categories) {
       const value = parseAmount(amounts[c.id] ?? '');
       const current = b.categories.find((x) => x.categoryId === c.id)?.limit ?? null;
@@ -102,6 +113,33 @@ export function BudgetWizard({ month, onClose }: { month: string; onClose: () =>
               <strong>{money(Math.abs(unassigned))}</strong>
             </div>
           </div>
+          <label className="budget-input savings-input">
+            <span className="tx-icon" style={{ '--tint': '#0ea5e9' } as React.CSSProperties}>
+              🐷
+            </span>
+            <span className="budget-input-name">
+              <strong>Primero, el ahorro</strong>
+              <small className="muted">
+                {savingsPercent && savingsValue > 0
+                  ? `${savingsValue}% de ${money(Math.round(b.income.total))} = ${money(Math.round(savingsTarget))}`
+                  : 'Se aparta antes de repartir'}
+                {' · '}
+                <button type="button" className="link" onClick={() => setSavingsPercent(!savingsPercent)}>
+                  {savingsPercent ? 'usar monto' : 'usar %'}
+                </button>
+              </small>
+            </span>
+            <span className="budget-input-field">
+              {savingsPercent ? '%' : '$'}
+              <input
+                inputMode="decimal"
+                value={savingsText}
+                placeholder="0"
+                onChange={(e) => setSavingsText(e.target.value)}
+                aria-label="Meta de ahorro mensual"
+              />
+            </span>
+          </label>
           <p className="muted small">
             ¿Cuánto querés gastar por mes en cada cosa (aparte de los gastos fijos)? Dejá vacío lo que no quieras controlar. Vale
             para todos los meses; después podés cambiar un mes puntual.
@@ -353,7 +391,7 @@ function Summary({ month }: { month: string }) {
       ['Gastos fijos', -b.fixed.total],
       ['Presupuesto por categoría', -b.plan.assigned],
       ['Gastos sin presupuesto', -b.plan.unbudgeted],
-      ['Ahorro', -b.savings.total],
+      [b.savingsGoal.target > b.savings.total ? 'Ahorro (tu meta)' : 'Ahorro', -b.savingsGoal.reserve],
     ],
     [b],
   ) as [string, number][];
