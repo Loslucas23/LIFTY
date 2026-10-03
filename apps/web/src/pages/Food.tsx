@@ -102,6 +102,7 @@ function FoodCard({ account, month, today, onEdit }: { account: Account; month: 
       linkMonth: month,
       sharedAmount: 0,
       sharedWith: '',
+      tags: [],
     };
     mutate('transaction', 'upsert', tx);
     toast(`Carga de ${money(account.monthlyLoad)} acreditada`, {

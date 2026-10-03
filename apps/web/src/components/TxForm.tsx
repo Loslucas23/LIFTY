@@ -87,6 +87,15 @@ function TxForm({
   const [split, setSplit] = useState((start.sharedAmount ?? 0) > 0);
   const [sharedWith, setSharedWith] = useState(start.sharedWith ?? '');
   const [sharedText, setSharedText] = useState(start.sharedAmount ? String(start.sharedAmount).replace('.', ',') : '');
+  const [tags, setTags] = useState<string[]>(start.tags ?? []);
+  const [tagText, setTagText] = useState('');
+  // Cotización del día (solo dólares): por defecto la de Ajustes, se puede cambiar.
+  const [fxText, setFxText] = useState(
+    String(start.currency === 'USD' && start.fxRate && start.fxRate !== 1 ? start.fxRate : data.settings.usdRate).replace(
+      '.',
+      ',',
+    ),
+  );
   const [error, setError] = useState<string | null>(null);
 
   const linked = !!(tx?.linkKind ?? preset?.linkKind);
@@ -109,7 +118,20 @@ function TxForm({
     if (!isCredit || installments <= 1 || total === null) return null;
     return installmentsOf({ amount: total, date, installments, firstInstallmentMonth: firstMonth });
   }, [isCredit, installments, total, date, firstMonth]);
-  const rate = currency === 'USD' ? data.settings.usdRate : 1;
+  const dayRate = parseAmount(fxText) || data.settings.usdRate;
+  const rate = currency === 'USD' ? dayRate : 1;
+  const knownTags = useMemo(() => {
+    const seen = new Map<string, string>();
+    for (const t of data.transactions)
+      for (const tag of t.tags ?? []) if (!seen.has(tag.toLowerCase())) seen.set(tag.toLowerCase(), tag);
+    return [...seen.values()];
+  }, [data.transactions]);
+  const addTag = (raw: string) => {
+    const v = raw.trim().replace(/^#/, '').slice(0, 30);
+    if (!v || tags.some((t) => t.toLowerCase() === v.toLowerCase()) || tags.length >= 10) return setTagText('');
+    setTags([...tags, knownTags.find((k) => k.toLowerCase() === v.toLowerCase()) ?? v]);
+    setTagText('');
+  };
 
   // ---- Avisos antes de guardar: presupuesto de la categoría y gasto diario ----
   const budgetMonth = monthOf(date);
@@ -190,7 +212,7 @@ function TxForm({
       kind,
       amount: Math.round(total * 100) / 100,
       currency,
-      fxRate: currency === 'USD' ? (tx?.currency === 'USD' ? tx.fxRate : data.settings.usdRate) : 1,
+      fxRate: currency === 'USD' ? dayRate : 1,
       categoryId: kind === 'saving' || kind === 'transfer' ? null : categoryId,
       accountId,
       toAccountId: kind === 'transfer' ? toAccountId : null,
@@ -200,6 +222,7 @@ function TxForm({
       firstInstallmentMonth: isCredit && firstMonth && firstMonth !== monthOf(date) ? firstMonth : null,
       sharedAmount: split ? Math.round(shared * 100) / 100 : 0,
       sharedWith: split ? sharedWith.trim() : '',
+      tags: kind === 'transfer' ? [] : [...tags, ...(tagText.trim() ? [tagText.trim().replace(/^#/, '')] : [])].slice(0, 10),
     };
     const result = transactionSchema.safeParse(record);
     if (!result.success) {
@@ -263,6 +286,8 @@ function TxForm({
         installments: tx.installments,
         sharedAmount: tx.sharedAmount,
         sharedWith: tx.sharedWith,
+        tags: tx.tags,
+        fxRate: tx.fxRate,
         date: todayISO(),
       },
     });
@@ -393,10 +418,17 @@ function TxForm({
             ]}
           />
         )}
-        {currency === 'USD' && total !== null && (
-          <p className="muted small">
-            ≈ {money(total * data.settings.usdRate)} (dólar a {data.settings.usdRate})
-          </p>
+        {currency === 'USD' && (
+          <label className="fx-row">
+            <span className="muted small">Dólar del día a $</span>
+            <input
+              inputMode="decimal"
+              value={fxText}
+              onChange={(e) => setFxText(e.target.value)}
+              aria-label="Cotización del dólar para este movimiento"
+            />
+            {total !== null && <span className="muted small">≈ {money(total * dayRate)}</span>}
+          </label>
         )}
 
         {kind === 'transfer' ? (
@@ -576,6 +608,49 @@ function TxForm({
             ))}
           </datalist>
         </Field>
+        {kind !== 'transfer' && (
+          <Field label="Etiquetas (opcional)" hint="Para juntar gastos de distintas categorías: viaje, cumpleaños, mudanza…">
+            <div className="tag-input">
+              {tags.map((t) => (
+                <button
+                  type="button"
+                  key={t}
+                  className="tag-chip"
+                  onClick={() => setTags(tags.filter((x) => x !== t))}
+                  aria-label={`Sacar la etiqueta ${t}`}
+                >
+                  #{t} ×
+                </button>
+              ))}
+              <input
+                value={tagText}
+                onChange={(e) => {
+                  const v = e.target.value;
+                  if (v.endsWith(',')) addTag(v.slice(0, -1));
+                  else setTagText(v);
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && tagText.trim()) {
+                    e.preventDefault();
+                    addTag(tagText);
+                  } else if (e.key === 'Backspace' && !tagText && tags.length) setTags(tags.slice(0, -1));
+                }}
+                onBlur={() => tagText.trim() && addTag(tagText)}
+                placeholder={tags.length ? '' : 'Ej: viaje Brasil'}
+                list="tx-tag-suggestions"
+                aria-label="Agregar etiqueta"
+              />
+              <datalist id="tx-tag-suggestions">
+                {knownTags
+                  .filter((k) => !tags.includes(k))
+                  .slice(0, 30)
+                  .map((k) => (
+                    <option key={k} value={k} />
+                  ))}
+              </datalist>
+            </div>
+          </Field>
+        )}
         <button type="submit" hidden />
       </form>
     </Sheet>

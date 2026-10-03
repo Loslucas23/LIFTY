@@ -2381,3 +2381,152 @@ button.stat {
     display: block;
   }
 }
+
+/* Etiquetas y dólar del día */
+.tag-input {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 8px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface);
+}
+.tag-input input {
+  flex: 1;
+  min-width: 120px;
+  border: 0;
+  padding: 6px 4px;
+  background: transparent;
+}
+.tag-input input:focus {
+  outline: none;
+}
+.tag-input:focus-within {
+  border-color: var(--accent);
+}
+.tag-chip {
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 600;
+  background: color-mix(in srgb, var(--accent) 14%, var(--surface));
+  color: var(--accent);
+}
+.tx-tag {
+  color: var(--accent);
+  font-weight: 600;
+}
+.fx-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.fx-row input {
+  width: 80px;
+  padding: 6px 10px;
+}
+
+/* Movimientos: etiqueta y calendario */
+.tag-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 10px 14px;
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--accent) 10%, var(--surface));
+}
+.calendar {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 4px;
+  padding: 10px;
+}
+.cal-head {
+  text-align: center;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--muted);
+  padding-bottom: 2px;
+}
+.cal-day {
+  position: relative;
+  min-height: 52px;
+  border-radius: 10px;
+  padding: 4px 2px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+  color: var(--ink);
+  background: color-mix(in srgb, var(--series-2) calc(var(--heat) * 100%), var(--surface-2));
+}
+.cal-day.future {
+  background: transparent;
+  border: 1px dashed var(--line);
+}
+.cal-day.today {
+  outline: 2px solid var(--accent);
+}
+.cal-day.on {
+  outline: 2px solid var(--ink);
+}
+.cal-num {
+  font-size: 12px;
+  font-weight: 700;
+}
+.cal-amount {
+  font-size: 10px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.cal-zero {
+  font-size: 11px;
+  color: var(--accent);
+}
+.cal-marks {
+  position: absolute;
+  bottom: 3px;
+  display: flex;
+  gap: 3px;
+}
+.cal-marks i,
+.cal-legend i {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+}
+.mark-due {
+  background: var(--warn);
+}
+.mark-income {
+  background: var(--accent);
+}
+.cal-legend {
+  grid-column: 1 / -1;
+  margin: 4px 0 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.filter-selects {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 8px;
+}
+.form .tag-input input,
+.tag-input input {
+  border: 0;
+  box-shadow: none;
+  background: transparent;
+  padding: 6px 4px;
+  min-height: 0;
+}
+.tag-input input::-webkit-calendar-picker-indicator {
+  display: none !important;
+}

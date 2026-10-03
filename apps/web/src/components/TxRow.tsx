@@ -23,6 +23,7 @@ export function TxRow({ tx, showDate = false }: { tx: Transaction; showDate?: bo
     food ? 'aparte del presupuesto' : null,
     tx.installments > 1 ? `${tx.installments} cuotas` : null,
     tx.sharedAmount > 0 ? `dividido con ${tx.sharedWith || 'alguien'}` : null,
+    tx.tags?.length ? tx.tags.map((t) => `#${t}`).join(' ') : null,
     tx.linkKind && !transfer && tx.linkKind !== 'load' ? 'Confirmado del presupuesto' : null,
     showDate ? tx.date.split('-').reverse().join('/') : null,
   ].filter(Boolean);

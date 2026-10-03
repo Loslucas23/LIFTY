@@ -10,6 +10,7 @@ import {
   type PlannedLine,
   type Transaction,
 } from '@lifty/core';
+import { openPrompt } from '../components/Editors';
 import { toast } from '../components/ui';
 import { money } from './format';
 import { mutate } from './sync';
@@ -35,6 +36,7 @@ function linkedTx(data: LiftyData, line: PlannedLine, month: string, amountOrigi
     toAccountId: null,
     sharedAmount: 0,
     sharedWith: '',
+    tags: [],
     goalId: null,
     description: line.name,
     installments: 1,
@@ -171,4 +173,23 @@ export function syncSplitDebt(data: LiftyData, tx: Transaction) {
   } else if (existing && existing.payments.length === 0) {
     mutate('debt', 'delete', existing.id);
   }
+}
+
+/** Cambiar la cotización del dólar (la que se usa por defecto para convertir). */
+export function editUsdRate(data: LiftyData) {
+  openPrompt({
+    title: 'Cotización del dólar',
+    label: 'Pesos por dólar',
+    initial: String(data.settings.usdRate).replace('.', ','),
+    hint: 'Se usa para pasar a pesos lo que está en dólares. Cada movimiento en dólares guarda la cotización de su día.',
+    confirm: 'Guardar',
+    onSubmit: (v) => {
+      if (!v || v <= 0) return 'Escribí un número, ej: 41,5';
+      const prev = data.settings;
+      mutate('settings', 'upsert', { ...prev, usdRate: v });
+      toast(`Dólar a ${v.toLocaleString('es-UY')}`, {
+        action: { label: 'Deshacer', run: () => mutate('settings', 'upsert', prev) },
+      });
+    },
+  });
 }

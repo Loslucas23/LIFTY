@@ -228,6 +228,15 @@ export function monthInsights(data: LiftyData, b: MonthBudget, today: string): I
           },
     );
   }
+  const free = noSpendDays(data, month, today);
+  if (free.streak >= 2 && data.transactions.length > 0) {
+    out.push({
+      id: 'no-spend',
+      tone: 'good',
+      text: `Llevás ${free.streak} días seguidos sin gastar. ¡Bien ahí!`,
+      detail: `Cuenta los días hasta ayer sin gastos del día a día ni con tarjeta (los fijos no cuentan). Este mes: ${free.days} de ${free.of} días sin gastar.`,
+    });
+  }
   return out;
 }
 
@@ -359,4 +368,53 @@ export function spendingByWeekday(data: LiftyData, today: string, days = 90): { 
 /** Lo que sobró en un mes (ingresos − gastos − ahorro, sin contar lo que venía de antes). */
 export function monthSurplus(b: MonthBudget): number {
   return round2(b.result - b.carryover.amount);
+}
+
+// ---------------- Etiquetas ----------------
+
+export interface TagTotal {
+  tag: string;
+  /** Gastado (tu parte, en pesos) con esa etiqueta. */
+  total: number;
+  count: number;
+  from: string;
+  to: string;
+}
+
+/** Cuánto gastaste con cada etiqueta (todas las fechas), de mayor a menor. */
+export function tagTotals(data: LiftyData): TagTotal[] {
+  const rate = data.settings.usdRate;
+  const out = new Map<string, TagTotal>();
+  for (const t of data.transactions) {
+    if (t.kind !== 'expense' || !t.tags?.length) continue;
+    const r = t.currency === 'USD' && t.fxRate !== 1 ? t.fxRate : rate;
+    const amount = convert(ownAmount(t), t.currency, 'UYU', r);
+    for (const raw of t.tags) {
+      const key = raw.trim().toLowerCase();
+      const e = out.get(key) ?? { tag: raw.trim(), total: 0, count: 0, from: t.date, to: t.date };
+      e.total += amount;
+      e.count += 1;
+      if (t.date < e.from) e.from = t.date;
+      if (t.date > e.to) e.to = t.date;
+      out.set(key, e);
+    }
+  }
+  return [...out.values()].map((e) => ({ ...e, total: round2(e.total) })).sort((a, b) => b.total - a.total);
+}
+
+/** Días del mes (hasta hoy) en los que no gastaste nada del presupuesto. */
+export function noSpendDays(data: LiftyData, month: string, today: string): { days: number; of: number; streak: number } {
+  const off = offBudgetAccounts(data);
+  const last = monthOf(today) === month ? Number(today.slice(8)) : daysInMonth(month);
+  const spent = new Set<number>();
+  for (const t of data.transactions) {
+    if (t.kind !== 'expense' || t.linkKind || !countsInBudget(t, off) || monthOf(t.date) !== month || t.amount <= 0) continue;
+    spent.add(Number(t.date.slice(8)));
+  }
+  let days = 0;
+  for (let d = 1; d <= last; d++) if (!spent.has(d)) days++;
+  // Racha: días seguidos sin gastar hasta ayer (hoy todavía no terminó).
+  let streak = 0;
+  for (let d = last - (monthOf(today) === month ? 1 : 0); d >= 1 && !spent.has(d); d--) streak++;
+  return { days, of: last, streak };
 }

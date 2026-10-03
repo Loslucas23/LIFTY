@@ -15,9 +15,11 @@ import {
   incomeSchema,
   initialBalanceFor,
   monthInsights,
+  noSpendDays,
   netWorthAt,
   seedRecords,
   sinkingFunds,
+  tagTotals,
   toLiftyData,
   transactionSchema,
   upcomingEvents,
@@ -391,5 +393,49 @@ describe('resumen de la tarjeta', () => {
     // La deuda con la tarjeta baja con el pago (9000 + 800 − 2000).
     const card = accountBalances(d, '2026-10-31').find((a) => a.account.id === 'acc-tarjeta')!;
     expect(card.balance).toBe(-7800);
+  });
+});
+
+describe('etiquetas y días sin gastar', () => {
+  it('suma lo gastado con cada etiqueta sin importar la categoría (solo tu parte)', () => {
+    const d = data(
+      {
+        transactions: [
+          tx({ date: '2026-10-02', kind: 'expense', amount: 3000, categoryId: 'cat-comida', tags: ['Viaje Brasil'] }),
+          tx({ date: '2026-10-03', kind: 'expense', amount: 50, currency: 'USD', fxRate: 40, tags: ['viaje brasil'] }),
+          tx({
+            date: '2026-10-04',
+            kind: 'expense',
+            amount: 1000,
+            sharedAmount: 500,
+            sharedWith: 'Ana',
+            tags: ['Viaje Brasil', 'Ana'],
+          }),
+          tx({ date: '2026-10-05', kind: 'expense', amount: 999 }),
+        ],
+      },
+      { usdRate: 41 },
+    );
+    const [viaje, ana] = tagTotals(d);
+    expect(viaje).toMatchObject({
+      tag: 'Viaje Brasil',
+      total: 3000 + 2000 + 500,
+      count: 3,
+      from: '2026-10-02',
+      to: '2026-10-04',
+    });
+    expect(ana).toMatchObject({ tag: 'Ana', total: 500, count: 1 });
+  });
+
+  it('cuenta los días sin gastos del día a día y la racha hasta ayer', () => {
+    const d = data({
+      fixed: [rent],
+      transactions: [
+        tx({ date: '2026-10-02', kind: 'expense', amount: 300 }),
+        tx({ date: '2026-10-06', kind: 'expense', amount: 200 }),
+      ],
+    });
+    // Del 1 al 11: se gastó el 2 y el 6 → 9 días sin gastar; racha del 7 al 10 = 4 días.
+    expect(noSpendDays(d, '2026-10', '2026-10-11')).toEqual({ days: 9, of: 11, streak: 4 });
   });
 });

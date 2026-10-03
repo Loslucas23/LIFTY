@@ -88,6 +88,7 @@ export async function exportWorkbook(data: LiftyData, today = todayISO()): Promi
     { header: 'Detalle', key: 'detalle', width: 32 },
     { header: 'Cuotas', key: 'cuotas', width: 8 },
     { header: 'Cuenta en el presupuesto', key: 'presupuesto', width: 12 },
+    { header: 'Etiquetas', key: 'etiquetas', width: 20 },
   ]);
   const off = offBudgetAccounts(data);
   for (const t of [...data.transactions].sort((a, b) => a.date.localeCompare(b.date))) {
@@ -103,6 +104,7 @@ export async function exportWorkbook(data: LiftyData, today = todayISO()): Promi
       detalle: t.description,
       cuotas: t.installments > 1 ? t.installments : null,
       presupuesto: countsInBudget(t, off) ? 'Sí' : 'No',
+      etiquetas: (t.tags ?? []).join(', '),
     });
   }
   movs.getColumn('fecha').numFmt = 'dd/mm/yyyy';

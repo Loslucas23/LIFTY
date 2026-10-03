@@ -87,6 +87,8 @@ export const transactionSchema = z
     sharedWith: z.string().max(60).default(''),
     goalId: id.nullable().default(null),
     description: z.string().max(200).default(''),
+    /** Etiquetas libres ("viaje Brasil", "cumple de mamá") para juntar gastos de distintas categorías. */
+    tags: z.array(z.string().trim().min(1).max(30)).max(10).default([]),
     /** Cuotas (solo tiene sentido con tarjeta de crédito). */
     installments: z.number().int().min(1).max(60).default(1),
     /** Mes en que cae la primera cuota. Por defecto, el mes de la compra. */

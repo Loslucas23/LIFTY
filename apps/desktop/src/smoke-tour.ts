@@ -159,10 +159,11 @@ export async function smokeTour(): Promise<string[]> {
     await saveSheet('compra en cuotas');
   } else problems.push('cuotas: no se abrió el formulario');
 
-  // Gasto dividido: queda una deuda.
+  // Gasto dividido: queda una deuda. Con una etiqueta para probar el filtro.
   if (await openNew()) {
     type($('.sheet .amount-input input'), '2000');
     await sleep(50);
+    if (!type($('.sheet input[aria-label="Agregar etiqueta"]'), 'viaje prueba')) problems.push('etiquetas: no está el campo');
     [...document.querySelectorAll<HTMLElement>('.sheet .toggle')].find((t) => t.textContent?.includes('Dividir'))?.click();
     await sleep(100);
     type($('.sheet input[placeholder="Ej: Juan"]'), 'Juan Prueba');
@@ -189,6 +190,20 @@ export async function smokeTour(): Promise<string[]> {
       await closeSheet();
     } else problems.push('deudas: no se abrió el detalle');
   } else problems.push('deudas: no se abrió el formulario');
+
+  // Etiquetas: el gasto dividido llevaba "viaje prueba".
+  await go(`/movimientos?etiqueta=${encodeURIComponent('viaje prueba')}`);
+  if (!$('.tag-banner') || !$('.day-group')) problems.push('etiquetas: el filtro por etiqueta no muestra el gasto');
+
+  // Calendario del mes.
+  await go('/movimientos');
+  clickText('.page .segmented button', 'Calendario');
+  if (!(await waitFor('.calendar .cal-day', 2000))) problems.push('calendario: no se dibujó');
+  $<HTMLButtonElement>('.calendar .cal-day.today')?.click();
+  await sleep(150);
+  check('calendario');
+  clickText('.page .segmented button', 'Lista');
+  await sleep(100);
 
   // Tarjeta de alimentación: va aparte.
   await go('/alimentacion');

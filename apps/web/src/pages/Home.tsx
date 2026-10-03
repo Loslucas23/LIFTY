@@ -407,6 +407,7 @@ function EventRow({ event: e }: { event: UpcomingEvent }) {
         linkMonth: eventMonth,
         sharedAmount: 0,
         sharedWith: '',
+        tags: [],
       });
       toast(`Carga de ${money(acc.monthlyLoad)} acreditada`, {
         action: { label: 'Deshacer', run: () => mutate('transaction', 'delete', id) },
@@ -485,6 +486,7 @@ function SurplusProposal({ month }: { month: string }) {
       linkMonth: null,
       sharedAmount: 0,
       sharedWith: '',
+      tags: [],
     });
     // Si el mes estaba cerrado, lo que pasa al mes siguiente baja lo mismo.
     const closing = prev.closing;

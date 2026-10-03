@@ -8,6 +8,7 @@ import {
   netWorthHistory,
   round2,
   spendingByWeekday,
+  tagTotals,
   topExpenses,
 } from '@lifty/core';
 import { LineChart } from '../components/charts';
@@ -190,6 +191,8 @@ export function Reports() {
 
       <Weekdays today={today} />
 
+      <Tags />
+
       <Section title={`Los gastos más grandes de ${monthLabel(current, false).toLowerCase()}`}>
         <TopExpenses month={current} />
       </Section>
@@ -279,6 +282,29 @@ function Weekdays({ today }: { today: string }) {
       <p className="muted small">
         Promedio de los últimos 90 días (día a día y tarjeta, sin fijos). El {top.label.toLowerCase()} es tu día más caro.
       </p>
+    </Section>
+  );
+}
+
+function Tags() {
+  const data = useData();
+  const tags = tagTotals(data).slice(0, 10);
+  if (tags.length === 0) return null;
+  const max = Math.max(1, ...tags.map((t) => t.total));
+  return (
+    <Section title="Por etiqueta">
+      <ul className="card month-bars">
+        {tags.map((t) => (
+          <li key={t.tag}>
+            <a href={`#/movimientos?etiqueta=${encodeURIComponent(t.tag)}`}>#{t.tag}</a>
+            <div className="bar-track">
+              <div className="bar-fill" style={{ width: `${(t.total / max) * 100}%` }} />
+            </div>
+            <strong>{money(Math.round(t.total))}</strong>
+          </li>
+        ))}
+      </ul>
+      <p className="muted small">Todo lo gastado con cada etiqueta (tu parte), sin importar la categoría ni el mes.</p>
     </Section>
   );
 }

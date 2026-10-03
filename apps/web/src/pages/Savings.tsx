@@ -14,6 +14,7 @@ import {
   type Settings,
 } from '@lifty/core';
 import { openExplain } from '../components/Editors';
+import { editUsdRate } from '../lib/actions';
 import { Icon } from '../components/Icon';
 import { openTxForm } from '../components/TxForm';
 import { TxRow } from '../components/TxRow';
@@ -51,7 +52,11 @@ export function Savings() {
     <div className="page">
       <PageHeader
         title="Ahorro"
-        subtitle={`Dólar a ${money(data.settings.usdRate)}`}
+        subtitle={
+          <button className="link" onClick={() => editUsdRate(data)}>
+            Dólar a {data.settings.usdRate.toLocaleString('es-UY')} · cambiar
+          </button>
+        }
         actions={
           <button className="btn" onClick={() => setEditing('new')}>
             <Icon name="plus" /> Nueva meta
