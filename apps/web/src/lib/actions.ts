@@ -1,4 +1,15 @@
-import { daysInMonth, monthOf, newId, todayISO, type LiftyData, type PlannedLine, type Transaction } from '@lifty/core';
+import {
+  addMonths,
+  budgetId,
+  daysInMonth,
+  monthLabel,
+  monthOf,
+  newId,
+  todayISO,
+  type LiftyData,
+  type PlannedLine,
+  type Transaction,
+} from '@lifty/core';
 import { toast } from '../components/ui';
 import { money } from './format';
 import { mutate } from './sync';
@@ -57,4 +68,80 @@ export function confirmAll(data: LiftyData, lines: PlannedLine[], month: string)
   toast(`${txs.length} marcados como pagados`, {
     action: { label: 'Deshacer', run: () => txs.forEach((t) => mutate('transaction', 'delete', t.id)) },
   });
+}
+
+/**
+ * Dar de baja un gasto fijo o un sueldo a partir de `fromMonth` (ese mes ya no cuenta).
+ * Los meses anteriores no cambian. Si nunca llegó a aplicarse, se borra.
+ */
+export function stopPlanned(data: LiftyData, kind: 'fixed' | 'income', id: string, fromMonth: string) {
+  const list = kind === 'fixed' ? data.fixed : data.incomes;
+  const item = list.find((x) => x.id === id);
+  if (!item) return;
+  const entity = kind === 'fixed' ? 'fixed' : 'income';
+  const restore = () => mutate(entity, 'upsert', item as never);
+  if (item.startMonth >= fromMonth) {
+    mutate(entity, 'delete', item.id);
+  } else {
+    mutate(entity, 'upsert', { ...item, endMonth: addMonths(fromMonth, -1) } as never);
+  }
+  toast(`${item.name}: dado de baja desde ${monthLabel(fromMonth).toLowerCase()}`, {
+    action: { label: 'Deshacer', run: restore },
+  });
+}
+
+/** Borrar del todo un gasto fijo o un sueldo (también de los meses anteriores). */
+export function deletePlanned(data: LiftyData, kind: 'fixed' | 'income', id: string) {
+  const list = kind === 'fixed' ? data.fixed : data.incomes;
+  const item = list.find((x) => x.id === id);
+  if (!item) return;
+  const entity = kind === 'fixed' ? 'fixed' : 'income';
+  mutate(entity, 'delete', item.id);
+  toast(`${item.name} borrado`, { action: { label: 'Deshacer', run: () => mutate(entity, 'upsert', item as never) } });
+}
+
+/**
+ * Presupuesto de una categoría. `scope = 'all'` cambia el de todos los meses (y saca el
+ * particular de este mes si había); `scope = 'month'` cambia solo este mes.
+ * `amount = null` quita el presupuesto.
+ */
+export function setCategoryBudget(
+  data: LiftyData,
+  month: string,
+  categoryId: string,
+  amount: number | null,
+  scope: 'all' | 'month',
+) {
+  const cat = data.categories.find((c) => c.id === categoryId);
+  if (!cat) return;
+  const override = data.budgets.find((b) => b.month === month && b.categoryId === categoryId);
+  if (scope === 'all') {
+    mutate('category', 'upsert', { ...cat, monthlyLimit: amount && amount > 0 ? amount : null });
+    if (override) mutate('budget', 'delete', override.id);
+  } else if (amount === null) {
+    if (override) mutate('budget', 'delete', override.id);
+  } else {
+    mutate('budget', 'upsert', { id: budgetId(month, categoryId), updatedAt: '', month, categoryId, amount });
+  }
+}
+
+/**
+ * Cambiar el monto de un gasto fijo o de un sueldo desde `month` en adelante, sin tocar
+ * los meses anteriores (si ya venía de antes, se corta ahí y sigue uno nuevo).
+ */
+export function changePlannedAmount(data: LiftyData, kind: 'fixed' | 'income', id: string, month: string, amount: number) {
+  const entity = kind === 'fixed' ? 'fixed' : 'income';
+  const item = (kind === 'fixed' ? data.fixed : data.incomes).find((x) => x.id === id);
+  if (!item) return;
+  const patch =
+    kind === 'fixed'
+      ? { amount }
+      : { netOverride: amount, ...('deductions' in item && item.deductions.length === 0 ? { gross: amount } : {}) };
+  if (item.startMonth < month) {
+    mutate(entity, 'upsert', { ...item, endMonth: addMonths(month, -1) } as never);
+    mutate(entity, 'upsert', { ...item, ...patch, id: newId(), startMonth: month } as never);
+  } else {
+    mutate(entity, 'upsert', { ...item, ...patch } as never);
+  }
+  toast(`${item.name}: ${money(amount)} desde ${monthLabel(month).toLowerCase()}`);
 }

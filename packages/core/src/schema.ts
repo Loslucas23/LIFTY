@@ -42,7 +42,7 @@ export const categorySchema = z.object({
   kind: z.enum(['expense', 'income']),
   color,
   icon,
-  /** Tope mensual en UYU (presupuesto por categoría). */
+  /** Presupuesto mensual en UYU para todos los meses (cada mes se puede cambiar aparte). */
   monthlyLimit: money.positive().nullable().default(null),
   archived: z.boolean().default(false),
   sort: z.number().default(0),
@@ -165,6 +165,24 @@ export const settingsSchema = z.object({
 });
 export type Settings = z.infer<typeof settingsSchema>;
 
+/**
+ * Presupuesto de una categoría para un mes puntual. Si no hay, vale el presupuesto
+ * general de la categoría (`monthlyLimit`, el de "todos los meses").
+ */
+export const budgetSchema = z.object({
+  ...base,
+  /** `${mes}:${categoryId}` */
+  id,
+  month,
+  categoryId: id,
+  amount: money.min(0),
+});
+export type BudgetEntry = z.infer<typeof budgetSchema>;
+
+export function budgetId(month: string, categoryId: string): string {
+  return `${month}:${categoryId}`;
+}
+
 /** Módulo Peso: un pesaje. */
 export const weightSchema = z.object({
   ...base,
@@ -184,6 +202,7 @@ export const ENTITY_SCHEMAS = {
   closing: closingSchema,
   settings: settingsSchema,
   weight: weightSchema,
+  budget: budgetSchema,
 } as const;
 
 export type EntityName = keyof typeof ENTITY_SCHEMAS;
@@ -199,6 +218,7 @@ export interface EntityTypes {
   closing: MonthClosing;
   settings: Settings;
   weight: WeightEntry;
+  budget: BudgetEntry;
 }
 
 export function isEntityName(value: string): value is EntityName {
@@ -229,4 +249,5 @@ export interface LiftyData {
   goals: Goal[];
   closings: MonthClosing[];
   weights: WeightEntry[];
+  budgets: BudgetEntry[];
 }

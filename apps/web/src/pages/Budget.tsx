@@ -1,5 +1,7 @@
 import { useState } from 'react';
 import { monthLabel, monthOf, addMonths, type MonthBudget, type TxLine } from '@lifty/core';
+import { openBudgetEditor, openBudgetWizard, openFixedForm, openIncomeForm } from '../components/Editors';
+import { Icon } from '../components/Icon';
 import { PlannedList } from '../components/Planned';
 import { openTxForm } from '../components/TxForm';
 import { Empty, Field, MonthPicker, PageHeader, Progress, Section, Sheet, toast } from '../components/ui';
@@ -16,14 +18,44 @@ export function Budget({ month: monthParam }: { month?: string }) {
   const data = useData();
   const [closing, setClosing] = useState(false);
   const paid = b.fixed.items.filter((l) => l.confirmed).length;
+  const monthName = monthLabel(month, false).toLowerCase();
+  const empty =
+    b.income.planned.length === 0 && b.income.extras.length === 0 && b.fixed.items.length === 0 && b.plan.assigned === 0;
+  const add = (label: string, run: () => void) => (
+    <button className="chip chip-add" onClick={run}>
+      <Icon name="plus" size={16} /> {label}
+    </button>
+  );
 
   return (
     <div className="page">
-      <PageHeader title="Presupuesto" subtitle="Lo planificado y lo real de cada mes" />
+      <PageHeader
+        title="Presupuesto"
+        subtitle="Armalo una vez y ajustalo cuando quieras: todo se edita acá"
+        actions={
+          <button className="btn btn-primary" onClick={() => openBudgetWizard(month)}>
+            <Icon name="edit" /> Armar presupuesto
+          </button>
+        }
+      />
       <MonthPicker month={month} onChange={(m) => navigate(`/presupuesto/${m}`, { replace: true })} />
+
+      {empty && (
+        <section className="card pad cta">
+          <h2>Armá el presupuesto de {monthName}</h2>
+          <p className="muted">
+            En 3 pasos: cuánto cobrás, qué pagás todos los meses y cuánto querés gastar en cada cosa. Después Lifty te va diciendo
+            cuánto te queda.
+          </p>
+          <button className="btn btn-primary" onClick={() => openBudgetWizard(month)}>
+            Empezar
+          </button>
+        </section>
+      )}
 
       <div className="budget-grid">
         <div>
+          <PlanCard b={b} />
           <Receipt b={b} onClose={() => setClosing(true)} />
         </div>
         <div>
@@ -39,13 +71,10 @@ export function Budget({ month: monthParam }: { month?: string }) {
                 ))}
               </div>
             )}
-            {b.income.planned.length === 0 && b.income.extras.length === 0 && (
-              <Empty icon="wallet" title="Sin ingresos este mes">
-                <a className="btn" href="#/sueldos">
-                  Cargar un sueldo
-                </a>
-              </Empty>
-            )}
+            <div className="chips">
+              {add('Sueldo', () => openIncomeForm(null, month))}
+              {add('Otro ingreso este mes', () => openTxForm({ preset: { kind: 'income', date: dateIn(month, today) } }))}
+            </div>
           </Section>
 
           <Section
@@ -66,16 +95,18 @@ export function Budget({ month: monthParam }: { month?: string }) {
               )
             }
           >
-            {b.fixed.items.length ? (
-              <PlannedList lines={b.fixed.items} month={month} />
+            {b.fixed.items.length > 0 ? (
+              <>
+                <PlannedList lines={b.fixed.items} month={month} />
+                <p className="muted small">Tocá un gasto para editarlo o darlo de baja ("Ya no lo pago").</p>
+              </>
             ) : (
-              <Empty icon="repeat" title="Sin gastos fijos">
-                <a className="btn" href="#/fijos">
-                  Agregar gastos fijos
-                </a>
-              </Empty>
+              <p className="muted small">Alquiler, internet, celular, gimnasio… lo que pagás todos los meses.</p>
             )}
+            <div className="chips">{add('Gasto fijo', () => openFixedForm(null, month))}</div>
           </Section>
+
+          <CategoryBudgets b={b} month={month} />
 
           {b.card.items.length > 0 && (
             <Section title="Tarjeta de crédito" action={<span className="muted small">{money(b.card.total)}</span>}>
@@ -87,32 +118,86 @@ export function Budget({ month: monthParam }: { month?: string }) {
             </Section>
           )}
 
-          <CategorySpend b={b} />
-
-          {b.variable.items.length > 0 && (
-            <Section title="Gastos del día a día" action={<span className="muted small">{money(b.variable.total)}</span>}>
+          <Section title="Gastos del día a día" action={<span className="muted small">{money(b.variable.total)}</span>}>
+            {b.variable.items.length > 0 && (
               <div className="card list">
                 {b.variable.items.map((l) => (
                   <LineRow key={`${l.txId}-${l.installment?.number ?? 1}`} line={l} sign="−" />
                 ))}
               </div>
-            </Section>
-          )}
+            )}
+            <div className="chips">
+              {add('Gasto', () => openTxForm({ preset: { kind: 'expense', date: dateIn(month, today) } }))}
+            </div>
+          </Section>
 
-          {b.savings.items.length > 0 && (
-            <Section title="Ahorro" action={<span className="muted small">{money(b.savings.total)}</span>}>
+          <Section title="Ahorro" action={<span className="muted small">{money(b.savings.total)}</span>}>
+            {b.savings.items.length > 0 && (
               <div className="card list">
                 {b.savings.items.map((l) => (
                   <LineRow key={l.txId} line={l} sign="" />
                 ))}
               </div>
-            </Section>
-          )}
+            )}
+            <div className="chips">
+              {add('Ahorro', () => openTxForm({ preset: { kind: 'saving', date: dateIn(month, today) } }))}
+            </div>
+          </Section>
         </div>
       </div>
 
       {closing && <CloseMonth b={b} onClose={() => setClosing(false)} />}
     </div>
+  );
+}
+
+/** Fecha para cargar algo en `month`: hoy si es el mes en curso, si no el día 1. */
+function dateIn(month: string, today: string): string {
+  return monthOf(today) === month ? today : `${month}-01`;
+}
+
+/** El plan: lo que entra, lo comprometido, lo repartido y lo que queda sin asignar. */
+function PlanCard({ b }: { b: MonthBudget }) {
+  const available = b.carryover.amount + b.income.total - b.fixed.total - b.savings.total;
+  const spentBudgeted = b.categories.filter((c) => c.limit !== null).reduce((s, c) => s + c.spent, 0);
+  return (
+    <section className="card plan-card">
+      <h2>Plan del mes</h2>
+      <dl>
+        <div className="receipt-row">
+          <dt>
+            Para gastar <small>· ingresos − fijos − ahorro</small>
+          </dt>
+          <dd>{money(available)}</dd>
+        </div>
+        <div className="receipt-row">
+          <dt>Presupuesto por categoría</dt>
+          <dd>{money(b.plan.assigned)}</dd>
+        </div>
+        {b.plan.unbudgeted > 0 && (
+          <div className="receipt-row">
+            <dt>Gastado sin presupuesto</dt>
+            <dd>{money(b.plan.unbudgeted)}</dd>
+          </div>
+        )}
+        <div className="receipt-row receipt-total">
+          <dt>{b.plan.unassigned < 0 ? 'Te pasaste' : 'Sin asignar'}</dt>
+          <dd className={b.plan.unassigned < 0 ? 'text-bad' : 'text-income'}>{money(Math.abs(b.plan.unassigned))}</dd>
+        </div>
+      </dl>
+      {b.plan.assigned > 0 && (
+        <>
+          <Progress value={spentBudgeted} max={b.plan.assigned} label="Gastado del presupuesto" />
+          <p className="muted small">
+            Gastaste {money(spentBudgeted)} de {money(b.plan.assigned)}. Si cumplís el presupuesto terminás el mes con{' '}
+            <strong>{money(b.plan.projected)}</strong>.
+          </p>
+        </>
+      )}
+      {b.plan.unassigned < 0 && (
+        <p className="text-bad small">Estás planeando gastar más de lo que entra: bajá algún presupuesto.</p>
+      )}
+    </section>
   );
 }
 
@@ -255,52 +340,91 @@ function CloseMonth({ b, onClose }: { b: MonthBudget; onClose: () => void }) {
   );
 }
 
-function CategorySpend({ b }: { b: MonthBudget }) {
-  const { category } = useLookups();
-  const prevMonth = addMonths(b.month, -1);
+/** Presupuesto por categoría: cuánto te queda en cada cosa. Tocá una para cambiarlo. */
+function CategoryBudgets({ b, month }: { b: MonthBudget; month: string }) {
+  const data = useData();
+  const [showAll, setShowAll] = useState(false);
+  const prevMonth = addMonths(month, -1);
   const prev = useMonths(prevMonth, prevMonth)[0];
   const prevSpent = new Map(prev.categories.map((c) => [c.categoryId, c.spent]));
   const prevName = monthLabel(prevMonth, false).toLowerCase();
-  const list = b.categories.filter((c) => c.spent > 0 || c.limit);
-  if (!list.length) return null;
-  const max = Math.max(...list.map((c) => Math.max(c.spent, c.limit ?? 0)));
+  const info = new Map(b.categories.map((c) => [c.categoryId, c]));
+  const cats = data.categories.filter((c) => c.kind === 'expense' && !c.archived);
+  const budgeted = cats.filter((c) => info.get(c.id)?.limit != null);
+  const spentOnly = cats.filter((c) => info.get(c.id)?.limit == null && (info.get(c.id)?.spent ?? 0) !== 0);
+  const rest = cats.filter((c) => !budgeted.includes(c) && !spentOnly.includes(c));
+  const uncategorized = info.get(null);
+
+  const row = (c: (typeof cats)[number]) => {
+    const x = info.get(c.id);
+    const spent = x?.spent ?? 0;
+    const limit = x?.limit ?? null;
+    const remaining = x?.remaining ?? null;
+    return (
+      <li key={c.id}>
+        <button className="cat-row" onClick={() => openBudgetEditor(month, c.id)}>
+          <div className="limit-head">
+            <span>
+              {c.icon} {c.name}
+              {x?.limitSource === 'month' && <span className="tag">solo este mes</span>}
+            </span>
+            {limit === null ? (
+              <span className="muted">{spent ? `${money(spent)} · sin presupuesto` : 'Asignar'}</span>
+            ) : remaining !== null && remaining < 0 ? (
+              <span className="text-bad">
+                Te pasaste {money(-remaining)} <span className="muted">de {money(limit)}</span>
+              </span>
+            ) : (
+              <span>
+                Te quedan <strong>{money(remaining ?? 0)}</strong> <span className="muted">de {money(limit)}</span>
+              </span>
+            )}
+          </div>
+          {limit !== null && <Progress value={spent} max={limit} label={`${c.name}: gastado del presupuesto`} />}
+          <Compare now={spent} before={prevSpent.get(c.id) ?? 0} label={prevName} />
+          {x?.fixed ? <span className="compare small muted">+ {money(x.fixed)} en gastos fijos</span> : null}
+        </button>
+      </li>
+    );
+  };
+
   return (
     <Section
-      title="En qué se fue la plata"
+      title="Presupuesto por categoría"
       action={
-        <a className="link small" href="#/categorias">
-          Topes
-        </a>
+        <button className="link small" onClick={() => openBudgetWizard(month)}>
+          Repartir todo
+        </button>
       }
     >
       <ul className="cat-bars card">
-        {list.map((c) => {
-          const cat = c.categoryId ? category.get(c.categoryId) : undefined;
-          const over = c.limit !== null && c.spent > c.limit;
-          return (
-            <li key={c.categoryId ?? 'none'}>
-              <div className="limit-head">
-                <span>
-                  {cat?.icon ?? '•'} {cat?.name ?? 'Sin categoría'}
-                </span>
-                <span className={over ? 'text-bad' : ''}>
-                  {money(c.spent)}
-                  {c.limit !== null && <span className="muted"> / {money(c.limit)}</span>}
-                  {over && ' · pasado'}
-                </span>
-              </div>
-              {c.limit !== null ? (
-                <Progress value={c.spent} max={c.limit} label={`${cat?.name ?? 'Sin categoría'}: gastado del tope`} />
-              ) : (
-                <div className="bar-track">
-                  <div className="bar-fill" style={{ width: `${(c.spent / max) * 100}%` }} />
-                </div>
-              )}
-              <Compare now={c.spent} before={prevSpent.get(c.categoryId) ?? 0} label={prevName} />
-            </li>
-          );
-        })}
+        {budgeted.map(row)}
+        {spentOnly.map(row)}
+        {uncategorized && uncategorized.spent !== 0 && (
+          <li>
+            <div className="limit-head">
+              <span>• Sin categoría</span>
+              <span className="muted">{money(uncategorized.spent)}</span>
+            </div>
+          </li>
+        )}
+        {showAll && rest.map(row)}
+        {budgeted.length === 0 && spentOnly.length === 0 && !showAll && (
+          <li className="muted small">
+            Todavía no pusiste presupuestos. Tocá una categoría para decir cuánto querés gastar por mes.
+          </li>
+        )}
       </ul>
+      {rest.length > 0 && (
+        <div className="btn-row">
+          <button className="btn btn-ghost" onClick={() => setShowAll(!showAll)}>
+            {showAll ? 'Ver menos' : `Ver todas las categorías (${rest.length} más)`}
+          </button>
+          <a className="btn btn-ghost" href="#/categorias">
+            Nueva categoría
+          </a>
+        </div>
+      )}
     </Section>
   );
 }

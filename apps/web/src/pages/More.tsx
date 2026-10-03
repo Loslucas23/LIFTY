@@ -16,7 +16,7 @@ const GROUPS: { title: string; items: { href: string; icon: IconName; label: str
     items: [
       { href: '/sueldos', icon: 'wallet', label: 'Sueldos', hint: 'Nominal, descuentos, líquido y aguinaldo' },
       { href: '/fijos', icon: 'repeat', label: 'Gastos fijos', hint: 'Alquiler, servicios, gimnasio…' },
-      { href: '/categorias', icon: 'tag', label: 'Categorías y topes', hint: 'Cuánto querés gastar en cada cosa' },
+      { href: '/categorias', icon: 'tag', label: 'Categorías', hint: 'Y cuánto querés gastar en cada una' },
       { href: '/cuentas', icon: 'bank', label: 'Cuentas y medios de pago', hint: 'Bancos, efectivo, tarjetas' },
     ],
   },

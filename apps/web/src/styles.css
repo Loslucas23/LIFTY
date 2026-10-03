@@ -1678,3 +1678,321 @@ button.tx-row:hover {
   display: block;
   margin-top: 4px;
 }
+
+/* =================== Presupuesto editable =================== */
+.chip-add {
+  border-style: dashed;
+  color: var(--accent);
+  font-weight: 600;
+}
+.chip-add:hover {
+  background: var(--accent-soft);
+}
+.cta {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  align-items: flex-start;
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 6%, var(--surface));
+}
+.cta-tile {
+  width: 100%;
+  text-align: left;
+}
+.plan-card {
+  padding: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.plan-card dl {
+  margin: 0;
+}
+.tag {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 1px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+  background: var(--surface-2);
+  color: var(--muted);
+  vertical-align: middle;
+}
+.cat-row {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 4px 0;
+  border-radius: 8px;
+}
+.cat-row:hover .limit-head > span:first-child {
+  color: var(--accent);
+}
+.budget-hint {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--accent);
+}
+.budget-hint.bad {
+  color: var(--bad);
+}
+.planned-more {
+  flex: none;
+  margin-right: -8px;
+}
+.left {
+  text-align: left;
+  align-self: flex-start;
+}
+
+/* Botones rápidos de Inicio */
+.quick-actions {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+}
+.qa {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 12px 6px;
+  border-radius: 14px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  color: var(--ink);
+  font-weight: 600;
+  font-size: 13px;
+  box-shadow: var(--shadow);
+}
+.qa > span {
+  width: 36px;
+  height: 36px;
+  border-radius: 12px;
+  display: grid;
+  place-items: center;
+  font-size: 20px;
+  font-weight: 800;
+  background: var(--surface-2);
+}
+.qa-expense > span {
+  background: color-mix(in srgb, var(--expense) 14%, var(--surface));
+  color: var(--expense);
+}
+.qa-income > span {
+  background: color-mix(in srgb, var(--income) 14%, var(--surface));
+  color: var(--income);
+}
+.qa:hover {
+  border-color: var(--accent);
+}
+
+/* Menú de opciones */
+.menu-subtitle {
+  margin-bottom: 8px;
+}
+.action-list {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+.action {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  padding: 14px 16px;
+  text-align: left;
+  font-weight: 600;
+  border-bottom: 1px solid var(--line);
+}
+.action:last-child {
+  border-bottom: 0;
+}
+.action:hover {
+  background: var(--surface-2);
+}
+.action small {
+  font-weight: 500;
+}
+.action-danger {
+  color: var(--bad);
+}
+
+/* Asistente */
+.sheet-wide {
+  max-width: 720px !important;
+}
+.wizard-steps {
+  list-style: none;
+  margin: 0 0 16px;
+  padding: 0;
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.wizard-steps li {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--muted);
+  padding: 4px 10px 4px 4px;
+  border-radius: 999px;
+  background: var(--surface-2);
+}
+.wizard-steps li > span {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-size: 12px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+}
+.wizard-steps li.on {
+  color: var(--accent);
+  background: var(--accent-soft);
+}
+.wizard-steps li.on > span,
+.wizard-steps li.done > span {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-ink);
+}
+.plan-bar {
+  position: sticky;
+  top: -8px;
+  z-index: 1;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  padding: 12px;
+  border-radius: 14px;
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+.plan-bar.neg {
+  background: color-mix(in srgb, var(--bad) 14%, var(--surface));
+  color: var(--bad);
+}
+.plan-bar > div {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.plan-bar span {
+  font-size: 12px;
+  font-weight: 600;
+}
+.plan-bar strong {
+  font-size: 16px;
+}
+.budget-inputs {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+}
+.budget-input {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--line);
+}
+.budget-input:last-child {
+  border-bottom: 0;
+}
+.budget-input-name {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+.budget-input-field {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-weight: 700;
+  color: var(--muted);
+}
+.budget-input-field input {
+  width: 110px;
+  text-align: right;
+  font-weight: 700;
+  min-height: 40px;
+}
+.add-row {
+  display: grid;
+  grid-template-columns: 1fr 120px auto;
+  gap: 8px;
+}
+.add-row-4 {
+  grid-template-columns: 1fr 100px 64px 150px auto;
+}
+@media (max-width: 600px) {
+  .add-row,
+  .add-row-4 {
+    grid-template-columns: 1fr 1fr;
+  }
+  .add-row > :first-child,
+  .add-row-4 > :first-child,
+  .add-row > .btn,
+  .add-row-4 > .btn {
+    grid-column: 1 / -1;
+  }
+}
+.plan-rows {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+}
+.plan-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--line);
+}
+.plan-row-name {
+  flex: 1;
+  min-width: 0;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.plan-rows-total {
+  display: flex;
+  justify-content: space-between;
+  padding: 10px 12px;
+  font-weight: 600;
+}
+.small-btn {
+  min-height: 36px;
+  padding: 6px 10px;
+  font-size: 13px;
+  color: var(--bad);
+}
+.empty-inline {
+  padding: 12px;
+  border: 1px dashed var(--line);
+  border-radius: 12px;
+  color: var(--muted);
+}
+@media (max-width: 520px) {
+  .plan-row {
+    flex-wrap: wrap;
+  }
+  .plan-row-name {
+    flex-basis: 100%;
+  }
+}

@@ -11,7 +11,7 @@ import {
   type TxKind,
 } from '@lifty/core';
 import { money, parseAmount } from '../lib/format';
-import { useData } from '../lib/store';
+import { useData, useMonth } from '../lib/store';
 import { mutate } from '../lib/sync';
 import { Chips, Field, Segmented, Sheet, toast } from './ui';
 
@@ -94,6 +94,28 @@ function TxForm({
     if (!isCredit || installments <= 1 || total === null) return null;
     return installmentsOf({ amount: total, date, installments, firstInstallmentMonth: firstMonth });
   }, [isCredit, installments, total, date, firstMonth]);
+
+  // Cuánto queda del presupuesto de la categoría elegida (el mes del gasto).
+  const budgetMonth = monthOf(date);
+  const mb = useMonth(budgetMonth);
+  const catInfo = kind === 'expense' && categoryId ? mb.categories.find((c) => c.categoryId === categoryId) : undefined;
+  let budgetHint: { text: string; bad: boolean } | null = null;
+  if (catInfo && catInfo.limit !== null && catInfo.remaining !== null) {
+    const rate = currency === 'USD' ? data.settings.usdRate : 1;
+    const thisMonth = isCredit && preview ? (preview.find((i) => i.month === budgetMonth)?.amount ?? 0) : (total ?? 0);
+    const after = tx ? catInfo.remaining : catInfo.remaining - thisMonth * rate;
+    const name = categories.find((c) => c.id === categoryId)?.name ?? '';
+    budgetHint =
+      after < 0
+        ? {
+            text: `${tx ? 'Te pasaste' : 'Con este gasto te pasás'} ${money(-after)} del presupuesto de ${name.toLowerCase()} (${money(catInfo.limit)})`,
+            bad: true,
+          }
+        : {
+            text: `${tx || !total ? 'Te quedan' : 'Con este gasto te quedan'} ${money(after)} de ${money(catInfo.limit)} en ${name.toLowerCase()}`,
+            bad: false,
+          };
+  }
 
   const changeKind = (k: TxKind) => {
     setKind(k);
@@ -305,6 +327,7 @@ function TxForm({
               onChange={setCategoryId}
               options={categories.map((c) => ({ value: c.id as string | null, label: c.name, icon: c.icon, color: c.color }))}
             />
+            {budgetHint && <span className={`budget-hint ${budgetHint.bad ? 'bad' : ''}`}>{budgetHint.text}</span>}
           </Field>
         )}
 

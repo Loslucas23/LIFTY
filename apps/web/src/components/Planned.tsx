@@ -1,5 +1,7 @@
-import type { PlannedLine } from '@lifty/core';
-import { confirmPlanned, unconfirmPlanned } from '../lib/actions';
+import { addMonths, monthLabel, type PlannedLine } from '@lifty/core';
+import { confirmPlanned, deletePlanned, stopPlanned, unconfirmPlanned } from '../lib/actions';
+import { mutate } from '../lib/sync';
+import { openFixedForm, openIncomeForm, openMenu, type MenuAction } from './Editors';
 import { money } from '../lib/format';
 import { useData, useLookups, useToday } from '../lib/store';
 import { Icon } from './Icon';
@@ -28,6 +30,78 @@ export function PlannedList({ lines, month }: { lines: PlannedLine[]; month: str
     }
     return { text: fixed ? `Vence el ${line.day}` : `Se cobra el ${line.day}`, tone: '' };
   };
+  const lineActions = (line: PlannedLine): MenuAction[] => {
+    const fixed = line.kind === 'fixed';
+    const verb = fixed ? 'pagado' : 'cobrado';
+    const tx = data.transactions.find((t) => t.id === line.txIds[0]);
+    const editTx = () =>
+      tx
+        ? openTxForm({ tx })
+        : openTxForm({
+            preset: {
+              kind: fixed ? 'expense' : 'income',
+              amount: line.plannedOriginal,
+              currency: line.currency,
+              categoryId: line.categoryId,
+              accountId: line.accountId,
+              description: line.name,
+              linkKind: line.kind,
+              linkId: line.refId,
+              linkMonth: month,
+            },
+          });
+    const actions: MenuAction[] = line.confirmed
+      ? [
+          { label: `Ver o cambiar lo ${verb}`, run: editTx },
+          { label: 'Marcar como pendiente', run: () => unconfirmPlanned(data, line) },
+        ]
+      : [
+          { label: `Marcar como ${verb}`, hint: money(line.amount), run: () => confirmPlanned(data, line, month) },
+          { label: `${verb[0].toUpperCase()}${verb.slice(1)}, pero con otro monto…`, run: editTx },
+        ];
+    const next = addMonths(month, 1);
+    if (line.kind === 'fixed' && data.fixed.some((f) => f.id === line.refId)) {
+      actions.push(
+        { label: 'Editar gasto fijo', hint: 'Monto, día, categoría, desde/hasta', run: () => openFixedForm(line.refId, month) },
+        {
+          label: 'Ya no lo pago',
+          hint: `Sale del presupuesto desde ${monthLabel(month).toLowerCase()}`,
+          run: () => stopPlanned(data, 'fixed', line.refId, month),
+        },
+        {
+          label: `Lo pago este mes y después no`,
+          hint: `Sale desde ${monthLabel(next).toLowerCase()}`,
+          run: () => stopPlanned(data, 'fixed', line.refId, next),
+        },
+        { label: 'Borrar de todos los meses', tone: 'danger', run: () => deletePlanned(data, 'fixed', line.refId) },
+      );
+    }
+    const income = data.incomes.find((i) => i.id === line.refId);
+    if (line.kind === 'salary' && income) {
+      actions.push(
+        { label: 'Editar sueldo', hint: 'Nominal, descuentos, desde/hasta', run: () => openIncomeForm(line.refId, month) },
+        {
+          label: 'Ya no lo cobro',
+          hint: `Sale desde ${monthLabel(month).toLowerCase()}`,
+          run: () => stopPlanned(data, 'income', line.refId, month),
+        },
+        {
+          label: `Lo cobro este mes y después no`,
+          hint: `Sale desde ${monthLabel(next).toLowerCase()}`,
+          run: () => stopPlanned(data, 'income', line.refId, next),
+        },
+        { label: 'Borrar de todos los meses', tone: 'danger', run: () => deletePlanned(data, 'income', line.refId) },
+      );
+    }
+    if (line.kind === 'aguinaldo' && income) {
+      actions.push(
+        { label: 'Editar sueldo', run: () => openIncomeForm(line.refId, month) },
+        { label: 'Este trabajo no genera aguinaldo', run: () => mutate('income', 'upsert', { ...income, aguinaldo: false }) },
+      );
+    }
+    return actions;
+  };
+
   return (
     <ul className="planned">
       {lines.map((line) => {
@@ -47,24 +121,7 @@ export function PlannedList({ lines, month }: { lines: PlannedLine[]; month: str
             </button>
             <button
               className="planned-main"
-              onClick={() => {
-                const tx = data.transactions.find((t) => t.id === line.txIds[0]);
-                if (tx) openTxForm({ tx });
-                else
-                  openTxForm({
-                    preset: {
-                      kind: line.kind === 'fixed' ? 'expense' : 'income',
-                      amount: line.plannedOriginal,
-                      currency: line.currency,
-                      categoryId: line.categoryId,
-                      accountId: line.accountId,
-                      description: line.name,
-                      linkKind: line.kind,
-                      linkId: line.refId,
-                      linkMonth: month,
-                    },
-                  });
-              }}
+              onClick={() => openMenu(line.name, lineActions(line), `${money(line.amount)} · ${monthLabel(month)}`)}
             >
               <span className="planned-name">
                 {cat?.icon && <span aria-hidden="true">{cat.icon} </span>}
@@ -84,6 +141,13 @@ export function PlannedList({ lines, month }: { lines: PlannedLine[]; month: str
               {money(line.amount)}
               {line.currency === 'USD' && <small>{money(line.plannedOriginal, 'USD')}</small>}
             </span>
+            <button
+              className="icon-btn planned-more"
+              aria-label={`Más opciones de ${line.name}`}
+              onClick={() => openMenu(line.name, lineActions(line), `${money(line.amount)} · ${monthLabel(month)}`)}
+            >
+              <Icon name="more" />
+            </button>
           </li>
         );
       })}

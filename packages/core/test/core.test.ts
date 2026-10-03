@@ -4,6 +4,7 @@ import {
   addMonths,
   aguinaldoFor,
   applyMutation,
+  budgetId,
   computeMonth,
   computeMonths,
   defaultSettings,
@@ -187,16 +188,51 @@ describe('presupuesto mensual', () => {
     expect(b.variable.items).toHaveLength(1);
   });
 
-  it('reporta gasto por categoría con tope', () => {
+  it('reporta gasto por categoría con presupuesto (los fijos van aparte)', () => {
     const d = base();
     d.categories = d.categories.map((c) => (c.id === 'cat-comida' ? { ...c, monthlyLimit: 3000 } : c));
     const b = computeMonth(d, '2026-01', '2026-01-20');
-    expect(b.categories.find((c) => c.categoryId === 'cat-comida')).toEqual({
-      categoryId: 'cat-comida',
+    expect(b.categories.find((c) => c.categoryId === 'cat-comida')).toMatchObject({
       spent: 326,
       limit: 3000,
+      limitSource: 'default',
+      remaining: 2674,
     });
-    expect(b.categories.find((c) => c.categoryId === 'cat-casa')?.spent).toBe(16000);
+    expect(b.categories.find((c) => c.categoryId === 'cat-casa')).toMatchObject({ spent: 0, fixed: 16000, total: 16000 });
+  });
+
+  it('un presupuesto de un mes puntual reemplaza al de todos los meses', () => {
+    const d = base();
+    d.categories = d.categories.map((c) => (c.id === 'cat-comida' ? { ...c, monthlyLimit: 3000 } : c));
+    d.budgets = [
+      { id: budgetId('2026-01', 'cat-comida'), updatedAt: '', month: '2026-01', categoryId: 'cat-comida', amount: 5000 },
+    ];
+    expect(computeMonth(d, '2026-01', '2026-01-20').categories.find((c) => c.categoryId === 'cat-comida')).toMatchObject({
+      limit: 5000,
+      limitSource: 'month',
+    });
+    expect(computeMonth(d, '2026-02', '2026-02-01').categories.find((c) => c.categoryId === 'cat-comida')).toMatchObject({
+      limit: 3000,
+      limitSource: 'default',
+    });
+  });
+
+  it('arma el plan: lo asignado, lo que falta asignar y cómo terminás si lo cumplís', () => {
+    const d = base();
+    d.categories = d.categories.map((c) =>
+      c.id === 'cat-comida' ? { ...c, monthlyLimit: 3000 } : c.id === 'cat-suscripciones' ? { ...c, monthlyLimit: 100 } : c,
+    );
+    const b = computeMonth(d, '2026-01', '2026-01-20');
+    // ingresos 39000 − fijos 17600 − ahorro 1000 − asignado 3100 − sin presupuesto 0
+    expect(b.plan.assigned).toBe(3100);
+    expect(b.plan.overspent).toBeCloseTo(39.6, 2); // suscripciones: 139,60 de 100
+    expect(b.plan.remaining).toBe(2674);
+    expect(b.plan.unbudgeted).toBe(0);
+    expect(b.plan.unassigned).toBe(39000 - 17600 - 1000 - 3100);
+    expect(b.plan.projected).toBeCloseTo(b.result - 2674, 2);
+    // Por día: lo que queda de los presupuestos en los 12 días que faltan.
+    expect(b.daily).toMatchObject({ basis: 'budget', daysLeft: 12 });
+    expect(b.daily!.perDay).toBeCloseTo(2674 / 12, 2);
   });
 
   it('lista las cuotas pendientes y los ahorros por meta', () => {

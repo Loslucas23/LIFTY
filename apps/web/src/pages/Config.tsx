@@ -42,7 +42,7 @@ export function Categories() {
         {c.kind === 'expense' && (
           <span className="tx-meta">
             Este mes {money(spent.get(c.id) ?? 0)}
-            {c.monthlyLimit ? ` de ${money(c.monthlyLimit)}` : ' · sin tope'}
+            {c.monthlyLimit ? ` de ${money(c.monthlyLimit)}` : ' · sin presupuesto'}
           </span>
         )}
       </span>
@@ -52,7 +52,7 @@ export function Categories() {
 
   return (
     <div className="page">
-      <PageHeader title="Categorías y topes" subtitle="Ponele un tope mensual a lo que quieras controlar" back="/mas" />
+      <PageHeader title="Categorías" subtitle="Y cuánto querés gastar por mes en cada una" back="/mas" />
       <Section
         title="Gastos"
         action={
@@ -149,7 +149,10 @@ function CategoryForm({ category, kind, onClose }: { category: Category | null; 
           </div>
         </Field>
         {kind === 'expense' && (
-          <Field label="Tope por mes (opcional)" hint="Te avisa cuando te acercás o te pasás.">
+          <Field
+            label="Presupuesto por mes (opcional)"
+            hint="Vale para todos los meses. Un mes puntual se cambia desde Presupuesto."
+          >
             <input inputMode="decimal" value={limit} onChange={(e) => setLimit(e.target.value)} placeholder="Ej: 3000" />
           </Field>
         )}

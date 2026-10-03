@@ -33,6 +33,7 @@ export function toLiftyData(store: RecordStore): LiftyData {
     fixed: list('fixed').sort((a, b) => (a.dayOfMonth ?? 99) - (b.dayOfMonth ?? 99) || a.name.localeCompare(b.name)),
     goals: list('goal').sort((a, b) => a.name.localeCompare(b.name)),
     closings: list('closing').sort((a, b) => a.id.localeCompare(b.id)),
+    budgets: list('budget').sort((a, b) => a.id.localeCompare(b.id)),
     weights: list('weight').sort((a, b) => a.date.localeCompare(b.date) || a.updatedAt.localeCompare(b.updatedAt)),
   };
 }

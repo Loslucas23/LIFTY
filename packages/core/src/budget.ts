@@ -1,7 +1,7 @@
 import { addMonths, daysInMonth, isActiveIn, monthOf, monthRange, parseMonth } from './months';
 import { round2, toUYU } from './money';
 import { aguinaldoFor, netSalary } from './salary';
-import type { Account, Currency, LiftyData, LinkKind, MonthClosing, Transaction } from './schema';
+import type { Account, BudgetEntry, Currency, LiftyData, LinkKind, MonthClosing, Transaction } from './schema';
 
 /** Algo planificado del mes (sueldo, aguinaldo o gasto fijo) y si ya se confirmó. */
 export interface PlannedLine {
@@ -44,8 +44,46 @@ export interface TxLine {
 
 export interface CategorySpend {
   categoryId: string | null;
+  /** Gastado en el día a día y con tarjeta (lo que cubre el presupuesto de la categoría). */
   spent: number;
+  /** Gastos fijos de la categoría (se planifican aparte). */
+  fixed: number;
+  /** spent + fixed */
+  total: number;
+  /** Presupuesto del mes para la categoría (null = sin presupuesto). */
   limit: number | null;
+  /** De dónde sale el presupuesto: de este mes en particular o el de todos los meses. */
+  limitSource: 'month' | 'default' | null;
+  /** Lo que queda del presupuesto (negativo = te pasaste). */
+  remaining: number | null;
+}
+
+/** El plan del mes: cuánto entra, qué está comprometido y cuánto queda sin asignar. */
+export interface MonthPlan {
+  /** Suma de los presupuestos por categoría. */
+  assigned: number;
+  /** Lo que todavía se puede gastar dentro de los presupuestos. */
+  remaining: number;
+  /** Lo que se gastó de más en categorías con presupuesto. */
+  overspent: number;
+  /** Gastado en categorías sin presupuesto (o sin categoría). */
+  unbudgeted: number;
+  /** arrastre + ingresos − fijos − ahorro − presupuestado − gastos sin presupuesto */
+  unassigned: number;
+  /** Cómo terminás el mes si gastás exactamente lo presupuestado. */
+  projected: number;
+}
+
+/** Presupuesto de una categoría en un mes: el del mes si existe, si no el de todos los meses. */
+export function effectiveBudget(
+  data: Pick<LiftyData, 'budgets' | 'categories'>,
+  month: string,
+  categoryId: string,
+): { amount: number | null; source: 'month' | 'default' | null } {
+  const override = data.budgets.find((b) => b.month === month && b.categoryId === categoryId);
+  if (override) return { amount: override.amount, source: 'month' };
+  const cat = data.categories.find((c) => c.id === categoryId);
+  return cat?.monthlyLimit ? { amount: cat.monthlyLimit, source: 'default' } : { amount: null, source: null };
 }
 
 export interface MonthBudget {
@@ -64,8 +102,12 @@ export interface MonthBudget {
   /** Lo que pasa al mes siguiente: real si el mes está cerrado, si no el proyectado. */
   endBalance: number;
   categories: CategorySpend[];
-  /** Solo para el mes en curso. */
-  daily: { day: number; daysLeft: number; perDay: number } | null;
+  plan: MonthPlan;
+  /**
+   * Solo para el mes en curso. Si hay presupuestos, lo que queda de ellos repartido en los
+   * días que faltan; si no, el saldo proyectado.
+   */
+  daily: { day: number; daysLeft: number; perDay: number; basis: 'budget' | 'balance' } | null;
 }
 
 export interface Installment {
@@ -122,6 +164,7 @@ interface Index {
   /** Movimientos vinculados a algo planificado: clave `${kind}:${id}:${mes}`. */
   linked: Map<string, Transaction[]>;
   closings: Map<string, MonthClosing>;
+  budgets: Map<string, BudgetEntry>;
 }
 
 function buildIndex(data: LiftyData): Index {
@@ -149,6 +192,7 @@ function buildIndex(data: LiftyData): Index {
     byMonth,
     linked,
     closings: new Map(data.closings.map((c) => [c.id, c])),
+    budgets: new Map((data.budgets ?? []).map((b) => [`${b.month}:${b.categoryId}`, b])),
   };
 }
 
@@ -309,28 +353,72 @@ function computeSingle(
   const result = round2(carryover.amount + incomeTotal - expenses - savingsTotal);
   const closing = idx.closings.get(month) ?? null;
 
-  // Gasto por categoría (incluye fijos y cuotas de tarjeta).
+  // Gasto por categoría: día a día y tarjeta (lo que cubre el presupuesto) y fijos aparte.
   const spend = new Map<string | null, number>();
-  for (const l of [...fixedItems, ...variable, ...card]) {
-    spend.set(l.categoryId, (spend.get(l.categoryId) ?? 0) + l.amount);
-  }
+  const fixedBy = new Map<string | null, number>();
+  for (const l of [...variable, ...card]) spend.set(l.categoryId, (spend.get(l.categoryId) ?? 0) + l.amount);
+  for (const l of fixedItems) fixedBy.set(l.categoryId, (fixedBy.get(l.categoryId) ?? 0) + l.amount);
   const categories: CategorySpend[] = [];
+  const seen = new Set<string | null>();
   for (const c of data.categories) {
     if (c.kind !== 'expense') continue;
+    seen.add(c.id);
     const spent = round2(spend.get(c.id) ?? 0);
-    if (spent !== 0 || c.monthlyLimit) categories.push({ categoryId: c.id, spent, limit: c.monthlyLimit });
-    spend.delete(c.id);
+    const fixed = round2(fixedBy.get(c.id) ?? 0);
+    const override = idx.budgets.get(`${month}:${c.id}`);
+    const limit = override ? override.amount : (c.monthlyLimit ?? null);
+    const limitSource = override ? 'month' : c.monthlyLimit ? 'default' : null;
+    if (spent === 0 && fixed === 0 && limit === null) continue;
+    categories.push({
+      categoryId: c.id,
+      spent,
+      fixed,
+      total: round2(spent + fixed),
+      limit,
+      limitSource,
+      remaining: limit === null ? null : round2(limit - spent),
+    });
   }
-  for (const [categoryId, spent] of spend) {
-    if (round2(spent) !== 0) categories.push({ categoryId, spent: round2(spent), limit: null });
+  for (const id of new Set([...spend.keys(), ...fixedBy.keys()])) {
+    if (seen.has(id)) continue;
+    const spent = round2(spend.get(id) ?? 0);
+    const fixed = round2(fixedBy.get(id) ?? 0);
+    if (spent === 0 && fixed === 0) continue;
+    categories.push({
+      categoryId: id,
+      spent,
+      fixed,
+      total: round2(spent + fixed),
+      limit: null,
+      limitSource: null,
+      remaining: null,
+    });
   }
-  categories.sort((a, b) => b.spent - a.spent);
+  categories.sort((a, b) => b.total - a.total);
+
+  const budgeted = categories.filter((c) => c.limit !== null);
+  const assigned = round2(budgeted.reduce((s, c) => s + c.limit!, 0));
+  const remaining = round2(budgeted.reduce((s, c) => s + Math.max(0, c.remaining!), 0));
+  const overspent = round2(budgeted.reduce((s, c) => s + Math.max(0, -c.remaining!), 0));
+  const unbudgeted = round2(categories.filter((c) => c.limit === null).reduce((s, c) => s + c.spent, 0));
+  const unassigned = round2(carryover.amount + incomeTotal - fixedTotal - savingsTotal - assigned - unbudgeted);
+  const plan: MonthPlan = {
+    assigned,
+    remaining,
+    overspent,
+    unbudgeted,
+    unassigned,
+    projected: round2(result - remaining),
+  };
 
   let daily: MonthBudget['daily'] = null;
   if (monthOf(today) === month) {
     const day = Number(today.slice(8, 10));
     const daysLeft = daysInMonth(month) - day + 1;
-    daily = { day, daysLeft, perDay: round2(Math.max(0, result) / daysLeft) };
+    daily =
+      assigned > 0
+        ? { day, daysLeft, perDay: round2(Math.min(remaining, Math.max(0, result)) / daysLeft), basis: 'budget' }
+        : { day, daysLeft, perDay: round2(Math.max(0, result) / daysLeft), basis: 'balance' };
   }
 
   return {
@@ -355,6 +443,7 @@ function computeSingle(
     closing,
     endBalance: closing ? closing.realBalance : result,
     categories,
+    plan,
     daily,
   };
 }

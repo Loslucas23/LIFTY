@@ -1,4 +1,5 @@
 import { useEffect, type ReactNode } from 'react';
+import { EditorsHost } from './components/Editors';
 import { Layout } from './components/Layout';
 import { TxFormHost } from './components/TxForm';
 import { Toasts, toast } from './components/ui';
@@ -88,6 +89,7 @@ export function App() {
     <>
       <Layout route={route}>{page ?? <Home />}</Layout>
       <TxFormHost />
+      <EditorsHost />
       <Toasts />
     </>
   );
