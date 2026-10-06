@@ -1,7 +1,7 @@
 import { addMonths, daysInMonth, isActiveIn, monthOf, monthRange, occursIn, parseMonth } from './months';
 import { round2, toUYU } from './money';
 import { aguinaldoFor, netSalary } from './salary';
-import type { Account, BudgetEntry, Currency, LiftyData, LinkKind, MonthClosing, Transaction } from './schema';
+import type { Account, BudgetEntry, Category, Currency, LiftyData, LinkKind, MonthClosing, Transaction } from './schema';
 
 /** Algo planificado del mes (sueldo, aguinaldo o gasto fijo) y si ya se confirmó. */
 export interface PlannedLine {
@@ -56,6 +56,8 @@ export interface CategorySpend {
   limitSource: 'month' | 'default' | null;
   /** Lo que queda del presupuesto (negativo = te pasaste). */
   remaining: number | null;
+  /** Detalle por subcategoría (si hay gastos en subcategorías). */
+  subs?: { categoryId: string; spent: number }[];
 }
 
 /** El plan del mes: cuánto entra, qué está comprometido y cuánto queda sin asignar. */
@@ -228,6 +230,8 @@ interface Index {
   closings: Map<string, MonthClosing>;
   budgets: Map<string, BudgetEntry>;
   offBudget: Set<string>;
+  /** Categoría de arriba de cada subcategoría. */
+  root: (id: string | null) => string | null;
 }
 
 /** Cuentas de plata guardada (no se usa para gastar). */
@@ -284,6 +288,7 @@ function buildIndex(data: LiftyData): Index {
     offBudget,
     closings: new Map(data.closings.map((c) => [c.id, c])),
     budgets: new Map((data.budgets ?? []).map((b) => [`${b.month}:${b.categoryId}`, b])),
+    root: categoryRootFn(data.categories),
   };
 }
 
@@ -457,15 +462,28 @@ function computeSingle(
   const result = round2(carryover.amount + incomeTotal - expenses - savingsTotal);
   const closing = idx.closings.get(month) ?? null;
 
-  // Gasto por categoría: día a día y tarjeta (lo que cubre el presupuesto) y fijos aparte.
+  // Gasto por categoría: día a día y tarjeta (lo que cubre el presupuesto) y fijos aparte. Lo
+  // de una subcategoría suma a su categoría (y queda el detalle en `subs`).
   const spend = new Map<string | null, number>();
   const fixedBy = new Map<string | null, number>();
-  for (const l of [...variable, ...card]) spend.set(l.categoryId, (spend.get(l.categoryId) ?? 0) + l.amount);
-  for (const l of fixedItems) fixedBy.set(l.categoryId, (fixedBy.get(l.categoryId) ?? 0) + l.amount);
+  const subSpend = new Map<string, Map<string, number>>();
+  for (const l of [...variable, ...card]) {
+    const root = idx.root(l.categoryId);
+    spend.set(root, (spend.get(root) ?? 0) + l.amount);
+    if (root && l.categoryId && root !== l.categoryId) {
+      const m = subSpend.get(root) ?? new Map<string, number>();
+      m.set(l.categoryId, (m.get(l.categoryId) ?? 0) + l.amount);
+      subSpend.set(root, m);
+    }
+  }
+  for (const l of fixedItems) {
+    const root = idx.root(l.categoryId);
+    fixedBy.set(root, (fixedBy.get(root) ?? 0) + l.amount);
+  }
   const categories: CategorySpend[] = [];
   const seen = new Set<string | null>();
   for (const c of data.categories) {
-    if (c.kind !== 'expense') continue;
+    if (c.kind !== 'expense' || idx.root(c.id) !== c.id) continue;
     seen.add(c.id);
     const spent = round2(spend.get(c.id) ?? 0);
     const fixed = round2(fixedBy.get(c.id) ?? 0);
@@ -473,6 +491,7 @@ function computeSingle(
     const limit = override ? override.amount : (c.monthlyLimit ?? null);
     const limitSource = override ? 'month' : c.monthlyLimit ? 'default' : null;
     if (spent === 0 && fixed === 0 && limit === null) continue;
+    const subs = subSpend.get(c.id);
     categories.push({
       categoryId: c.id,
       spent,
@@ -481,6 +500,13 @@ function computeSingle(
       limit,
       limitSource,
       remaining: limit === null ? null : round2(limit - spent),
+      ...(subs
+        ? {
+            subs: [...subs.entries()]
+              .map(([categoryId, v]) => ({ categoryId, spent: round2(v) }))
+              .sort((a, b) => b.spent - a.spent),
+          }
+        : {}),
     });
   }
   for (const id of new Set([...spend.keys(), ...fixedBy.keys()])) {
@@ -737,4 +763,42 @@ export function goalBalances(data: LiftyData): GoalBalance[] {
 
 export function yearOf(month: string): number {
   return parseMonth(month).year;
+}
+
+/** Para cada categoría, la de arriba (si es subcategoría) o ella misma. */
+export function categoryRootFn(categories: Pick<Category, 'id' | 'parentId'>[]): (id: string | null) => string | null {
+  const parent = new Map(categories.map((c) => [c.id, c.parentId ?? null]));
+  return (id) => {
+    let cur = id;
+    // Un solo nivel en la práctica, pero por las dudas se sube hasta arriba (sin ciclos). Si la
+    // de arriba ya no existe, queda como categoría principal.
+    for (let i = 0; i < 5 && cur; i++) {
+      const up = parent.get(cur);
+      if (!up || !parent.has(up)) break;
+      cur = up;
+    }
+    return cur;
+  };
+}
+
+/** La categoría y sus subcategorías (para filtrar movimientos "de Comida afuera"). */
+export function categoryFamily(categories: Pick<Category, 'id' | 'parentId'>[], id: string): Set<string> {
+  return new Set([id, ...categories.filter((c) => c.parentId === id).map((c) => c.id)]);
+}
+
+/** "Comida afuera › Delivery" (o solo el nombre si no es subcategoría). */
+export function categoryPath(categories: Pick<Category, 'id' | 'name' | 'parentId'>[], id: string | null, sep = ' › '): string {
+  const c = categories.find((x) => x.id === id);
+  if (!c) return '';
+  const parent = c.parentId ? categories.find((x) => x.id === c.parentId) : undefined;
+  return parent ? `${parent.name}${sep}${c.name}` : c.name;
+}
+
+/** Las categorías en orden, cada una seguida de sus subcategorías (para listas y selectores). */
+export function sortedCategories<T extends Pick<Category, 'id' | 'parentId' | 'sort'>>(categories: T[]): T[] {
+  const ids = new Set(categories.map((c) => c.id));
+  const bySort = (a: T, b: T) => a.sort - b.sort;
+  // Una subcategoría cuya categoría de arriba no está en la lista queda como de arriba.
+  const roots = categories.filter((c) => !c.parentId || !ids.has(c.parentId)).sort(bySort);
+  return roots.flatMap((r) => [r, ...categories.filter((c) => c.parentId === r.id).sort(bySort)]);
 }

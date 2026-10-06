@@ -46,6 +46,11 @@ export function Year({ year: yearParam }: { year?: string }) {
         </div>
       </div>
 
+      <a className="card pad retro-link" href={`#/tu-anio/${year}`}>
+        ✨ <strong>Tu {year} en Lifty</strong>
+        <span className="muted small"> · en qué se fue, tu mejor mes, días sin gastar, rutinas y ánimo</span>
+      </a>
+
       <YearChart months={months} today={today} />
 
       <div className="card table-wrap">

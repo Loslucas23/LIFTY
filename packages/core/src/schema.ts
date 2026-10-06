@@ -73,6 +73,11 @@ export const categorySchema = z.object({
   kind: z.enum(['expense', 'income']),
   color,
   icon,
+  /**
+   * Subcategoría de… (un solo nivel: "Comida afuera › Delivery"). Lo que gastás en una
+   * subcategoría suma a la categoría de arriba (y a su presupuesto).
+   */
+  parentId: id.nullable().default(null),
   /** Presupuesto mensual en UYU para todos los meses (cada mes se puede cambiar aparte). */
   monthlyLimit: money.positive().nullable().default(null),
   archived: z.boolean().default(false),
@@ -506,6 +511,28 @@ export const challengeSchema = z.object({
 });
 export type Challenge = z.infer<typeof challengeSchema>;
 
+/**
+ * Épocas especiales. vacation: un viaje con su presupuesto total; lo que cargás en esas fechas
+ * lleva su etiqueta y las rutinas se pausan. tight: un "mes difícil" con tope de gasto por día.
+ */
+export const PERIOD_KINDS = ['vacation', 'tight'] as const;
+export type PeriodKind = (typeof PERIOD_KINDS)[number];
+export const periodSchema = z.object({
+  ...base,
+  kind: z.enum(PERIOD_KINDS),
+  name: z.string().trim().min(1).max(60),
+  from: date,
+  to: date,
+  /** Vacaciones: lo que querés gastar en todo el viaje. Mes difícil: el tope por día. */
+  budget: money.min(0).nullable().default(null),
+  /** Etiqueta que se pone sola a lo que cargás en esas fechas (vacaciones). */
+  tag: z.string().trim().max(30).default(''),
+  /** No pedir rutinas ni estudio en "Para hoy" mientras dura. */
+  pauseRoutines: z.boolean().default(false),
+  archived: z.boolean().default(false),
+});
+export type Period = z.infer<typeof periodSchema>;
+
 export const AUTO_KINDS = ['fixed', 'income', 'load', 'saving', 'shop', 'category'] as const;
 
 /**
@@ -554,6 +581,7 @@ export const ENTITY_SCHEMAS = {
   rule: ruleSchema,
   autoLog: autoLogSchema,
   challenge: challengeSchema,
+  period: periodSchema,
 } as const;
 
 export type EntityName = keyof typeof ENTITY_SCHEMAS;
@@ -585,6 +613,7 @@ export interface EntityTypes {
   rule: CategoryRule;
   autoLog: AutoLog;
   challenge: Challenge;
+  period: Period;
 }
 
 export function isEntityName(value: string): value is EntityName {
@@ -631,4 +660,5 @@ export interface LiftyData {
   rules: CategoryRule[];
   autoLogs: AutoLog[];
   challenges: Challenge[];
+  periods: Period[];
 }

@@ -29,6 +29,19 @@ const GROUPS: { title: string; items: { href: string; icon: IconName; label: str
         label: 'Piloto automático',
         hint: 'Lo que Lifty hace solo: débitos, sueldo, ahorro, lista y reglas',
       },
+      {
+        href: '/calendario',
+        icon: 'calendar',
+        label: 'Calendario',
+        hint: 'Cobros, pagos, vencimientos, exámenes y cómo te fue cada día',
+      },
+      {
+        href: '/epocas',
+        icon: 'calendar',
+        label: 'Vacaciones y mes difícil',
+        hint: 'Presupuesto del viaje (con su etiqueta) o un tope por día más bajo',
+      },
+      { href: '/tu-anio', icon: 'chart', label: 'Tu año', hint: 'Tu año en Lifty: en qué se fue, tu mejor mes, rachas…' },
       { href: '/resumen', icon: 'chart', label: 'Resumen del mes', hint: 'Plata, rutinas, sueño, ánimo y peso del mes juntos' },
       { href: '/informes', icon: 'chart', label: 'Informes', hint: 'El año mes a mes, tendencias y patrimonio' },
       { href: '/simulador', icon: 'card', label: '¿Me lo puedo comprar?', hint: 'Simulá una compra al contado o en cuotas' },
@@ -53,6 +66,12 @@ const GROUPS: { title: string; items: { href: string; icon: IconName; label: str
   {
     title: 'Casa',
     items: [
+      {
+        href: '/lista',
+        icon: 'cart',
+        label: 'Lista del súper',
+        hint: 'Ordenada por sector, lo de siempre, dónde sale menos y qué subió',
+      },
       { href: '/recetas', icon: 'food', label: 'Recetas', hint: 'Qué podés cocinar con lo que tenés y cuánto sale' },
       { href: '/vencimientos', icon: 'bell', label: 'Vencimientos', hint: 'Cédula, libreta, seguro, service, garantías' },
       { href: '/stock', icon: 'box', label: 'Stock', hint: 'Lo que tenés, cuánto te dura, lista de compras y vencimientos' },

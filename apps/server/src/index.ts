@@ -1,11 +1,13 @@
 import path from 'node:path';
 import { buildApp, VERSION } from './app';
+import { BackupService } from './backup';
 import { LiftyDb } from './db';
 import { lanAddresses } from './network';
 
 export { buildApp, LiftyDb, VERSION, lanAddresses };
 export { importWorkbook } from './excel';
 export { exportWorkbook } from './export';
+export { BackupService, decryptBackup, encryptBackup } from './backup';
 
 export interface StartOptions {
   /** Carpeta donde se guardan la base y las copias de seguridad. */
@@ -27,8 +29,10 @@ export async function startServer(opts: StartOptions) {
     wasmPath: opts.wasmPath,
     backupDir: path.join(opts.dataDir, 'backups'),
   });
-  const app = await buildApp({ ...opts, db, port });
+  const backup = new BackupService(db);
+  const app = await buildApp({ ...opts, db, port, backup });
   await app.listen({ port, host: opts.host ?? '0.0.0.0' });
+  backup.start();
   return {
     app,
     db,

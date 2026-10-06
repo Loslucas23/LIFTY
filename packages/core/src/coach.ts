@@ -56,7 +56,7 @@ export function monthPlanProposal(data: LiftyData, past: MonthBudget[], current:
   if (!lastThree.length) return null;
   const lines: PlanLine[] = [];
   for (const c of data.categories) {
-    if (c.archived || c.kind !== 'expense') continue;
+    if (c.archived || c.kind !== 'expense' || c.parentId) continue;
     const history = lastThree.map((b) => round2(b.categories.find((x) => x.categoryId === c.id)?.spent ?? 0));
     if (history.filter((v) => v > 0).length < 2) continue;
     const suggested = round100(median(history));

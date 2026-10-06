@@ -1,7 +1,16 @@
 import { useMemo, useState } from 'react';
 import {
+  AISLE_LABEL,
+  aisleOf,
   daysBetween,
   fmtQty,
+  groupByAisle,
+  listByStore,
+  matchStockItem,
+  parseShopText,
+  priceAlerts,
+  routineItems,
+  type RoutineItem,
   foodCardMonth,
   monthOf,
   newId,
@@ -68,11 +77,11 @@ function useOverview() {
 
 const isWhole = (u: StockUnit) => u === 'u' || u === 'paq';
 
-export function Stock() {
+export function Stock({ initialTab }: { initialTab?: Tab } = {}) {
   const data = useData();
   const today = useToday();
   const o = useOverview();
-  const [tab, setTabState] = useState<Tab>(() => (local.get('lifty-stock-tab') as Tab) || 'tengo');
+  const [tab, setTabState] = useState<Tab>(() => initialTab ?? ((local.get('lifty-stock-tab') as Tab) || 'tengo'));
   const setTab = (t: Tab) => {
     setTabState(t);
     local.set('lifty-stock-tab', t === 'tengo' ? null : t);
@@ -127,7 +136,11 @@ export function Stock() {
       />
 
       {data.stockItems.length === 0 ? (
-        <StockEmpty onNew={() => setEditing('new')} />
+        <>
+          {/* La lista sirve aunque no lleves el stock. */}
+          <ShoppingList onBuy={(lines) => setBuying(lines)} onOpen={setViewing} />
+          <StockEmpty onNew={() => setEditing('new')} />
+        </>
       ) : (
         <>
           <div className="stat-row">
@@ -763,30 +776,85 @@ function ShoppingList({ onBuy, onOpen }: { onBuy: (lines: PurchaseLine[]) => voi
   const data = useData();
   const today = useToday();
   const o = useOverview();
+  const b = useMonth(monthOf(today));
   const [text, setText] = useState('');
   const entries = data.shopEntries;
+  const pending = entries.filter((e) => !e.checked);
+  const checked = entries.filter((e) => e.checked);
   const inList = new Set(entries.map((e) => e.itemId).filter(Boolean));
   const suggested = o.shopping.filter((s) => !inList.has(s.item.id));
+  const suggestedIds = new Set(suggested.map((s) => s.item.id));
   const statusOf = (id: string | null) => (id ? o.statuses.find((s) => s.item.id === id) : undefined);
   const unitPrice = (s?: StockStatus) => (s ? (s.prices.last ?? s.prices.average) : null);
   const cost = (e: ShopEntry) => {
     const p = unitPrice(statusOf(e.itemId));
     return p !== null && e.quantity ? p * e.quantity : null;
   };
-  const total = round2(entries.filter((e) => !e.checked).reduce((s, e) => s + (cost(e) ?? 0), 0));
-  const checked = entries.filter((e) => e.checked);
+  const total = round2(pending.reduce((s, e) => s + (cost(e) ?? 0), 0));
+  const withoutPrice = pending.filter((e) => cost(e) === null).length;
   const food = data.accounts.find((a) => a.type === 'food' && !a.archived);
-  const foodLeft = food ? (foodCardMonth(data, food.id, monthOf(today), today)?.available ?? null) : null;
+  // Solo si la usás (tiene carga o saldo): si no, el aviso no dice nada útil.
+  const foodAvailable = food ? (foodCardMonth(data, food.id, monthOf(today), today)?.available ?? null) : null;
+  const foodLeft = food && foodAvailable !== null && (food.monthlyLoad || foodAvailable > 0) ? foodAvailable : null;
+  const superLine = b.categories.find((c) => c.categoryId === 'cat-super' && c.limit !== null);
+
+  // Lo inteligente: lo de siempre, subas de precio, dónde conviene y la lista por sector.
+  const routine = useMemo(() => routineItems(data.stockItems, data.stockMoves, today), [data.stockItems, data.stockMoves, today]);
+  const routineDue = routine.filter((r) => r.due && !inList.has(r.item.id) && !suggestedIds.has(r.item.id));
+  const alerts = useMemo(
+    () => new Map(priceAlerts(data.stockItems, data.stockMoves, today).map((a) => [a.item.id, a])),
+    [data.stockItems, data.stockMoves, today],
+  );
+  const stores = useMemo(() => listByStore(entries, data.stockMoves, today), [entries, data.stockMoves, today]);
+  const groups = groupByAisle(pending, data.stockItems);
+
+  // Lo que estás escribiendo: "2 kg arroz", "lehce" → Leche.
+  const parsed = parseShopText(text);
+  const match = parsed.name ? matchStockItem(data.stockItems, parsed.name) : null;
+  const matchStatus = match ? statusOf(match.id) : undefined;
 
   const add = (s: StockStatus) => addToShoppingList(s);
+  const addRoutine = (r: RoutineItem) =>
+    mutate('shopEntry', 'upsert', {
+      id: newId(),
+      updatedAt: '',
+      itemId: r.item.id,
+      name: r.item.name,
+      quantity: r.usualQty || r.item.packSize || 1,
+      unit: UNIT_LABEL[r.item.unit],
+      checked: false,
+    });
   const addText = () => {
-    const name = text.trim();
-    if (!name) return;
-    const item = data.stockItems.find((i) => i.name.toLowerCase() === name.toLowerCase() && !i.archived);
-    const st = item ? statusOf(item.id) : undefined;
-    if (st) add(st);
-    else
-      mutate('shopEntry', 'upsert', { id: newId(), updatedAt: '', itemId: null, name, quantity: null, unit: '', checked: false });
+    if (!parsed.name) return;
+    if (match) {
+      const already = entries.find((e) => e.itemId === match.id && !e.checked);
+      const qty = parsed.quantity ?? matchStatus?.toBuy ?? match.packSize ?? 1;
+      if (already) {
+        const quantity = round2((already.quantity ?? 0) + (parsed.quantity ?? 0)) || already.quantity;
+        mutate('shopEntry', 'upsert', { ...already, quantity });
+        toast(
+          parsed.quantity ? `${match.name}: ahora ${quantity?.toLocaleString('es-UY')} ${already.unit}` : `${match.name} ya está`,
+        );
+      } else
+        mutate('shopEntry', 'upsert', {
+          id: newId(),
+          updatedAt: '',
+          itemId: match.id,
+          name: match.name,
+          quantity: qty || 1,
+          unit: parsed.unit || UNIT_LABEL[match.unit],
+          checked: false,
+        });
+    } else
+      mutate('shopEntry', 'upsert', {
+        id: newId(),
+        updatedAt: '',
+        itemId: null,
+        name: parsed.name.charAt(0).toUpperCase() + parsed.name.slice(1),
+        quantity: parsed.quantity,
+        unit: parsed.unit,
+        checked: false,
+      });
     setText('');
   };
   const finish = () => {
@@ -806,8 +874,12 @@ function ShoppingList({ onBuy, onOpen }: { onBuy: (lines: PurchaseLine[]) => voi
     if (lines.length) onBuy(lines);
   };
   const share = async () => {
-    const pending = entries.filter((e) => !e.checked);
-    const txt = `Lista de compras\n${pending.map((e) => `• ${e.name}${e.quantity ? `: ${e.quantity.toLocaleString('es-UY')} ${e.unit}` : ''}`).join('\n')}`;
+    const txt = `Lista de compras\n${groups
+      .map(
+        (g) =>
+          `${g.label}\n${g.entries.map((e) => `• ${e.name}${e.quantity ? `: ${e.quantity.toLocaleString('es-UY')} ${e.unit}` : ''}`).join('\n')}`,
+      )
+      .join('\n\n')}`;
     try {
       if (navigator.share) await navigator.share({ text: txt });
       else {
@@ -819,10 +891,60 @@ function ShoppingList({ onBuy, onOpen }: { onBuy: (lines: PurchaseLine[]) => voi
     }
   };
 
+  const row = (e: ShopEntry) => {
+    const c = cost(e);
+    const a = e.itemId ? alerts.get(e.itemId) : undefined;
+    return (
+      <div key={e.id} className={`tx-row static shop-row ${e.checked ? 'off' : ''}`}>
+        <button
+          className="check"
+          aria-pressed={e.checked}
+          aria-label={e.checked ? `Destildar ${e.name}` : `Tildar ${e.name}`}
+          onClick={() => mutate('shopEntry', 'upsert', { ...e, checked: !e.checked })}
+        >
+          <Icon name="check" size={16} />
+        </button>
+        <button className="tx-main" onClick={() => e.itemId && onOpen(e.itemId)}>
+          <span className="tx-title">
+            {e.name}
+            {a && !e.checked && (
+              <span className={`tag ${a.change > 0 ? 'tag-bad' : 'tag-good'}`}>
+                {a.change > 0 ? `subió ${a.change}%` : `bajó ${-a.change}%`}
+              </span>
+            )}
+          </span>
+          <span className="tx-meta">
+            {[
+              e.quantity ? `${e.quantity.toLocaleString('es-UY')} ${e.unit}` : null,
+              c !== null ? `~${money(Math.round(c))}` : null,
+              a?.cheaperAt && a.change > 0 && !e.checked
+                ? `en ${a.cheaperAt.store} lo pagaste ${money(a.cheaperAt.unitPrice)}/${UNIT_LABEL[a.item.unit]}`
+                : null,
+            ]
+              .filter(Boolean)
+              .join(' · ') || (e.itemId ? '' : 'no está en el stock')}
+          </span>
+        </button>
+        <button
+          className="icon-btn"
+          aria-label={`Sacar ${e.name}`}
+          onClick={() => {
+            mutate('shopEntry', 'delete', e.id);
+            toast(`${e.name} fuera de la lista`, {
+              action: { label: 'Deshacer', run: () => mutate('shopEntry', 'upsert', e) },
+            });
+          }}
+        >
+          <Icon name="x" size={16} />
+        </button>
+      </div>
+    );
+  };
+
   return (
     <>
       <Section
-        title={`Lista de compras${entries.length ? ` (${entries.filter((e) => !e.checked).length})` : ''}`}
+        title={`Lista de compras${pending.length ? ` (${pending.length})` : ''}`}
         action={
           entries.length > 0 && (
             <button className="link" onClick={() => void share()}>
@@ -841,7 +963,7 @@ function ShoppingList({ onBuy, onOpen }: { onBuy: (lines: PurchaseLine[]) => voi
           <input
             value={text}
             onChange={(e) => setText(e.target.value)}
-            placeholder="Agregar algo (ej: velas, pan)…"
+            placeholder="Agregar: «2 kg arroz», «leche x3», «velas»…"
             list="lifty-stock-names"
             aria-label="Agregar a la lista"
           />
@@ -852,55 +974,41 @@ function ShoppingList({ onBuy, onOpen }: { onBuy: (lines: PurchaseLine[]) => voi
                 <option key={i.id} value={i.name} />
               ))}
           </datalist>
-          <button className="btn" type="submit" disabled={!text.trim()}>
+          <button className="btn" type="submit" disabled={!parsed.name}>
             <Icon name="plus" />
           </button>
         </form>
+        {parsed.name && (
+          <p className="muted small shop-preview">
+            {match ? `→ ${match.icon} ${match.name} (del stock)` : `→ ${parsed.name}`}
+            {parsed.quantity
+              ? ` · ${parsed.quantity.toLocaleString('es-UY')} ${parsed.unit || (match ? UNIT_LABEL[match.unit] : '')}`
+              : matchStatus?.toBuy
+                ? ` · ${fmtQty(matchStatus.toBuy, matchStatus.item.unit)} (lo que te falta)`
+                : ''}
+            {` · ${AISLE_LABEL[aisleOf(match?.name ?? parsed.name, match?.place)]}`}
+          </p>
+        )}
         {entries.length === 0 ? (
           <p className="muted small">
-            La lista está vacía. Se comparte entre tus dispositivos: tildá en el súper desde el celular.
+            La lista está vacía. Se comparte entre tus dispositivos: tildá en el súper desde el celular. Se ordena sola por
+            sector, como recorrés el súper.
           </p>
         ) : (
-          <div className="card list">
-            {entries.map((e) => {
-              const c = cost(e);
-              return (
-                <div key={e.id} className={`tx-row static shop-row ${e.checked ? 'off' : ''}`}>
-                  <button
-                    className="check"
-                    aria-pressed={e.checked}
-                    aria-label={e.checked ? `Destildar ${e.name}` : `Tildar ${e.name}`}
-                    onClick={() => mutate('shopEntry', 'upsert', { ...e, checked: !e.checked })}
-                  >
-                    <Icon name="check" size={16} />
-                  </button>
-                  <button className="tx-main" onClick={() => e.itemId && onOpen(e.itemId)}>
-                    <span className="tx-title">{e.name}</span>
-                    <span className="tx-meta">
-                      {[
-                        e.quantity ? `${e.quantity.toLocaleString('es-UY')} ${e.unit}` : null,
-                        c !== null ? `~${money(Math.round(c))}` : null,
-                      ]
-                        .filter(Boolean)
-                        .join(' · ') || (e.itemId ? '' : 'no está en el stock')}
-                    </span>
-                  </button>
-                  <button
-                    className="icon-btn"
-                    aria-label={`Sacar ${e.name}`}
-                    onClick={() => {
-                      mutate('shopEntry', 'delete', e.id);
-                      toast(`${e.name} fuera de la lista`, {
-                        action: { label: 'Deshacer', run: () => mutate('shopEntry', 'upsert', e) },
-                      });
-                    }}
-                  >
-                    <Icon name="x" size={16} />
-                  </button>
-                </div>
-              );
-            })}
-          </div>
+          <>
+            {groups.map((g) => (
+              <div key={g.aisle} className="shop-group">
+                <h4 className="shop-aisle">{g.label}</h4>
+                <div className="card list">{g.entries.map(row)}</div>
+              </div>
+            ))}
+            {checked.length > 0 && (
+              <div className="shop-group">
+                <h4 className="shop-aisle">🛒 En el carrito ({checked.length})</h4>
+                <div className="card list">{checked.map(row)}</div>
+              </div>
+            )}
+          </>
         )}
         {entries.length > 0 && (
           <div className="card pad shop-total">
@@ -908,10 +1016,25 @@ function ShoppingList({ onBuy, onOpen }: { onBuy: (lines: PurchaseLine[]) => voi
               <span>Falta comprar (estimado)</span>
               <strong>~{money(Math.round(total))}</strong>
             </div>
+            {withoutPrice > 0 && total > 0 && (
+              <p className="muted small">{withoutPrice} sin precio todavía (se aprende cuando registrás la compra con precio).</p>
+            )}
             {foodLeft !== null && total > 0 && (
               <p className={`small ${foodLeft >= total ? 'text-income' : 'text-expense'}`}>
                 🍽️ En la tarjeta de alimentación te quedan {money(Math.round(foodLeft))}:{' '}
                 {foodLeft >= total ? 'te alcanza' : `te faltan ~${money(Math.round(total - foodLeft))}`}.
+              </p>
+            )}
+            {superLine && superLine.remaining !== null && total > 0 && (foodLeft === null || foodLeft < total) && (
+              <p className={`small ${superLine.remaining >= total - Math.max(0, foodLeft ?? 0) ? 'muted' : 'text-expense'}`}>
+                🛒 Del presupuesto del súper te quedan {money(Math.round(superLine.remaining))}
+                {(() => {
+                  const fromBudget = total - Math.max(0, foodLeft ?? 0);
+                  const after = superLine.remaining - fromBudget;
+                  return after >= 0
+                    ? ` → con esta lista quedarían ${money(Math.round(after))}.`
+                    : ` → con esta lista te pasarías ${money(Math.round(-after))}.`;
+                })()}
               </p>
             )}
             <button className="btn btn-primary" disabled={!checked.length} onClick={finish}>
@@ -920,6 +1043,82 @@ function ShoppingList({ onBuy, onOpen }: { onBuy: (lines: PurchaseLine[]) => voi
           </div>
         )}
       </Section>
+
+      {stores.priced >= 2 && stores.stores.length > 1 && (
+        <Section title="¿Dónde conviene hacer esta compra?">
+          <ul className="card month-bars">
+            {stores.stores.map((st) => (
+              <li key={st.store}>
+                <span>
+                  {st.store === stores.best?.store ? '✓ ' : ''}
+                  {st.store}
+                </span>
+                <div className="bar-track">
+                  <div
+                    className="bar-fill"
+                    style={{ width: `${(st.total / Math.max(...stores.stores.map((x) => x.total))) * 100}%` }}
+                  />
+                </div>
+                <strong>
+                  {money(Math.round(st.total))}
+                  <small className="muted">
+                    {' '}
+                    · {st.covered} de {stores.priced}
+                  </small>
+                </strong>
+              </li>
+            ))}
+          </ul>
+          {stores.split.length > 1 && stores.splitSavings >= 20 && (
+            <p className="small">
+              Dividiendo la compra ahorrás ~<strong>{money(Math.round(stores.splitSavings))}</strong>:{' '}
+              {stores.split.map((x, i) => (
+                <span key={x.store}>
+                  {i > 0 && ' · '}
+                  <strong>{x.store}</strong> ({x.items.join(', ')})
+                </span>
+              ))}
+              .
+            </p>
+          )}
+          <p className="muted small">
+            Con el último precio que pagaste en cada lugar (últimos 6 meses), para lo de la lista que tiene precio.
+          </p>
+        </Section>
+      )}
+
+      {routineDue.length > 0 && (
+        <Section
+          title="Lo de siempre: ya toca"
+          action={
+            <button className="link" onClick={() => routineDue.forEach(addRoutine)}>
+              Agregar todo
+            </button>
+          }
+        >
+          <div className="card list">
+            {routineDue.map((r) => (
+              <div key={r.item.id} className="tx-row static shop-row">
+                <span className="tx-icon">{r.item.icon}</span>
+                <button className="tx-main" onClick={() => onOpen(r.item.id)}>
+                  <span className="tx-title">{r.item.name}</span>
+                  <span className="tx-meta">
+                    Lo comprás cada ~{r.every} días (última: {r.last.split('-').reverse().slice(0, 2).join('/')}) · casi siempre{' '}
+                    {fmtQty(r.usualQty, r.item.unit)}
+                  </span>
+                </button>
+                <button
+                  className="btn btn-ghost small"
+                  onClick={() => addRoutine(r)}
+                  aria-label={`Agregar ${r.item.name} a la lista`}
+                >
+                  <Icon name="plus" size={16} />
+                </button>
+              </div>
+            ))}
+          </div>
+        </Section>
+      )}
 
       {suggested.length > 0 && (
         <Section
@@ -1125,7 +1324,8 @@ function PricesView() {
     () => storePrices(data.stockItems, data.stockMoves, today, data.settings),
     [data.stockItems, data.stockMoves, today, data.settings],
   );
-  if (!r.items.length)
+  const alerts = useMemo(() => priceAlerts(data.stockItems, data.stockMoves, today), [data.stockItems, data.stockMoves, today]);
+  if (!r.items.length && !alerts.length)
     return (
       <Empty icon="cart" title="Todavía no hay precios">
         Cuando registres compras con precio y dónde compraste, acá ves en qué súper conviene cada cosa.
@@ -1134,6 +1334,32 @@ function PricesView() {
   const cheapest = r.basket[0];
   return (
     <>
+      {alerts.length > 0 && (
+        <Section title="Cambios de precio">
+          <div className="card list">
+            {alerts.map((a) => (
+              <div key={a.item.id} className="tx-row static">
+                <span className="tx-icon">{a.item.icon}</span>
+                <span className="tx-main">
+                  <span className="tx-title">
+                    {a.item.name}{' '}
+                    <span className={`tag ${a.change > 0 ? 'tag-bad' : 'tag-good'}`}>
+                      {a.change > 0 ? `subió ${a.change}%` : `bajó ${-a.change}%`}
+                    </span>
+                  </span>
+                  <span className="tx-meta">
+                    {money(a.last)}/{UNIT_LABEL[a.item.unit]}
+                    {a.store ? ` en ${a.store}` : ''} el {a.date.split('-').reverse().slice(0, 2).join('/')} · antes{' '}
+                    {money(a.before)} en promedio
+                    {a.cheaperAt && a.change > 0 ? ` · en ${a.cheaperAt.store} lo pagaste ${money(a.cheaperAt.unitPrice)}` : ''}
+                  </span>
+                </span>
+              </div>
+            ))}
+          </div>
+          <p className="muted small">La última compra contra el promedio de las anteriores (6 meses). Avisa desde 15%.</p>
+        </Section>
+      )}
       {r.monthlySavings > 0 && (
         <div className="note note-good">
           Comprando cada cosa donde está más barata ahorrarías <strong>~{money(Math.round(r.monthlySavings))} por mes</strong>{' '}

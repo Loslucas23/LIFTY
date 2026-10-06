@@ -6,6 +6,9 @@ import { openTxForm } from './TxForm';
 export function TxRow({ tx, showDate = false }: { tx: Transaction; showDate?: boolean }) {
   const { category, account, goal } = useLookups();
   const cat = tx.categoryId ? category.get(tx.categoryId) : undefined;
+  // "Comida afuera › Delivery" si es una subcategoría.
+  const parent = cat?.parentId ? category.get(cat.parentId) : undefined;
+  const catName = cat ? (parent ? `${parent.name} › ${cat.name}` : cat.name) : undefined;
   const acc = tx.accountId ? account.get(tx.accountId) : undefined;
   const to = tx.toAccountId ? account.get(tx.toAccountId) : undefined;
   const g = tx.goalId ? goal.get(tx.goalId) : undefined;
@@ -14,11 +17,10 @@ export function TxRow({ tx, showDate = false }: { tx: Transaction; showDate?: bo
   const icon = transfer ? '🔁' : tx.kind === 'saving' ? (g?.icon ?? '🐷') : (cat?.icon ?? (tx.kind === 'income' ? '💰' : '•'));
   const color = transfer ? 'var(--series-1)' : tx.kind === 'saving' ? g?.color : cat?.color;
   const title =
-    tx.description ||
-    (transfer ? 'Transferencia' : tx.kind === 'saving' ? (g?.name ?? 'Ahorro') : (cat?.name ?? 'Sin categoría'));
+    tx.description || (transfer ? 'Transferencia' : tx.kind === 'saving' ? (g?.name ?? 'Ahorro') : (catName ?? 'Sin categoría'));
   const meta = [
     transfer ? `${acc?.name ?? '?'} → ${to?.name ?? '?'}` : null,
-    !transfer && tx.description ? (tx.kind === 'saving' ? g?.name : cat?.name) : null,
+    !transfer && tx.description ? (tx.kind === 'saving' ? g?.name : catName) : null,
     !transfer ? acc?.name : null,
     food ? 'aparte del presupuesto' : null,
     tx.installments > 1 ? `${tx.installments} cuotas` : null,

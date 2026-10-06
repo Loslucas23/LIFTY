@@ -9,6 +9,7 @@ import {
   netBreakdown,
   newId,
   parseMonth,
+  sortedCategories,
   URUGUAY_DEDUCTIONS,
   type Currency,
   type Deduction,
@@ -386,9 +387,12 @@ export function FixedForm({ fixed, month, onClose }: { fixed: FixedExpense | nul
             label="Categoría"
             value={categoryId}
             onChange={setCategoryId}
-            options={data.categories
-              .filter((c) => c.kind === 'expense' && !c.archived)
-              .map((c) => ({ value: c.id as string | null, label: c.name, icon: c.icon, color: c.color }))}
+            options={sortedCategories(data.categories.filter((c) => c.kind === 'expense' && !c.archived)).map((c) => ({
+              value: c.id as string | null,
+              label: c.parentId ? `↳ ${c.name}` : c.name,
+              icon: c.icon,
+              color: c.color,
+            }))}
           />
         </Field>
         <Field label="Se paga con">

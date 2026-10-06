@@ -3214,3 +3214,103 @@ h3.small-title {
 .work-time {
   margin: -4px 0 0;
 }
+
+/* Subcategorías: un poco hacia adentro, debajo de la de arriba. */
+.tx-row.sub-row {
+  padding-left: 40px;
+}
+.tx-row.sub-row .tx-icon {
+  width: 32px;
+  height: 32px;
+  font-size: 0.95em;
+}
+.sub-chips {
+  margin-top: 6px;
+  padding-left: 10px;
+  border-left: 2px solid var(--line);
+}
+.sub-chips .chip {
+  font-size: 0.9em;
+}
+.cat-subs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+  margin: 4px 0 0;
+}
+
+/* Lista del súper por sector. */
+.shop-group + .shop-group {
+  margin-top: 10px;
+}
+.shop-aisle {
+  margin: 10px 2px 6px;
+  font-size: 0.85em;
+  font-weight: 600;
+  color: var(--muted);
+}
+.shop-preview {
+  margin: -4px 2px 8px;
+}
+
+/* Calendario de todo. */
+.mark-event {
+  background: var(--series-3, #a855f7);
+}
+.mark-period {
+  background: var(--series-4, #0ea5e9);
+}
+.cal-mood {
+  font-size: 10px;
+  margin-left: 1px;
+}
+.cal-day.in-period {
+  box-shadow: inset 0 -3px 0 color-mix(in srgb, var(--series-4, #0ea5e9) 70%, transparent);
+}
+.life-calendar .cal-day {
+  min-height: 58px;
+}
+
+/* Tu año. */
+.retro {
+  display: grid;
+  gap: 10px;
+}
+.retro-card {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+}
+.retro-card h3 {
+  margin: 0 0 4px;
+  font-size: 0.95em;
+}
+.retro-icon {
+  font-size: 26px;
+  line-height: 1;
+}
+.retro-body {
+  line-height: 1.5;
+}
+.retro-list {
+  margin: 4px 0 0;
+  padding-left: 20px;
+}
+.retro-link {
+  display: block;
+  margin-bottom: 12px;
+  color: inherit;
+  text-decoration: none;
+}
+.period-note {
+  display: block;
+  margin-bottom: 10px;
+  color: inherit;
+  text-decoration: none;
+}
+.period-note.note-info {
+  background: color-mix(in srgb, #0ea5e9 12%, var(--surface));
+}
+.nowrap {
+  white-space: nowrap;
+}

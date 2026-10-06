@@ -1,5 +1,13 @@
 import { convert } from './accounts';
-import { countsInBudget, offBudgetAccounts, ownAmount, reservedAccounts, savingFromTransfer, txRate } from './budget';
+import {
+  categoryRootFn,
+  countsInBudget,
+  offBudgetAccounts,
+  ownAmount,
+  reservedAccounts,
+  savingFromTransfer,
+  txRate,
+} from './budget';
 import { exerciseVsWeight, habitsToday } from './habits';
 import { addMonths, daysInMonth, isActiveIn, monthOf } from './months';
 import { round2 } from './money';
@@ -61,7 +69,7 @@ export function recurringSummary(data: LiftyData, month: string) {
     };
   });
   items.sort((a, b) => b.monthly - a.monthly);
-  const subs = items.filter((i) => i.fixed.categoryId === 'cat-suscripciones');
+  const subs = items.filter((i) => categoryRootFn(data.categories)(i.fixed.categoryId) === 'cat-suscripciones');
   return {
     items,
     monthly: round2(items.reduce((s, i) => s + i.monthly, 0)),
@@ -130,10 +138,11 @@ export function weekSummary(data: LiftyData, from: string, today: string): WeekS
       .filter((t) => t.kind === 'expense' && countsInBudget(t, off) && inRange(t.date, a, b))
       .reduce((s, t) => s + ownAmount(t) * txRate(t, rate), 0);
   const byCat = new Map<string | null, number>();
+  const root = categoryRootFn(data.categories);
   const spendDays = new Set<string>();
   for (const t of data.transactions) {
     if (t.kind !== 'expense' || !countsInBudget(t, off) || !inRange(t.date, from, last)) continue;
-    byCat.set(t.categoryId, (byCat.get(t.categoryId) ?? 0) + ownAmount(t) * txRate(t, rate));
+    byCat.set(root(t.categoryId), (byCat.get(root(t.categoryId)) ?? 0) + ownAmount(t) * txRate(t, rate));
     if (!t.linkKind && t.amount > 0) spendDays.add(t.date);
   }
   const sumKind = (k: 'income' | 'saving') =>

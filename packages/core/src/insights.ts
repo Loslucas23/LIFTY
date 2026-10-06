@@ -1,5 +1,5 @@
 import { convert } from './accounts';
-import { countsInBudget, goalBalances, offBudgetAccounts, ownAmount, type MonthBudget } from './budget';
+import { categoryRootFn, countsInBudget, goalBalances, offBudgetAccounts, ownAmount, type MonthBudget } from './budget';
 import { addMonths, daysInMonth, monthDiff, monthLabel, monthOf, occursIn } from './months';
 import { round2 } from './money';
 import { addDays } from './weight';
@@ -124,11 +124,13 @@ export interface Insight {
 function spendingByCategory(data: LiftyData, from: string, to: string): Map<string | null, number> {
   const rate = data.settings.usdRate;
   const off = offBudgetAccounts(data);
+  const root = categoryRootFn(data.categories);
   const out = new Map<string | null, number>();
   for (const t of data.transactions) {
     if (t.kind !== 'expense' || t.linkKind || !countsInBudget(t, off) || t.date < from || t.date > to) continue;
     const v = convert(ownAmount(t), t.currency, 'UYU', t.currency === 'USD' && t.fxRate !== 1 ? t.fxRate : rate);
-    out.set(t.categoryId, (out.get(t.categoryId) ?? 0) + v);
+    const id = root(t.categoryId);
+    out.set(id, (out.get(id) ?? 0) + v);
   }
   return out;
 }

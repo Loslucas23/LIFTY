@@ -132,6 +132,17 @@ export class LiftyDb {
     fs.renameSync(tmp, this.file);
   }
 
+  /** Ajustes propios de esta compu (no se sincronizan): carpeta de respaldo, etc. */
+  getMeta(key: string): string | null {
+    const row = this.get(`SELECT value FROM meta WHERE key = ?`, [`x:${key}`]);
+    return row ? String(row.value) : null;
+  }
+
+  setMeta(key: string, value: string): void {
+    this.run(`INSERT OR REPLACE INTO meta (key, value) VALUES (?, ?)`, [`x:${key}`, value]);
+    this.save();
+  }
+
   get rev(): number {
     return Number(this.get(`SELECT value FROM meta WHERE key='rev'`)?.value ?? 0);
   }

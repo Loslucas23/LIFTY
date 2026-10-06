@@ -37,7 +37,7 @@ export function defaultSettings(): Settings {
 }
 
 function cat(id: string, name: string, kind: Category['kind'], icon: string, color: string, sort: number): Category {
-  return { id, updatedAt: at, name, kind, icon, color, monthlyLimit: null, archived: false, sort };
+  return { id, updatedAt: at, name, kind, icon, color, parentId: null, monthlyLimit: null, archived: false, sort };
 }
 
 function acc(id: string, name: string, type: Account['type'], icon: string, color: string, sort: number): Account {
@@ -118,3 +118,69 @@ export function seedRecords(): { entity: EntityName; record: EntityTypes[EntityN
 }
 
 export { URUGUAY_DEDUCTIONS };
+
+/**
+ * Subcategorías comunes para cada categoría de las que vienen (se agregan con un toque desde
+ * Categorías). Son ideas, no se crean solas.
+ */
+export const SUBCATEGORY_IDEAS: Record<string, { name: string; icon: string }[]> = {
+  'cat-casa': [
+    { name: 'Alquiler', icon: '🔑' },
+    { name: 'Gastos comunes', icon: '🏢' },
+    { name: 'Limpieza', icon: '🧽' },
+    { name: 'Arreglos', icon: '🔧' },
+    { name: 'Muebles y deco', icon: '🛋️' },
+  ],
+  'cat-super': [
+    { name: 'Súper grande', icon: '🛒' },
+    { name: 'Almacén', icon: '🏪' },
+    { name: 'Feria y verdulería', icon: '🥬' },
+    { name: 'Carnicería', icon: '🥩' },
+  ],
+  'cat-personal': [
+    { name: 'Ropa', icon: '👕' },
+    { name: 'Peluquería', icon: '💇' },
+    { name: 'Cuidado personal', icon: '🧴' },
+    { name: 'Regalos', icon: '🎁' },
+  ],
+  'cat-transporte': [
+    { name: 'Ómnibus', icon: '🚌' },
+    { name: 'Uber y taxi', icon: '🚕' },
+    { name: 'Nafta', icon: '⛽' },
+    { name: 'Estacionamiento y peajes', icon: '🅿️' },
+  ],
+  'cat-estudios': [
+    { name: 'Cuota', icon: '🎓' },
+    { name: 'Libros y materiales', icon: '📖' },
+    { name: 'Cursos', icon: '💻' },
+  ],
+  'cat-salud': [
+    { name: 'Mutualista', icon: '🏥' },
+    { name: 'Farmacia', icon: '💊' },
+    { name: 'Dentista', icon: '🦷' },
+    { name: 'Gimnasio', icon: '🏋️' },
+  ],
+  'cat-ocio': [
+    { name: 'Salidas', icon: '🍻' },
+    { name: 'Cine y teatro', icon: '🎬' },
+    { name: 'Viajes', icon: '✈️' },
+    { name: 'Juegos', icon: '🎮' },
+  ],
+  'cat-comida': [
+    { name: 'Delivery', icon: '🛵' },
+    { name: 'Restaurantes', icon: '🍽️' },
+    { name: 'Cafés', icon: '☕' },
+    { name: 'Al paso', icon: '🌭' },
+  ],
+  'cat-servicios': [
+    { name: 'UTE', icon: '⚡' },
+    { name: 'OSE', icon: '🚰' },
+    { name: 'Internet y celular', icon: '📶' },
+    { name: 'Gas', icon: '🔥' },
+  ],
+  'cat-suscripciones': [
+    { name: 'Streaming', icon: '📺' },
+    { name: 'Música', icon: '🎵' },
+    { name: 'Apps y nube', icon: '☁️' },
+  ],
+};

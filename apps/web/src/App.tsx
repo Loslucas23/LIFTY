@@ -24,6 +24,9 @@ import { Savings } from './pages/Savings';
 import { Weight } from './pages/Weight';
 import { Reports } from './pages/Reports';
 import { Stock } from './pages/Stock';
+import { LifeCalendar } from './pages/LifeCalendar';
+import { Periods } from './pages/Periods';
+import { Retro } from './pages/Retro';
 import { Routines } from './pages/Routines';
 import { Study } from './pages/Study';
 import { Recipes } from './pages/Recipes';
@@ -61,6 +64,12 @@ const ROUTES: [string, (p: Record<string, string>) => ReactNode][] = [
   ['/alimentacion', () => <Food />],
   ['/deudas', () => <Debts />],
   ['/stock', () => <Stock />],
+  ['/lista', () => <Stock initialTab="lista" />],
+  ['/calendario', () => <LifeCalendar />],
+  ['/calendario/:month', (p) => <LifeCalendar month={p.month} />],
+  ['/epocas', () => <Periods />],
+  ['/tu-anio', () => <Retro />],
+  ['/tu-anio/:year', (p) => <Retro year={p.year} />],
   ['/rutinas', () => <Routines />],
   ['/estudio', () => <Study />],
   ['/semana', () => <Week />],

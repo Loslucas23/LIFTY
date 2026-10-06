@@ -6,6 +6,7 @@ import {
   challengeStatus,
   monthOf,
   newId,
+  sortedCategories,
   suggestChallenges,
   type ChallengeIdea,
   type ChallengeStatus,
@@ -162,7 +163,7 @@ function ChallengeForm({ onClose }: { onClose: () => void }) {
   const [days, setDays] = useState('7');
   const [target, setTarget] = useState('');
   const [error, setError] = useState<string | null>(null);
-  const cats = data.categories.filter((c) => c.kind === 'expense' && !c.archived);
+  const cats = sortedCategories(data.categories.filter((c) => c.kind === 'expense' && !c.archived));
   const habits = data.habits.filter((h) => !h.archived);
   const save = () => {
     const n = Math.max(1, Math.min(90, Number(days) || 7));
@@ -226,7 +227,12 @@ function ChallengeForm({ onClose }: { onClose: () => void }) {
               label="Categoría"
               value={categoryId}
               onChange={setCategoryId}
-              options={cats.map((c) => ({ value: c.id as string | null, label: c.name, icon: c.icon, color: c.color }))}
+              options={cats.map((c) => ({
+                value: c.id as string | null,
+                label: c.parentId ? `↳ ${c.name}` : c.name,
+                icon: c.icon,
+                color: c.color,
+              }))}
             />
           </Field>
         )}

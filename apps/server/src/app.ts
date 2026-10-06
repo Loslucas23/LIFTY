@@ -5,6 +5,7 @@ import Fastify, { type FastifyInstance, type FastifyReply, type FastifyRequest }
 import fastifyStatic from '@fastify/static';
 import QRCode from 'qrcode';
 import { ENTITY_SCHEMAS, isEntityName, mutationSchema, toLiftyData, type Mutation, type RecordStore } from '@lifty/core';
+import { BackupService, decryptBackup } from './backup';
 import { LiftyDb, type Device } from './db';
 import { importWorkbook } from './excel';
 import { exportWorkbook } from './export';
@@ -24,6 +25,8 @@ export interface AppOptions {
   publicUrl?: string | null;
   port?: number;
   logger?: boolean;
+  /** Respaldo automático cifrado (si no, se crea uno sin programar). */
+  backup?: BackupService;
 }
 
 declare module 'fastify' {
@@ -103,7 +106,9 @@ export async function buildApp(opts: AppOptions): Promise<FastifyInstance> {
     for (const c of live) c.res.write(': ping\n\n');
   }, 25_000);
   heartbeat.unref();
+  const backup = opts.backup ?? new BackupService(db);
   app.addHook('preClose', async () => {
+    backup.stop();
     clearInterval(heartbeat);
     for (const c of live) c.res.end();
     live.clear();
@@ -251,6 +256,37 @@ export async function buildApp(opts: AppOptions): Promise<FastifyInstance> {
       .header('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
       .header('Content-Disposition', `attachment; filename="${name}"`)
       .send(file);
+  });
+
+  // ---- Respaldo automático cifrado (pendrive, OneDrive…) ----
+
+  const backupStatus = (req: FastifyRequest) => ({ ...backup.status(), canConfigure: req.device === 'local' });
+
+  app.get('/api/backup', async (req) => backupStatus(req));
+
+  app.put<{ Body: { folder?: string | null; password?: string | null; keep?: number } }>('/api/backup', async (req, reply) => {
+    // La carpeta es de la compu: se elige desde la compu (no desde un celular vinculado).
+    if (req.device !== 'local')
+      return reply.code(403).send({ error: 'local_only', message: 'La carpeta del respaldo se elige desde la compu.' });
+    try {
+      backup.configure(req.body ?? {});
+    } catch (err) {
+      return reply.code(400).send({ error: 'bad_config', message: (err as Error).message });
+    }
+    return backupStatus(req);
+  });
+
+  app.post('/api/backup/run', async (req) => ({ result: backup.run(), status: backupStatus(req) }));
+
+  app.post('/api/backup/open', async (req, reply) => {
+    if (!Buffer.isBuffer(req.body)) return reply.code(400).send({ error: 'bad_request', message: 'Mandá el archivo .lifty.' });
+    const password = decodeURIComponent(String(req.headers['x-backup-password'] ?? ''));
+    try {
+      const json = JSON.parse(decryptBackup(req.body, password).toString('utf8')) as { exportedAt?: string; records?: unknown };
+      return { exportedAt: json.exportedAt ?? null, records: json.records ?? {} };
+    } catch (err) {
+      return reply.code(422).send({ error: 'bad_backup', message: (err as Error).message });
+    }
   });
 
   app.get('/api/server-info', async () => ({ version: VERSION, urls: baseUrl(), dataFile: db.file }));

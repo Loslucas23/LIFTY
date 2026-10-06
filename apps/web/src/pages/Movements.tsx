@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
+  categoryFamily,
+  categoryPath,
   countsInBudget,
   daysInMonth,
   monthOf,
@@ -7,6 +9,7 @@ import {
   offBudgetAccounts,
   ownAmount,
   round2,
+  sortedCategories,
   txRate,
   type Transaction,
   type TxKind,
@@ -24,7 +27,7 @@ export function Movements({ month: monthParam }: { month?: string }) {
   const data = useData();
   const today = useToday();
   const month = monthParam ?? monthOf(today);
-  const { category, account } = useLookups();
+  const { account } = useLookups();
   const params = useQuery();
   const [kind, setKind] = useState<TxKind | null>(null);
   const [query, setQuery] = useState('');
@@ -55,6 +58,8 @@ export function Movements({ month: monthParam }: { month?: string }) {
   }, [data.transactions]);
   const tagKey = tag.toLowerCase();
 
+  // Filtrar por una categoría incluye sus subcategorías.
+  const family = useMemo(() => (categoryId ? categoryFamily(data.categories, categoryId) : null), [data.categories, categoryId]);
   const list = useMemo(() => {
     const q = query.trim().toLowerCase();
     return data.transactions.filter((t) => {
@@ -62,12 +67,12 @@ export function Movements({ month: monthParam }: { month?: string }) {
       if (tagKey ? !(t.tags ?? []).some((x) => x.toLowerCase() === tagKey) : monthOf(t.date) !== month) return false;
       if (day && t.date !== day) return false;
       if (kind && t.kind !== kind) return false;
-      if (categoryId && t.categoryId !== categoryId) return false;
+      if (family && !family.has(t.categoryId ?? '')) return false;
       if (accountId && t.accountId !== accountId && t.toAccountId !== accountId) return false;
       if (!q) return true;
       const hay = [
         t.description,
-        category.get(t.categoryId ?? '')?.name,
+        categoryPath(data.categories, t.categoryId),
         account.get(t.accountId ?? '')?.name,
         String(t.amount),
         ...(t.tags ?? []).map((x) => `#${x}`),
@@ -76,7 +81,7 @@ export function Movements({ month: monthParam }: { month?: string }) {
         .toLowerCase();
       return hay.includes(q);
     });
-  }, [data, month, kind, query, category, account, categoryId, accountId, tagKey, day]);
+  }, [data, month, kind, query, account, family, accountId, tagKey, day]);
 
   const groups = useMemo(() => {
     const map = new Map<string, typeof list>();
@@ -140,8 +145,9 @@ export function Movements({ month: monthParam }: { month?: string }) {
         <div className="filter-selects">
           <select value={categoryId} onChange={(e) => setCategoryId(e.target.value)} aria-label="Filtrar por categoría">
             <option value="">Todas las categorías</option>
-            {data.categories.map((c) => (
+            {sortedCategories(data.categories).map((c) => (
               <option key={c.id} value={c.id}>
+                {c.parentId ? '\u00a0\u00a0\u00a0↳ ' : ''}
                 {c.icon} {c.name}
               </option>
             ))}
@@ -186,7 +192,7 @@ export function Movements({ month: monthParam }: { month?: string }) {
             (t) =>
               monthOf(t.date) === month &&
               (!kind || t.kind === kind) &&
-              (!categoryId || t.categoryId === categoryId) &&
+              (!family || family.has(t.categoryId ?? '')) &&
               (!accountId || t.accountId === accountId),
           )}
           selected={day}

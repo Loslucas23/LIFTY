@@ -1,14 +1,18 @@
 import { useEffect, useMemo, useState, useSyncExternalStore } from 'react';
 import {
+  autoTagFor,
   buildWordIndex,
+  categoryPath,
   installmentsOf,
   matchRule,
   workTime,
   monthLabel,
   monthOf,
   newId,
+  periodStatus,
   possibleDuplicate,
   suggestCategory,
+  suggestSubcategory,
   todayISO,
   transactionSchema,
   type CategorySuggestion,
@@ -118,6 +122,13 @@ function TxForm({
     (c) => c.kind === (kind === 'income' ? 'income' : 'expense') && (!c.archived || c.id === categoryId),
   );
   const goals = data.goals.filter((g) => !g.archived || g.id === goalId);
+  // Categorías de arriba en los chips; si la elegida tiene subcategorías, aparecen abajo.
+  const catIds = new Set(categories.map((c) => c.id));
+  const topCategories = categories.filter((c) => !c.parentId || !catIds.has(c.parentId));
+  const current = categories.find((c) => c.id === categoryId);
+  const rootId = current?.parentId && catIds.has(current.parentId) ? current.parentId : (categoryId ?? null);
+  const subCategories = rootId ? categories.filter((c) => c.parentId === rootId && (!c.archived || c.id === categoryId)) : [];
+  const catLabel = (id: string | null) => categoryPath(data.categories, id);
 
   // Categoría sugerida por las palabras de la descripción ("uber" → Transporte).
   const wordIndex = useMemo(
@@ -130,8 +141,13 @@ function TxForm({
     const valid = new Set(categories.map((c) => c.id));
     // Primero tus reglas ("uber" → Transporte); después lo que aprendió de lo que cargaste.
     const rule = matchRule(data.rules, description);
-    if (rule && valid.has(rule.categoryId)) return { categoryId: rule.categoryId, word: rule.contains, source: 'rule' };
-    return suggestCategory(wordIndex, description, valid);
+    const s: (CategorySuggestion | { categoryId: string; word: string; source: 'rule' }) | null =
+      rule && valid.has(rule.categoryId)
+        ? { categoryId: rule.categoryId, word: rule.contains, source: 'rule' }
+        : suggestCategory(wordIndex, description, valid);
+    // Si la sugerida tiene subcategorías y la descripción nombra una ("uber" → Uber y taxi), esa.
+    const refined = s ? suggestSubcategory(categories, s.categoryId, description) : null;
+    return s && refined ? { ...s, categoryId: refined } : s;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [wordIndex, description, kind, linked, data.categories, data.rules]);
   useEffect(() => {
@@ -142,6 +158,14 @@ function TxForm({
     setCategoryTouched(true);
     setCategoryId(id);
   };
+  // De vacaciones: lo que cargás en esas fechas lleva la etiqueta del viaje (se puede sacar).
+  const tripTag = !tx && kind === 'expense' ? autoTagFor(data, date) : null;
+  useEffect(() => {
+    if (tripTag) setTags((ts) => (ts.some((t) => t.toLowerCase() === tripTag.toLowerCase()) ? ts : [...ts, tripTag]));
+  }, [tripTag]);
+  // Mes difícil: lo que llevás hoy contra el tope del día.
+  const tight = (data.periods ?? []).find((p) => p.kind === 'tight' && !p.archived && p.from <= date && p.to >= date);
+  const tightStatus = tight && !tx && kind === 'expense' ? periodStatus(tight, data, date) : null;
   const people = useMemo(() => [...new Set(data.debts.map((d) => d.person))].sort(), [data.debts]);
 
   const parsed = parseAmount(amountText);
@@ -179,11 +203,12 @@ function TxForm({
     const amount = isCredit && preview ? (preview.find((i) => i.month === budgetMonth)?.amount ?? 0) : (total ?? 0);
     return amount * share * rate;
   })();
-  const catInfo = countsInBudget && categoryId ? mb.categories.find((c) => c.categoryId === categoryId) : undefined;
+  // El presupuesto es de la categoría de arriba (una subcategoría suma a ella).
+  const catInfo = countsInBudget && rootId ? mb.categories.find((c) => c.categoryId === rootId) : undefined;
   let budgetHint: { text: string; bad: boolean } | null = null;
   if (catInfo && catInfo.limit !== null && catInfo.remaining !== null) {
     const after = tx ? catInfo.remaining : catInfo.remaining - thisMonthUYU;
-    const name = (categories.find((c) => c.id === categoryId)?.name ?? '').toLowerCase();
+    const name = (categories.find((c) => c.id === rootId)?.name ?? '').toLowerCase();
     budgetHint =
       after < 0
         ? {
@@ -522,17 +547,35 @@ function TxForm({
               <Field label="Categoría">
                 <Chips
                   label="Categoría"
-                  value={categoryId}
+                  value={rootId}
                   onChange={pickCategory}
-                  options={categories.map((c) => ({ value: c.id as string | null, label: c.name, icon: c.icon, color: c.color }))}
+                  options={topCategories.map((c) => ({
+                    value: c.id as string | null,
+                    label: c.name,
+                    icon: c.icon,
+                    color: c.color,
+                  }))}
                 />
+                {subCategories.length > 0 && (
+                  <div className="sub-chips">
+                    <Chips
+                      label="Subcategoría"
+                      value={categoryId}
+                      onChange={pickCategory}
+                      options={[
+                        { value: rootId, label: 'General' },
+                        ...subCategories.map((c) => ({ value: c.id as string | null, label: c.name, icon: c.icon })),
+                      ]}
+                    />
+                  </div>
+                )}
                 {!categoryTouched && !tx && suggested && categoryId === suggested.categoryId && (
                   <span className="budget-hint suggest-hint">
                     ✨ Sugerida{' '}
                     {suggested.source === 'rule'
                       ? `por tu regla "${suggested.word}"`
                       : suggested.source === 'history'
-                        ? `porque "${suggested.word}" lo cargaste ${suggested.count} de ${suggested.total} ${suggested.total === 1 ? 'vez' : 'veces'} en ${categories.find((c) => c.id === suggested.categoryId)?.name ?? 'esa categoría'}`
+                        ? `porque "${suggested.word}" lo cargaste ${suggested.count} de ${suggested.total} ${suggested.total === 1 ? 'vez' : 'veces'} en ${catLabel(suggested.categoryId) || 'esa categoría'}`
                         : `por la palabra "${suggested.word}"`}
                     . Tocá otra para cambiarla.
                   </span>
@@ -661,6 +704,13 @@ function TxForm({
         )}
 
         {dailyHint && <p className={`note ${dailyHint.bad ? 'note-bad' : 'note-good'}`}>{dailyHint.text}</p>}
+        {tightStatus && tight?.budget != null && countsInBudget && thisMonthUYU > 0 && (
+          <p className={`note ${tightStatus.spentToday + thisMonthUYU > tight.budget ? 'note-bad' : ''}`}>
+            🧮 Mes difícil: con esto llevás {money(Math.round(tightStatus.spentToday + thisMonthUYU))} de {money(tight.budget)}{' '}
+            hoy
+            {tightStatus.spentToday + thisMonthUYU > tight.budget ? '. ¿Es necesario?' : '.'}
+          </p>
+        )}
         {kind === 'expense' && !linked && own !== null && own * rate >= 300 && workTime(own * rate, mb) && (
           <p className="muted small work-time">⏱️ Son {workTime(own * rate, mb)}.</p>
         )}

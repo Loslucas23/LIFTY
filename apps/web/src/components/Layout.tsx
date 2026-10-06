@@ -15,7 +15,7 @@ const NAV: { href: string; label: string; icon: IconName; match: RegExp }[] = [
   { href: '/cuentas', label: 'Cuentas', icon: 'bank', match: /^\/(cuentas|deudas)/ },
   { href: '/alimentacion', label: 'Alimentación', icon: 'food', match: /^\/alimentacion/ },
   { href: '/tarjeta', label: 'Tarjeta', icon: 'card', match: /^\/tarjeta/ },
-  { href: '/stock', label: 'Stock', icon: 'box', match: /^\/stock/ },
+  { href: '/stock', label: 'Stock', icon: 'box', match: /^\/(stock|lista)/ },
   { href: '/rutinas', label: 'Rutinas', icon: 'check', match: /^\/rutinas/ },
   { href: '/estudio', label: 'Estudio', icon: 'calendar', match: /^\/estudio/ },
   { href: '/informes', label: 'Informes', icon: 'chart', match: /^\/(anio|informes|resumen)/ },
@@ -136,7 +136,7 @@ export function Layout({ route, privacy, children }: { route: string; privacy: b
             on={
               n.match.test(route) ||
               (n.href === '/mas' &&
-                /^\/(anio|informes|tarjeta|ahorro|peso|cuentas|deudas|alimentacion|stock|rutinas|estudio|semana|suscripciones|vencimientos|metas|recetas|simulador|diario|resumen|piloto|salud|desafios)/.test(
+                /^\/(anio|informes|tarjeta|ahorro|peso|cuentas|deudas|alimentacion|stock|lista|calendario|epocas|tu-anio|rutinas|estudio|semana|suscripciones|vencimientos|metas|recetas|simulador|diario|resumen|piloto|salud|desafios)/.test(
                   route,
                 ))
             }

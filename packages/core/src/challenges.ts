@@ -1,5 +1,5 @@
 import { convert } from './accounts';
-import { countsInBudget, offBudgetAccounts, ownAmount, type MonthBudget } from './budget';
+import { categoryFamily, countsInBudget, offBudgetAccounts, ownAmount, type MonthBudget } from './budget';
 import { paceAlerts } from './coach';
 import { habitsToday, isDue } from './habits';
 import { daysInMonth } from './months';
@@ -36,6 +36,7 @@ export function challengeStatus(c: Challenge, data: LiftyData, today: string): C
   const elapsed = today < c.from ? 0 : Math.min(totalDays, daysBetween(c.from, end) + 1);
   const daysLeft = Math.max(0, daysBetween(today, c.to));
   const finished = today > c.to;
+  const family = c.categoryId ? categoryFamily(data.categories, c.categoryId) : null;
   const spend = data.transactions.filter(
     (t) =>
       t.kind === 'expense' &&
@@ -43,7 +44,7 @@ export function challengeStatus(c: Challenge, data: LiftyData, today: string): C
       countsInBudget(t, off) &&
       t.date >= c.from &&
       t.date <= end &&
-      (c.categoryId === null || t.categoryId === c.categoryId),
+      (family === null || (t.categoryId !== null && family.has(t.categoryId))),
   );
   const uyu = (t: (typeof spend)[number]) =>
     convert(ownAmount(t), t.currency, 'UYU', t.currency === 'USD' && t.fxRate !== 1 ? t.fxRate : rate);

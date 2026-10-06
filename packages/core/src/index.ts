@@ -23,3 +23,7 @@ export * from './autopilot';
 export * from './health';
 export * from './coach';
 export * from './challenges';
+export * from './shopping';
+export * from './periods';
+export * from './calendar';
+export * from './retro';

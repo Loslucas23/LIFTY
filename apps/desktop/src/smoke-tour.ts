@@ -92,6 +92,10 @@ export async function smokeTour(): Promise<string[]> {
     '/piloto',
     '/salud',
     '/desafios',
+    '/lista',
+    '/calendario',
+    '/epocas',
+    '/tu-anio',
     '/',
   ];
   for (const r of routes) await go(r);
@@ -662,6 +666,59 @@ export async function smokeTour(): Promise<string[]> {
     }
   } else problems.push('desafíos: no se abrió el formulario');
   check('desafíos');
+
+  // Subcategorías: Comida afuera › Delivery (con un toque desde las ideas).
+  await go('/categorias');
+  clickText('.page .tx-row', 'Comida afuera');
+  if (await waitFor('.sheet')) {
+    clickText('.sheet .chip-add', 'Delivery');
+    await sleep(200);
+    await closeSheet();
+    if (!(await until(() => !![...document.querySelectorAll('.sub-row')].find((r) => r.textContent?.includes('Delivery')))))
+      problems.push('subcategorías: no aparece Comida afuera › Delivery');
+  } else problems.push('subcategorías: no se abrió la categoría');
+  check('subcategorías');
+
+  // Lista del súper: "2 kg arroz" entra con cantidad y en su sector (y se saca).
+  await go('/lista');
+  type($<HTMLInputElement>('input[aria-label="Agregar a la lista"]'), '2 kg arroz');
+  await sleep(100);
+  $<HTMLFormElement>('form.shop-add')?.requestSubmit();
+  const shopRow = () =>
+    [...document.querySelectorAll<HTMLElement>('.shop-group .shop-row')].find((r) => r.textContent?.includes('Arroz'));
+  if (!(await until(() => !!shopRow()))) problems.push('lista: no se agregó «2 kg arroz»');
+  else {
+    if (!shopRow()!.textContent?.includes('2')) problems.push('lista: no tomó la cantidad');
+    if (![...document.querySelectorAll('.shop-aisle')].some((h) => h.textContent?.includes('Almacén')))
+      problems.push('lista: el arroz no quedó en Almacén');
+    shopRow()!.querySelector<HTMLButtonElement>('button[aria-label^="Sacar"]')?.click();
+    if (!(await until(() => !shopRow()))) problems.push('lista: no se pudo sacar');
+  }
+  check('lista del súper');
+
+  // Vacaciones: se planean, aparecen y se quitan.
+  await go('/epocas');
+  clickText('.page .btn', 'Planear unas vacaciones');
+  if (await waitFor('.sheet')) {
+    type($<HTMLInputElement>('.sheet input[placeholder^="Ej: Floripa"]'), 'Viaje prueba');
+    type($<HTMLInputElement>('.sheet input[placeholder="Ej: 30000"]'), '20000');
+    await saveSheet('vacaciones');
+    const card = () => [...document.querySelectorAll<HTMLElement>('.goal')].find((c) => c.textContent?.includes('Viaje prueba'));
+    if (!(await until(() => !!card()))) problems.push('vacaciones: no aparece');
+    else {
+      [...card()!.querySelectorAll<HTMLButtonElement>('button')].find((b) => b.textContent?.includes('Cambiar'))?.click();
+      if (await waitFor('.sheet')) {
+        clickText('.sheet-foot button', 'Quitar');
+        if (!(await until(() => !card()))) problems.push('vacaciones: no se pudo quitar');
+      }
+    }
+  } else problems.push('vacaciones: no se abrió el formulario');
+  check('vacaciones');
+
+  // Calendario: tocar hoy muestra el detalle del día.
+  await go('/calendario');
+  if (!$('.cal-day.today')) problems.push('calendario: no marca hoy');
+  check('calendario');
 
   // Modo privado (tecla P): oculta los montos y se vuelve a mostrar.
   await go('/');

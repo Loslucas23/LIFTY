@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { isActiveIn, monthOf, newId, ruleSchema, suggestRules, type AutoLog } from '@lifty/core';
+import { categoryPath, isActiveIn, monthOf, newId, ruleSchema, sortedCategories, suggestRules, type AutoLog } from '@lifty/core';
 import { Icon } from '../components/Icon';
 import { Chips, Empty, Field, PageHeader, Section, Toggle, toast } from '../components/ui';
 import { undoAuto, useAutopilot } from '../lib/autopilot';
@@ -236,13 +236,13 @@ function RulesSection() {
   const { category } = useLookups();
   const [text, setText] = useState('');
   const [categoryId, setCategoryId] = useState<string | null>(null);
-  const expense = data.categories.filter((c) => !c.archived && c.kind === 'expense');
+  const expense = sortedCategories(data.categories.filter((c) => !c.archived && c.kind === 'expense'));
   const suggestions = suggestRules(data);
   const add = (contains: string, cat: string | null) => {
     const r = ruleSchema.safeParse({ id: newId(), updatedAt: '', contains, categoryId: cat });
     if (!r.success) return toast('Escribí una palabra (2 letras o más) y elegí la categoría', { tone: 'error' });
     mutate('rule', 'upsert', r.data);
-    toast(`Regla: "${r.data.contains}" → ${category.get(r.data.categoryId)?.name ?? ''}`);
+    toast(`Regla: "${r.data.contains}" → ${categoryPath(data.categories, r.data.categoryId)}`);
     setText('');
   };
   return (
@@ -257,7 +257,7 @@ function RulesSection() {
               <span className="tx-main">
                 <span className="tx-title">"{r.contains}"</span>
                 <span className="tx-meta">
-                  → {category.get(r.categoryId)?.icon} {category.get(r.categoryId)?.name ?? 'categoría borrada'}
+                  → {category.get(r.categoryId)?.icon} {categoryPath(data.categories, r.categoryId) || 'categoría borrada'}
                 </span>
               </span>
               <button
@@ -283,7 +283,12 @@ function RulesSection() {
             label="Categoría"
             value={categoryId}
             onChange={setCategoryId}
-            options={expense.map((c) => ({ value: c.id as string | null, label: c.name, icon: c.icon, color: c.color }))}
+            options={expense.map((c) => ({
+              value: c.id as string | null,
+              label: c.parentId ? `↳ ${c.name}` : c.name,
+              icon: c.icon,
+              color: c.color,
+            }))}
           />
         </Field>
         <button className="btn btn-primary" onClick={() => add(text, categoryId)}>

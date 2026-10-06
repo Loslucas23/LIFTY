@@ -5,6 +5,8 @@ import { upcomingEvents } from './insights';
 import { fold, round2 } from './money';
 import { addDays } from './weight';
 import type { LiftyData } from './schema';
+import { routinesPaused } from './periods';
+import { routineItems } from './shopping';
 import { stockOverview } from './stock';
 import { subjectStatus } from './study';
 
@@ -60,7 +62,9 @@ export function todayAgenda(data: LiftyData, b: MonthBudget, today: string, hour
   }
 
   // Rutinas de hoy (hechas y pendientes, para ver el avance).
-  for (const s of habitsToday(data.habits, data.habitLogs, today).due) {
+  // De vacaciones (si lo pediste), las rutinas y el estudio no se piden.
+  const paused = routinesPaused(data, today);
+  for (const s of paused ? [] : habitsToday(data.habits, data.habitLogs, today).due) {
     const h = s.habit;
     const simple = h.target === 1 && !h.unit;
     items.push({
@@ -80,7 +84,7 @@ export function todayAgenda(data: LiftyData, b: MonthBudget, today: string, hour
   }
 
   // Estudio: lo que hace falta hoy para llegar a cada examen.
-  for (const subject of data.subjects.filter((x) => !x.archived)) {
+  for (const subject of data.subjects.filter((x) => !x.archived && !paused)) {
     // La meta del día se calcula sin lo estudiado hoy, así no baja a medida que estudiás.
     const st = subjectStatus(
       subject,
@@ -119,6 +123,20 @@ export function todayAgenda(data: LiftyData, b: MonthBudget, today: string, hour
       urgency: out ? 2 : 1,
       done: false,
       amount: s.estimatedCost ?? undefined,
+    });
+  }
+  // Lo de siempre: lo que comprás cada tanto y ya toca (aunque no anotes cuánto usás).
+  const flagged = new Set(items.filter((i) => i.kind === 'stock').map((i) => i.refId));
+  for (const r of routineItems(data.stockItems, data.stockMoves, today)) {
+    if (listed.has(r.item.id) || flagged.has(r.item.id) || r.next > today) continue;
+    items.push({
+      key: `routine:${r.item.id}`,
+      kind: 'stock',
+      refId: r.item.id,
+      title: `${r.item.icon} ${r.item.name}`,
+      detail: `Lo comprás cada ~${r.every} días y ya toca: ¿lo agregás a la lista?`,
+      urgency: 1,
+      done: false,
     });
   }
   // Lo que vence (comida) en los próximos 2 días.

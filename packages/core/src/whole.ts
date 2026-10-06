@@ -1,5 +1,5 @@
 import { accountBalances, convert } from './accounts';
-import { countsInBudget, offBudgetAccounts, type MonthBudget } from './budget';
+import { categoryRootFn, countsInBudget, offBudgetAccounts, type MonthBudget } from './budget';
 import { cardAutoPayments } from './card';
 import { habitsToday, isDue } from './habits';
 import { noSpendDays, topExpenses } from './insights';
@@ -42,11 +42,12 @@ export function moodFactors(data: LiftyData, today: string, days = 60): MoodFact
   const entries = data.journal.filter((j) => j.date >= from && j.date <= today && j.mood !== null);
   if (entries.length < 6) return [];
   const off = offBudgetAccounts(data);
+  const root = categoryRootFn(data.categories);
   const spentBy = new Map<string, Map<string | null, number>>();
   for (const t of data.transactions) {
     if (t.kind !== 'expense' || t.linkKind || !countsInBudget(t, off) || t.date < from || t.date > today) continue;
     const m = spentBy.get(t.date) ?? new Map<string | null, number>();
-    m.set(t.categoryId, (m.get(t.categoryId) ?? 0) + 1);
+    m.set(root(t.categoryId), (m.get(root(t.categoryId)) ?? 0) + 1);
     spentBy.set(t.date, m);
   }
   const studyBy = new Map<string, number>();

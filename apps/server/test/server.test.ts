@@ -355,3 +355,61 @@ describe('exportar Excel', () => {
     expect(wb.getWorksheet('Cuentas')!.rowCount).toBeGreaterThan(3);
   });
 });
+
+describe('respaldo automático cifrado', () => {
+  it('copia cifrada a la carpeta elegida, que solo se abre con la contraseña', async () => {
+    const dir = fs.mkdtempSync('/tmp/lifty-bk-');
+    // Solo desde la compu se elige la carpeta.
+    const code = (await app.inject({ method: 'POST', url: '/api/pairing' })).json().code;
+    const { token } = (
+      await app.inject({ method: 'POST', url: '/api/auth/pair', payload: { code, name: 'Celu' }, ...remote })
+    ).json();
+    const fromPhone = await app.inject({
+      method: 'PUT',
+      url: '/api/backup',
+      payload: { folder: dir, password: 'clave-segura' },
+      headers: { authorization: `Bearer ${token}` },
+      ...remote,
+    });
+    expect(fromPhone.statusCode).toBe(403);
+    expect((await app.inject({ method: 'PUT', url: '/api/backup', payload: { folder: 'relativa' } })).statusCode).toBe(400);
+    expect((await app.inject({ method: 'PUT', url: '/api/backup', payload: { password: '123' } })).statusCode).toBe(400);
+
+    const set = await app.inject({
+      method: 'PUT',
+      url: '/api/backup',
+      payload: { folder: `${dir}/Lifty`, password: 'clave-segura', keep: 2 },
+    });
+    expect(set.json()).toMatchObject({ enabled: true, hasPassword: true, keep: 2, canConfigure: true });
+    expect(JSON.stringify(set.json())).not.toContain('clave-segura');
+
+    const run = (await app.inject({ method: 'POST', url: '/api/backup/run' })).json();
+    expect(run.result.ok).toBe(true);
+    const file = fs.readFileSync(`${dir}/Lifty/${run.result.file}`);
+    // Cifrado: no se ve nada adentro.
+    expect(file.subarray(0, 8).toString()).toBe('LIFTYBK1');
+    expect(file.toString('latin1')).not.toContain('Supermercado');
+
+    const open = (password: string) =>
+      app.inject({
+        method: 'POST',
+        url: '/api/backup/open',
+        payload: file,
+        headers: { 'content-type': 'application/octet-stream', 'x-backup-password': encodeURIComponent(password) },
+      });
+    expect((await open('otra')).statusCode).toBe(422);
+    const ok = (await open('clave-segura')).json();
+    expect(ok.records.category.some((c: { name: string }) => c.name === 'Supermercado')).toBe(true);
+    expect(ok.records.settings).toHaveLength(1);
+
+    // Se guardan solo las últimas `keep`.
+    for (let i = 0; i < 3; i++) {
+      fs.writeFileSync(`${dir}/Lifty/lifty-2020-01-0${i + 1}-1200.lifty`, 'x');
+    }
+    (await app.inject({ method: 'POST', url: '/api/backup/run' })).json();
+    const left = fs.readdirSync(`${dir}/Lifty`).filter((f) => f.endsWith('.lifty'));
+    expect(left).toHaveLength(2);
+    expect(left).not.toContain('lifty-2020-01-01-1200.lifty');
+    expect(left).not.toContain('lifty-2020-01-02-1200.lifty');
+  });
+});

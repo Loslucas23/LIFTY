@@ -464,7 +464,10 @@ function CategoryBudgets({ b, month }: { b: MonthBudget; month: string }) {
   const prevSpent = new Map(prev.categories.map((c) => [c.categoryId, c.spent]));
   const prevName = monthLabel(prevMonth, false).toLowerCase();
   const info = new Map(b.categories.map((c) => [c.categoryId, c]));
-  const cats = data.categories.filter((c) => c.kind === 'expense' && !c.archived);
+  // Solo las de arriba: lo de cada subcategoría suma a su categoría (y se ve el detalle abajo).
+  const catIds = new Set(data.categories.map((c) => c.id));
+  const cats = data.categories.filter((c) => c.kind === 'expense' && !c.archived && !(c.parentId && catIds.has(c.parentId)));
+  const subName = new Map(data.categories.map((c) => [c.id, `${c.icon} ${c.name}`]));
   const budgeted = cats.filter((c) => info.get(c.id)?.limit != null);
   const spentOnly = cats.filter((c) => info.get(c.id)?.limit == null && (info.get(c.id)?.spent ?? 0) !== 0);
   const rest = cats.filter((c) => !budgeted.includes(c) && !spentOnly.includes(c));
@@ -498,6 +501,18 @@ function CategoryBudgets({ b, month }: { b: MonthBudget; month: string }) {
           {limit !== null && <Progress value={spent} max={limit} label={`${c.name}: gastado del presupuesto`} />}
           <Compare now={spent} before={prevSpent.get(c.id) ?? 0} label={prevName} />
           {x?.fixed ? <span className="compare small muted">+ {money(x.fixed)} en gastos fijos</span> : null}
+          {x?.subs && x.subs.length > 0 && (
+            <span className="cat-subs small muted">
+              {x.subs.map((s) => (
+                <span key={s.categoryId}>
+                  {subName.get(s.categoryId) ?? '?'} {money(s.spent)}
+                </span>
+              ))}
+              {spent - x.subs.reduce((t, s) => t + s.spent, 0) > 0.5 && (
+                <span>General {money(spent - x.subs.reduce((t, s) => t + s.spent, 0))}</span>
+              )}
+            </span>
+          )}
         </button>
       </li>
     );

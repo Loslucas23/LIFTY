@@ -2,7 +2,7 @@ import { convert } from './accounts';
 import { countsInBudget, effectiveBudget, offBudgetAccounts, ownAmount, type MonthBudget } from './budget';
 import { addMonths, daysInMonth, monthOf } from './months';
 import { fold, round2 } from './money';
-import type { LiftyData, Transaction, TxKind } from './schema';
+import type { Category, LiftyData, Transaction, TxKind } from './schema';
 import { addDays } from './weight';
 
 /**
@@ -213,6 +213,25 @@ export function suggestCategory(index: WordIndex, description: string, validIds:
   return null;
 }
 
+/**
+ * Si la categoría tiene subcategorías y la descripción nombra una ("uber" → Transporte › Uber y
+ * taxi, "farmacia" → Salud › Farmacia), devuelve esa. Compara palabra por palabra (o el comienzo).
+ */
+export function suggestSubcategory(
+  categories: Pick<Category, 'id' | 'name' | 'parentId' | 'archived'>[],
+  categoryId: string,
+  description: string,
+): string | null {
+  const ws = words(description);
+  if (!ws.length) return null;
+  const close = (w: string, n: string) => w === n || (w.length >= 4 && n.startsWith(w)) || (n.length >= 4 && w.startsWith(n));
+  for (const c of categories) {
+    if (c.parentId !== categoryId || c.archived) continue;
+    if (words(c.name).some((n) => ws.some((w) => close(w, n)))) return c.id;
+  }
+  return null;
+}
+
 // ---------------- ¿Ya lo cargaste? ----------------
 
 /** Un movimiento casi igual (mismo tipo y monto, ±1 día, misma categoría o descripción). */
@@ -388,7 +407,7 @@ export function budgetReview(data: LiftyData, months: MonthBudget[]): BudgetAdvi
   const past = months.slice(-4, -1);
   const out: BudgetAdvice[] = [];
   for (const c of data.categories) {
-    if (c.archived || c.kind !== 'expense') continue;
+    if (c.archived || c.kind !== 'expense' || c.parentId) continue;
     const now = effectiveBudget(data, current.month, c.id).amount;
     if (!now) continue;
     const hist = past.map((b) => ({

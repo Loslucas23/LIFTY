@@ -1,5 +1,15 @@
 import { useMemo, useState } from 'react';
-import { addMonths, isActiveIn, monthLabel, netSalary, newId, round2, type FixedExpense, type IncomeSource } from '@lifty/core';
+import {
+  addMonths,
+  isActiveIn,
+  monthLabel,
+  netSalary,
+  newId,
+  round2,
+  sortedCategories,
+  type FixedExpense,
+  type IncomeSource,
+} from '@lifty/core';
 import { changePlannedAmount, setCategoryBudget, stopPlanned } from '../lib/actions';
 import { money, parseAmount } from '../lib/format';
 import { useData, useMonth, useMonths } from '../lib/store';
@@ -20,7 +30,8 @@ export function BudgetWizard({ month, onClose }: { month: string; onClose: () =>
   const monthName = monthLabel(month, false).toLowerCase();
 
   // Paso 3: montos por categoría (texto de cada input).
-  const categories = data.categories.filter((c) => c.kind === 'expense' && !c.archived);
+  // El presupuesto es de las categorías de arriba (las subcategorías suman a ellas).
+  const categories = data.categories.filter((c) => c.kind === 'expense' && !c.archived && !c.parentId);
   const [amounts, setAmounts] = useState<Record<string, string>>(() =>
     Object.fromEntries(
       categories.map((c) => {
@@ -297,13 +308,12 @@ function FixedStep({ month }: { month: string }) {
         />
         <select value={categoryId} onChange={(e) => setCategoryId(e.target.value)} aria-label="Categoría">
           <option value="">Categoría…</option>
-          {data.categories
-            .filter((c) => c.kind === 'expense' && !c.archived)
-            .map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.icon} {c.name}
-              </option>
-            ))}
+          {sortedCategories(data.categories.filter((c) => c.kind === 'expense' && !c.archived)).map((c) => (
+            <option key={c.id} value={c.id}>
+              {c.parentId ? '\u00a0\u00a0\u00a0↳ ' : ''}
+              {c.icon} {c.name}
+            </option>
+          ))}
         </select>
         <button type="button" className="btn" onClick={add}>
           <Icon name="plus" size={18} /> Agregar

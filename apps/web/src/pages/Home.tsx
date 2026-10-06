@@ -35,6 +35,7 @@ import { openSetup } from '../components/Setup';
 import { QuickJournal, saveJournal } from './Journal';
 import { useHealth } from './Health';
 import { useActiveChallenges } from './Challenges';
+import { PeriodLine, useActivePeriods } from './Periods';
 import { reviewMonth } from './Review';
 import { renewReminder } from './Extras';
 import { tapHabit } from './Routines';
@@ -238,6 +239,7 @@ export function Home() {
         </a>
       </div>
 
+      <PeriodNotes />
       <AutopilotToday />
 
       <SurplusProposal month={month} />
@@ -473,6 +475,25 @@ export function Home() {
 }
 
 /** Los desafíos en curso (el más cercano a terminar). */
+/** Vacaciones o mes difícil: cuánto llevás (y lo que viene en la semana). */
+function PeriodNotes() {
+  const periods = useActivePeriods();
+  if (!periods.length) return null;
+  return (
+    <>
+      {periods.map((s) => (
+        <a
+          key={s.period.id}
+          href="#/epocas"
+          className={`note ${s.remaining !== null && s.remaining < 0 ? 'note-bad' : 'note-info'} period-note`}
+        >
+          <PeriodLine s={s} />
+        </a>
+      ))}
+    </>
+  );
+}
+
 function ChallengesTile() {
   const active = useActiveChallenges();
   if (!active.length) return null;
