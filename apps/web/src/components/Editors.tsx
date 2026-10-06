@@ -205,7 +205,9 @@ function BudgetEditor({ category, month, onClose }: { category: Category; month:
   const info = b.categories.find((c) => c.categoryId === category.id);
   const override = data.budgets.find((x) => x.month === month && x.categoryId === category.id);
   const [scope, setScope] = useState<'all' | 'month'>(override ? 'month' : 'all');
-  const initial = info?.limit ?? null;
+  // Lo que se edita es el presupuesto del mes; lo acumulado de meses anteriores se suma solo.
+  const carry = info?.carry ?? 0;
+  const initial = info && info.limit !== null ? Math.round((info.limit - carry) * 100) / 100 : null;
   const [text, setText] = useState(initial !== null ? String(initial) : '');
   // Sugerencia: el promedio de los últimos 3 meses (redondeado a 100).
   const prev = [1, 2, 3].map((n) => addMonths(month, -n));
@@ -278,6 +280,11 @@ function BudgetEditor({ category, month, onClose }: { category: Category; month:
             aria-label="Presupuesto"
           />
         </div>
+        {carry > 0 && (
+          <p className="muted small">
+            Además tenés {money(carry)} que no gastaste en meses anteriores: se suman solos (esta categoría acumula).
+          </p>
+        )}
         {suggestion !== null && suggestion > 0 && (
           <button type="button" className="link small left" onClick={() => setText(String(suggestion))}>
             Usar {money(suggestion)} (lo que gastaste en promedio los últimos meses)

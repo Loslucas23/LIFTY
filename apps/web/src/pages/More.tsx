@@ -13,6 +13,12 @@ const GROUPS: { title: string; items: { href: string; icon: IconName; label: str
         hint: 'Cuánto te sobra de verdad, dónde está cada peso, metas, inversiones y patrimonio',
       },
       {
+        href: '/dia-a-dia',
+        icon: 'tag',
+        label: 'Día a día',
+        hint: 'Con qué tarjeta pagar hoy, gastos hormiga, ¿contado o cuotas?, cuánto te sale cada uso',
+      },
+      {
         href: '/cuentas',
         icon: 'bank',
         label: 'Cuentas y saldos',

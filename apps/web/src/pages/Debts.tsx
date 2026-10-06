@@ -5,6 +5,7 @@ import { Chips, Empty, Field, PageHeader, Progress, Section, Segmented, Sheet, T
 import { dayLabel, money, parseAmount } from '../lib/format';
 import { useData, useToday } from '../lib/store';
 import { mutate } from '../lib/sync';
+import { openDebtReminder } from '../components/DebtReminder';
 
 /** Deudas y préstamos con otras personas: no son gastos ni ingresos, pero mueven tus cuentas. */
 export function Debts() {
@@ -115,6 +116,7 @@ function DebtForm({ debt, onClose }: { debt: Debt | null; onClose: () => void })
   const [date, setDate] = useState(debt?.date ?? todayISO());
   const [accountId, setAccountId] = useState<string | null>(debt?.accountId ?? null);
   const [description, setDescription] = useState(debt?.description ?? '');
+  const [phone, setPhone] = useState(debt?.phone ?? '');
   const [inParts, setInParts] = useState(!!debt?.installmentAmount);
   const [installment, setInstallment] = useState(debt?.installmentAmount ? String(debt.installmentAmount) : '');
   const [payDay, setPayDay] = useState(debt?.payDay ? String(debt.payDay) : '');
@@ -133,6 +135,7 @@ function DebtForm({ debt, onClose }: { debt: Debt | null; onClose: () => void })
       date,
       accountId,
       description: description.trim(),
+      phone: direction === 'lent' ? phone.trim() : '',
       installmentAmount: inParts ? (parseAmount(installment) ?? null) : null,
       payDay: inParts && payDay ? Math.min(28, Math.max(1, Number(payDay))) : null,
       installments: inParts && count ? Math.max(1, Number(count)) : null,
@@ -229,6 +232,11 @@ function DebtForm({ debt, onClose }: { debt: Debt | null; onClose: () => void })
             maxLength={200}
           />
         </Field>
+        {direction === 'lent' && (
+          <Field label="Su celular (opcional)" hint="Para recordarle por WhatsApp con un toque">
+            <input inputMode="tel" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="Ej: 099 123 456" />
+          </Field>
+        )}
         <Toggle
           checked={inParts}
           onChange={setInParts}
@@ -335,6 +343,20 @@ function DebtSheet({ debt, onClose, onEdit }: { debt: Debt; onClose: () => void;
           <strong>{money(s.done ? debt.amount : s.remaining, debt.currency)}</strong>
         </div>
         <Progress value={s.paid} max={debt.amount} label="Pagado" />
+        {lent && !s.done && !debt.installmentAmount && (
+          <button
+            className="btn"
+            onClick={() => {
+              onClose();
+              openDebtReminder(debt.id);
+            }}
+          >
+            💬 Recordarle por WhatsApp
+            {debt.remindedAt ? (
+              <span className="muted small"> · último: {dayLabel(debt.remindedAt, today, true).toLowerCase()}</span>
+            ) : null}
+          </button>
+        )}
         {plan && !s.done && (
           <p className="small">
             Cuota de <strong>{money(plan.installment, debt.currency)}</strong> el día {plan.payDay} · faltan {plan.left} cuota

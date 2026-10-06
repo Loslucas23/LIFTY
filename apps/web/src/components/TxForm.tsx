@@ -19,6 +19,8 @@ import {
   type Currency,
   type Transaction,
   type TxKind,
+  cardChoices,
+  type CardChoice,
 } from '@lifty/core';
 import { syncSplitDebt } from '../lib/actions';
 import { money, parseAmount } from '../lib/format';
@@ -118,6 +120,15 @@ function TxForm({
   const account = accounts.find((a) => a.id === accountId);
   const isFood = account?.type === 'food';
   const isCredit = kind === 'expense' && account?.type === 'credit' && !linked;
+  // Tarjeta: cuándo la pagás y si otra te da más días (con el día de cierre de cada una).
+  const cardHint = useMemo(() => {
+    if (!isCredit || tx) return null;
+    const choices = cardChoices(data, date);
+    const mine = choices.find((c) => c.card.id === accountId);
+    if (!mine) return null;
+    const best = choices[0];
+    return { mine, better: best.card.id !== mine.card.id && best.days - mine.days >= 7 ? best : null };
+  }, [isCredit, tx, data, date, accountId]);
   const categories = data.categories.filter(
     (c) => c.kind === (kind === 'income' ? 'income' : 'expense') && (!c.archived || c.id === categoryId),
   );
@@ -586,6 +597,7 @@ function TxForm({
 
             <Field label={kind === 'income' ? '¿Dónde entró?' : kind === 'saving' ? '¿De dónde salió?' : '¿Con qué pagaste?'}>
               <Chips label="Cuenta" value={accountId} onChange={setAccountId} options={accountChips()} />
+              {isCredit && cardHint && <CardHint {...cardHint} onPick={setAccountId} />}
             </Field>
             {isFood && (
               <p className="note">
@@ -711,9 +723,13 @@ function TxForm({
             {tightStatus.spentToday + thisMonthUYU > tight.budget ? '. ¿Es necesario?' : '.'}
           </p>
         )}
-        {kind === 'expense' && !linked && own !== null && own * rate >= 300 && workTime(own * rate, mb) && (
-          <p className="muted small work-time">⏱️ Son {workTime(own * rate, mb)}.</p>
-        )}
+        {kind === 'expense' &&
+          !linked &&
+          own !== null &&
+          own * rate >= 300 &&
+          workTime(own * rate, mb, data.settings.weeklyHours) && (
+            <p className="muted small work-time">⏱️ Son {workTime(own * rate, mb, data.settings.weeklyHours)}.</p>
+          )}
 
         {lookAlike && (
           <p className="note note-bad dup-note" role="alert">
@@ -789,5 +805,26 @@ function TxForm({
         <button type="submit" hidden />
       </form>
     </Sheet>
+  );
+}
+
+const ddmm = (d: string) => `${Number(d.slice(8))}/${Number(d.slice(5, 7))}`;
+
+/** "La pagás el 10/11 (35 días)" y, si otra tarjeta te da bastante más tiempo, ofrecerla. */
+function CardHint({ mine, better, onPick }: { mine: CardChoice; better: CardChoice | null; onPick: (id: string) => void }) {
+  return (
+    <span className="budget-hint">
+      {mine.known
+        ? `Entra en el resumen que cierra el ${ddmm(mine.closes!)}: lo pagás el ${ddmm(mine.pays)} (en ${mine.days} días).`
+        : `Lo pagás alrededor del ${ddmm(mine.pays)}. Cargá el día de cierre de la tarjeta en Cuentas para saberlo exacto.`}
+      {better && (
+        <>
+          {' '}
+          <button type="button" className="link" onClick={() => onPick(better.card.id)}>
+            Con {better.card.name} lo pagás el {ddmm(better.pays)} ({better.days} días)
+          </button>
+        </>
+      )}
+    </span>
   );
 }

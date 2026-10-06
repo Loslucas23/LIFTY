@@ -501,6 +501,9 @@ function CategoryBudgets({ b, month }: { b: MonthBudget; month: string }) {
           {limit !== null && <Progress value={spent} max={limit} label={`${c.name}: gastado del presupuesto`} />}
           <Compare now={spent} before={prevSpent.get(c.id) ?? 0} label={prevName} />
           {x?.fixed ? <span className="compare small muted">+ {money(x.fixed)} en gastos fijos</span> : null}
+          {x?.carry ? (
+            <span className="compare small muted">Incluye {money(x.carry)} que no gastaste antes (se acumula)</span>
+          ) : null}
           {x?.subs && x.subs.length > 0 && (
             <span className="cat-subs small muted">
               {x.subs.map((s) => (

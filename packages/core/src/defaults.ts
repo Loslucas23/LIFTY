@@ -33,11 +33,26 @@ export function defaultSettings(): Settings {
     autoSaveGoalId: null,
     autoSaveGoals: false,
     autoShop: false,
+    weeklyHours: 40,
+    inflation: 5,
   };
 }
 
 function cat(id: string, name: string, kind: Category['kind'], icon: string, color: string, sort: number): Category {
-  return { id, updatedAt: at, name, kind, icon, color, parentId: null, monthlyLimit: null, archived: false, sort };
+  return {
+    id,
+    updatedAt: at,
+    name,
+    kind,
+    icon,
+    color,
+    parentId: null,
+    monthlyLimit: null,
+    rollover: 'none',
+    rolloverFrom: null,
+    archived: false,
+    sort,
+  };
 }
 
 function acc(id: string, name: string, type: Account['type'], icon: string, color: string, sort: number): Account {
@@ -59,6 +74,7 @@ function acc(id: string, name: string, type: Account['type'], icon: string, colo
     autopay: true,
     payFromAccountId: null,
     payDay: null,
+    closingDay: null,
     autoLoad: false,
     investKind: null,
     rate: null,

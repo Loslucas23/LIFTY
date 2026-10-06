@@ -95,6 +95,7 @@ export async function smokeTour(): Promise<string[]> {
     '/desafios',
     '/lista',
     '/plata',
+    '/dia-a-dia',
     '/calendario',
     '/epocas',
     '/tu-anio',
@@ -726,6 +727,13 @@ export async function smokeTour(): Promise<string[]> {
     await closeSheet();
   } else problems.push('repartir el cobro: no se abrió');
   check('tu plata');
+
+  // Día a día: ¿contado o cuotas? da un veredicto con la cuenta.
+  await go('/dia-a-dia');
+  if (!$('.daytoday-hero')) problems.push('día a día: no dice con qué tarjeta pagar hoy');
+  type($('input[placeholder="Ej: 24000"]') as HTMLInputElement | null, '24000');
+  if (!(await waitFor('.verdict'))) problems.push('contado o cuotas: no da el resultado');
+  check('día a día');
 
   // Calendario: tocar hoy muestra el detalle del día.
   await go('/calendario');

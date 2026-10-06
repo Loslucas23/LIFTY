@@ -35,7 +35,9 @@ export function BudgetWizard({ month, onClose }: { month: string; onClose: () =>
   const [amounts, setAmounts] = useState<Record<string, string>>(() =>
     Object.fromEntries(
       categories.map((c) => {
-        const limit = b.categories.find((x) => x.categoryId === c.id)?.limit ?? null;
+        const x = b.categories.find((y) => y.categoryId === c.id);
+        // Sin lo acumulado de meses anteriores (eso se suma solo).
+        const limit = x && x.limit !== null ? x.limit - (x.carry ?? 0) : null;
         return [c.id, limit !== null ? String(limit) : ''];
       }),
     ),
@@ -67,7 +69,8 @@ export function BudgetWizard({ month, onClose }: { month: string; onClose: () =>
     }
     for (const c of categories) {
       const value = parseAmount(amounts[c.id] ?? '');
-      const current = b.categories.find((x) => x.categoryId === c.id)?.limit ?? null;
+      const x = b.categories.find((y) => y.categoryId === c.id);
+      const current = x && x.limit !== null ? x.limit - (x.carry ?? 0) : null;
       const next = value && value > 0 ? value : null;
       if (next !== current) setCategoryBudget(data, month, c.id, next, 'all');
     }
@@ -272,6 +275,7 @@ function FixedStep({ month }: { month: string }) {
       everyMonths: 1,
       archived: false,
       autopay: false,
+      habitId: null,
     };
     mutate('fixed', 'upsert', fixed);
     setName('');

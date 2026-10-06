@@ -2,6 +2,7 @@ import type { MonthBudget, TxLine } from './budget';
 import { addMonths, daysInMonth, monthLabel } from './months';
 import { round2 } from './money';
 import type { Account, LiftyData, Transaction } from './schema';
+import { daysBetween } from './weight';
 
 const pad = (n: number) => String(n).padStart(2, '0');
 
@@ -14,6 +15,36 @@ function installmentMonths(tx: Transaction): { month: string; amount: number }[]
     month: addMonths(first, i),
     amount: i === n - 1 ? round2(tx.amount - each * (n - 1)) : each,
   }));
+}
+
+/**
+ * En qué resumen entra cada cuota de una compra con la tarjeta. Con día de cierre, lo que
+ * comprás después del cierre va al resumen siguiente (salvo que hayas elegido el mes de la
+ * primera cuota a mano). Es solo cuándo se paga: el gasto cuenta en el mes de la compra.
+ */
+export function cardInstallments(
+  card: Pick<Account, 'closingDay'>,
+  tx: Transaction,
+): { month: string; amount: number; number: number; of: number }[] {
+  const shift =
+    card.closingDay &&
+    !tx.firstInstallmentMonth &&
+    Number(tx.date.slice(8)) > Math.min(card.closingDay, daysInMonth(tx.date.slice(0, 7)))
+      ? 1
+      : 0;
+  const all = installmentMonths(tx);
+  return all.map((i, n) => ({ ...i, month: addMonths(i.month, shift), number: n + 1, of: all.length }));
+}
+
+/** El resumen de una compra hecha `date` con la tarjeta (sin cuotas elegidas a mano). */
+export function statementOf(card: Pick<Account, 'closingDay'>, date: string): string {
+  const month = date.slice(0, 7);
+  return card.closingDay && Number(date.slice(8)) > Math.min(card.closingDay, daysInMonth(month)) ? addMonths(month, 1) : month;
+}
+
+/** Cuándo cierra el resumen de `month` (null si no sabemos el día de cierre). */
+export function cardCloseDate(card: Pick<Account, 'closingDay'>, month: string): string | null {
+  return card.closingDay ? `${month}-${pad(Math.min(card.closingDay, daysInMonth(month)))}` : null;
 }
 
 /** De qué cuenta sale el pago de la tarjeta: la elegida o tu cuenta principal en pesos. */
@@ -30,11 +61,14 @@ export function cardPayFrom(data: Pick<LiftyData, 'accounts'>, card: Account): A
   );
 }
 
-/** Cuándo se paga el resumen de `month`: el día elegido del mes siguiente, o el último día del mes. */
-export function cardPayDate(card: Pick<Account, 'payDay'>, month: string): string {
+/**
+ * Cuándo se paga el resumen de `month`: el día de pago del mes siguiente (o del mismo mes, si
+ * la tarjeta cierra antes del día de pago), o el último día del mes si no lo sabemos.
+ */
+export function cardPayDate(card: Pick<Account, 'payDay'> & Partial<Pick<Account, 'closingDay'>>, month: string): string {
   if (card.payDay) {
-    const next = addMonths(month, 1);
-    return `${next}-${pad(Math.min(card.payDay, daysInMonth(next)))}`;
+    const m = card.closingDay && card.payDay > card.closingDay ? month : addMonths(month, 1);
+    return `${m}-${pad(Math.min(card.payDay, daysInMonth(m)))}`;
   }
   return `${month}-${pad(daysInMonth(month))}`;
 }
@@ -65,7 +99,7 @@ export function cardAutoPayments(data: LiftyData, upTo: string): Transaction[] {
     for (const t of data.transactions) {
       if (t.accountId !== card.id || t.kind !== 'expense') continue;
       const r = t.currency === 'USD' && t.fxRate && t.fxRate !== 1 ? t.fxRate : rate;
-      for (const i of installmentMonths(t)) {
+      for (const i of cardInstallments(card, t)) {
         const m = due.get(i.month) ?? { UYU: 0, USD: 0, usdInUYU: 0 };
         m[t.currency] += i.amount;
         if (t.currency === 'USD') m.usdInUYU += i.amount * r;
@@ -145,12 +179,41 @@ export interface CardStatement {
   autopay: boolean;
 }
 
+/**
+ * Lo que entra en el resumen de `month` de una tarjeta: cada compra o cuota por el total
+ * cobrado (aunque una parte te la devuelvan) y también lo fijo que pagás con ella.
+ */
+function statementItems(data: LiftyData, card: Account, month: string): TxLine[] {
+  const rate = data.settings.usdRate;
+  const items: TxLine[] = [];
+  for (const t of data.transactions) {
+    if (t.accountId !== card.id || t.kind !== 'expense') continue;
+    const r = t.currency === 'USD' ? (t.fxRate && t.fxRate !== 1 ? t.fxRate : rate) : 1;
+    for (const i of cardInstallments(card, t)) {
+      if (i.month !== month) continue;
+      items.push({
+        txId: t.id,
+        date: t.date,
+        description: t.description,
+        categoryId: t.categoryId,
+        accountId: t.accountId,
+        goalId: t.goalId,
+        currency: t.currency,
+        original: i.amount,
+        amount: round2(i.amount * r),
+        installment: i.of > 1 ? { number: i.number, of: i.of } : null,
+      });
+    }
+  }
+  return items.sort((a, b) => b.date.localeCompare(a.date));
+}
+
 export function cardStatements(data: LiftyData, budget: MonthBudget, today?: string): CardStatement[] {
   const cards = data.accounts.filter((a) => a.type === 'credit');
   const auto = today ? cardAutoPayments(data, today) : [];
   return cards
     .map((account) => {
-      const items = budget.card.items.filter((l) => l.accountId === account.id);
+      const items = statementItems(data, account, budget.month);
       const od = openingDebt(account);
       const opening = od && od.month === budget.month ? od.amount : 0;
       const payments = [...data.transactions, ...auto].filter(
@@ -197,4 +260,41 @@ export function cardStatements(data: LiftyData, budget: MonthBudget, today?: str
       };
     })
     .filter((s) => !s.account.archived || s.status !== 'empty');
+}
+
+export interface CardChoice {
+  card: Account;
+  /** El resumen en que entraría una compra de hoy. */
+  statement: string;
+  /** Cuándo cierra ese resumen (null si no cargaste el día de cierre). */
+  closes: string | null;
+  /** Cuándo lo pagás. */
+  pays: string;
+  /** Días entre hoy y el pago: más días, más tiempo tenés tu plata. */
+  days: number;
+  /** Si sabemos el día de cierre y el de pago (si no, la fecha es aproximada). */
+  known: boolean;
+}
+
+/**
+ * ¿Con qué tarjeta conviene pagar hoy? Para cada tarjeta: en qué resumen entra una compra de
+ * hoy y cuándo la pagás. Recién cerrada, una tarjeta te da casi dos meses; a punto de cerrar,
+ * unos días. Ordenadas de la que más tiempo te da a la que menos.
+ */
+export function cardChoices(data: Pick<LiftyData, 'accounts'>, today: string): CardChoice[] {
+  return data.accounts
+    .filter((a) => a.type === 'credit' && !a.archived)
+    .map((card) => {
+      const statement = statementOf(card, today);
+      const pays = cardPayDate(card, statement);
+      return {
+        card,
+        statement,
+        closes: cardCloseDate(card, statement),
+        pays,
+        days: daysBetween(today, pays),
+        known: !!card.closingDay && !!card.payDay,
+      };
+    })
+    .sort((a, b) => b.days - a.days);
 }

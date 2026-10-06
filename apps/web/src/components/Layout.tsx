@@ -24,7 +24,7 @@ const NAV: { href: string; label: string; icon: IconName; match: RegExp }[] = [
     href: '/mas',
     label: 'Más',
     icon: 'more',
-    match: /^\/(mas|sueldos|fijos|categorias|conectar|importar|ajustes|respaldo)/,
+    match: /^\/(mas|sueldos|fijos|categorias|conectar|importar|ajustes|respaldo|dia-a-dia)/,
   },
 ];
 

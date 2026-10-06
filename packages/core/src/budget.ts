@@ -57,6 +57,11 @@ export interface CategorySpend {
   limitSource: 'month' | 'default' | null;
   /** Lo que queda del presupuesto (negativo = te pasaste). */
   remaining: number | null;
+  /**
+   * Categorías que acumulan: lo que sobró del mes anterior y se suma al presupuesto de este
+   * mes (`limit` ya lo incluye).
+   */
+  carry?: number;
   /** Detalle por subcategoría (si hay gastos en subcategorías). */
   subs?: { categoryId: string; spent: number }[];
 }
@@ -357,6 +362,7 @@ function computeSingle(
   month: string,
   carryover: MonthBudget['carryover'],
   today: string,
+  prevCategories: CategorySpend[] | null = null,
 ): MonthBudget {
   const used = new Set<string>();
 
@@ -501,8 +507,15 @@ function computeSingle(
     const spent = round2(spend.get(c.id) ?? 0);
     const fixed = round2(fixedBy.get(c.id) ?? 0);
     const override = idx.budgets.get(`${month}:${c.id}`);
-    const limit = override ? override.amount : (c.monthlyLimit ?? null);
+    const base = override ? override.amount : (c.monthlyLimit ?? null);
     const limitSource = override ? 'month' : c.monthlyLimit ? 'default' : null;
+    // Lo que no gastaste el mes pasado se suma (solo lo que sobró: si te pasaste, ya salió de tu plata).
+    let carry = 0;
+    if (c.rollover === 'carry' && base !== null && c.rolloverFrom && month > c.rolloverFrom) {
+      const prev = prevCategories?.find((p) => p.categoryId === c.id);
+      if (prev && prev.limit !== null) carry = round2(Math.max(0, prev.limit - prev.spent));
+    }
+    const limit = base === null ? null : round2(base + carry);
     if (spent === 0 && fixed === 0 && limit === null) continue;
     const subs = subSpend.get(c.id);
     categories.push({
@@ -513,6 +526,7 @@ function computeSingle(
       limit,
       limitSource,
       remaining: limit === null ? null : round2(limit - spent),
+      ...(carry > 0 ? { carry } : {}),
       ...(subs
         ? {
             subs: [...subs.entries()]
@@ -667,7 +681,7 @@ export function computeMonths(data: LiftyData, from: string, to: string, today: 
         source: prev!.closing ? 'real' : 'projected',
         fromMonth: prev!.month,
       };
-    const budget = computeSingle(data, idx, month, carryover, today);
+    const budget = computeSingle(data, idx, month, carryover, today, prev?.categories ?? null);
     if (month >= from) out.push(budget);
     prev = budget;
   }

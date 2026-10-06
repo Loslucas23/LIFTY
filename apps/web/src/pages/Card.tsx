@@ -3,6 +3,7 @@ import {
   accountBalances,
   activeInstallmentPlans,
   addMonths,
+  cardCloseDate,
   cardPayFrom,
   cardStatements,
   monthLabel,
@@ -84,6 +85,19 @@ export function Card() {
           <strong>{money(Math.round(remaining))}</strong>
         </div>
       </div>
+
+      {cards.length > 0 && (
+        <a className="card pad tile-link" href="#/dia-a-dia">
+          <span className="tile-text">
+            <strong>¿Con qué tarjeta pago hoy?</strong>
+            <span className="muted small">
+              {cards.some((c) => !c.closingDay)
+                ? 'Cargá el día de cierre de cada tarjeta y Lifty te dice cuál te da más días para pagar.'
+                : 'La que recién cerró te da casi dos meses para pagar.'}
+            </span>
+          </span>
+        </a>
+      )}
 
       <MonthPicker month={month} onChange={setMonth} />
 
@@ -218,6 +232,12 @@ function Statement({ statement: s }: { statement: CardStatement }) {
           {s.items.length > 0 ? ' · tocá para ver el detalle' : ''}
         </span>
       </button>
+      {s.account.closingDay ? (
+        <p className="small muted">
+          Cierra el {cardCloseDate(s.account, s.month)!.split('-').reverse().slice(0, 2).join('/')} · se paga el{' '}
+          {s.payDate.split('-').reverse().slice(0, 2).join('/')}. Lo comprado después del cierre va al resumen siguiente.
+        </p>
+      ) : null}
       {s.opening > 0 && (
         <p className="small muted">
           Incluye {money(s.opening, s.account.currency)} que debías cuando pusiste el saldo de la tarjeta.

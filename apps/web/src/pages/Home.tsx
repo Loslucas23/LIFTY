@@ -28,10 +28,14 @@ import {
   type UpcomingEvent,
   goalMonths,
   paceAlerts,
+  leftoversToSave,
+  antExpenses,
+  workHour,
 } from '@lifty/core';
 import { confirmPlanned } from '../lib/actions';
 import { openBudgetEditor, openBudgetWizard, openExplain, openFixedForm, openIncomeForm, openMenu } from '../components/Editors';
 import { Icon, type IconName } from '../components/Icon';
+import { openDebtReminder } from '../components/DebtReminder';
 import { useMoneyCheck } from '../components/MoneyCheck';
 import { openSetup } from '../components/Setup';
 import { QuickJournal, saveJournal } from './Journal';
@@ -104,6 +108,21 @@ export function Home() {
         }),
       ),
   ];
+  // Gastos hormiga (al final: es información, no un aviso urgente).
+  const ants = empty ? null : cached(data, `ants:${today}`, () => antExpenses(data, today, workHour(data, b)));
+  if (ants && ants.monthly >= 1000)
+    insights.push({
+      id: 'hormiga',
+      tone: 'info',
+      text: `Gastos hormiga: ${ants.groups
+        .slice(0, 2)
+        .map((g) => g.name.toLowerCase())
+        .join(' y ')} te salen ${money(Math.round(ants.monthly))} por mes: ${money(Math.round(ants.yearly))} por año${
+        ants.hours !== null ? `, ${formatNumber(ants.hours, 0)} horas de tu trabajo` : ''
+      }.`,
+      detail: '',
+      href: '#/dia-a-dia',
+    });
   const events = upcomingEvents(data, b, today);
   const debts = debtTotals(data);
   const foodCards = data.accounts.filter((a) => a.type === 'food' && !a.archived);
@@ -250,6 +269,7 @@ export function Home() {
       <AutopilotToday />
 
       <SurplusProposal month={month} />
+      <LeftoverProposal month={month} />
 
       <CloseReminder month={month} />
 
@@ -764,6 +784,11 @@ function AgendaRow({ item, stock }: { item: AgendaItem; stock: StockOverview | n
       open = () => navigate('/deudas');
       break;
     }
+    case 'remind':
+      open = () => openDebtReminder(item.refId);
+      check = open;
+      checkLabel = 'Armar el mensaje para recordarle';
+      break;
     case 'invest':
       open = () => navigate('/plata');
       check = open;
@@ -1157,5 +1182,68 @@ function FirstSteps({ month }: { month: string }) {
         ))}
       </ul>
     </Section>
+  );
+}
+
+/** Categorías con "lo que sobra va al ahorro": al empezar el mes, pasarlo con un toque. */
+function LeftoverProposal({ month }: { month: string }) {
+  const data = useData();
+  const prev = useMonth(addMonths(month, -1));
+  const list = leftoversToSave(data, prev);
+  if (!list.length) return null;
+  const goal =
+    data.goals.find((g) => g.id === data.settings.autoSaveGoalId) ?? data.goals.find((g) => !g.archived && g.currency === 'UYU');
+  const send = (l: (typeof list)[number]) => {
+    const id = newId();
+    mutate('transaction', 'upsert', {
+      id,
+      updatedAt: '',
+      date: `${l.month}-${String(daysInMonth(l.month)).padStart(2, '0')}`,
+      kind: 'saving',
+      amount: l.amount,
+      currency: 'UYU',
+      fxRate: 1,
+      categoryId: null,
+      accountId: null,
+      toAccountId: null,
+      goalId: goal?.id ?? null,
+      description: l.description,
+      installments: 1,
+      firstInstallmentMonth: null,
+      linkKind: null,
+      linkId: null,
+      linkMonth: null,
+      sharedAmount: 0,
+      sharedWith: '',
+      tags: [],
+    });
+    const closing = prev.closing;
+    if (closing) mutate('closing', 'upsert', { ...closing, realBalance: round2(closing.realBalance - l.amount) });
+    toast(`${money(l.amount)} de ${l.category.name.toLowerCase()} al ahorro`, {
+      action: {
+        label: 'Deshacer',
+        run: () => {
+          mutate('transaction', 'delete', id);
+          if (closing) mutate('closing', 'upsert', closing);
+        },
+      },
+    });
+  };
+  return (
+    <>
+      {list.map((l) => (
+        <section key={l.category.id} className="card pad surplus">
+          <p>
+            {l.category.icon} En {monthLabel(l.month, false).toLowerCase()} te sobraron <strong>{money(l.amount)}</strong> de{' '}
+            {l.category.name.toLowerCase()}. Elegiste que lo que sobra vaya al ahorro.
+          </p>
+          <div className="btn-row">
+            <button className="btn btn-primary" onClick={() => send(l)}>
+              Pasar al ahorro{goal ? ` (${goal.name})` : ''}
+            </button>
+          </div>
+        </section>
+      ))}
+    </>
   );
 }

@@ -4,10 +4,12 @@ import {
   fold,
   monthOf,
   newId,
+  todayISO,
   sortedCategories,
   SUBCATEGORY_IDEAS,
   type Account,
   type Category,
+  type RolloverMode,
 } from '@lifty/core';
 import { Icon } from '../components/Icon';
 import { Chips, Field, PageHeader, Section, Segmented, Sheet, Toggle, toast } from '../components/ui';
@@ -135,6 +137,7 @@ function CategoryForm({
   const [icon, setIcon] = useState(category?.icon ?? '🏷️');
   const [color, setColor] = useState(category?.color ?? COLORS[0]);
   const [limit, setLimit] = useState(category?.monthlyLimit ? String(category.monthlyLimit) : '');
+  const [rollover, setRollover] = useState<RolloverMode>(category?.rollover || 'none');
   const [archived, setArchived] = useState(category?.archived ?? false);
   const [parentId, setParentId] = useState<string | null>(category?.parentId ?? null);
   const [subName, setSubName] = useState('');
@@ -155,6 +158,14 @@ function CategoryForm({
       parentId: parent ? parent.id : null,
       // El presupuesto es de la categoría de arriba.
       monthlyLimit: kind === 'expense' && !parent ? parseAmount(limit) || null : null,
+      rollover: kind === 'expense' && !parent && parseAmount(limit) ? rollover : 'none',
+      // Se acumula desde el mes en que lo activás (no se arrastra todo el historial).
+      rolloverFrom:
+        rollover === 'carry'
+          ? category?.rollover === 'carry' && category.rolloverFrom
+            ? category.rolloverFrom
+            : monthOf(todayISO())
+          : null,
       archived,
       sort: category?.sort ?? maxSort() + 1,
     });
@@ -179,6 +190,8 @@ function CategoryForm({
       color: category.color,
       parentId: category.id,
       monthlyLimit: null,
+      rollover: 'none',
+      rolloverFrom: null,
       archived: false,
       sort: maxSort() + 1,
     };
@@ -263,6 +276,29 @@ function CategoryForm({
             <input inputMode="decimal" value={limit} onChange={(e) => setLimit(e.target.value)} placeholder="Ej: 3000" />
           </Field>
         )}
+        {kind === 'expense' && !parent && parseAmount(limit) ? (
+          <Field
+            label="Lo que sobra a fin de mes"
+            hint={
+              rollover === 'carry'
+                ? 'Se suma al presupuesto del mes siguiente de esta categoría (ideal para ropa, regalos, arreglos).'
+                : rollover === 'save'
+                  ? 'Al empezar el mes, Lifty te propone pasarlo al ahorro con un toque.'
+                  : 'Queda libre para cualquier cosa (como hasta ahora).'
+            }
+          >
+            <Chips
+              label="Lo que sobra a fin de mes"
+              value={rollover}
+              onChange={setRollover}
+              options={[
+                { value: 'none' as RolloverMode, label: 'Queda libre' },
+                { value: 'carry' as RolloverMode, label: 'Se acumula acá' },
+                { value: 'save' as RolloverMode, label: 'Va al ahorro' },
+              ]}
+            />
+          </Field>
+        ) : null}
         {category && !category.parentId && (
           <Field
             label="Subcategorías"
@@ -328,6 +364,8 @@ function SettingsForm() {
   const [rate, setRate] = useState(String(s.usdRate).replace('.', ','));
   const [startMonth, setStartMonth] = useState(s.startMonth ?? '');
   const [startBalance, setStartBalance] = useState(String(s.startBalance).replace('.', ','));
+  const [hours, setHours] = useState(String(s.weeklyHours ?? 40));
+  const [inflation, setInflation] = useState(String(s.inflation ?? 5).replace('.', ','));
   const save = () => {
     const usdRate = parseAmount(rate);
     if (!usdRate || usdRate <= 0) return toast('La cotización tiene que ser mayor a 0', { tone: 'error' });
@@ -337,6 +375,8 @@ function SettingsForm() {
       usdRate,
       startMonth: startMonth || null,
       startBalance: parseAmount(startBalance) ?? 0,
+      weeklyHours: Math.min(100, Math.max(1, parseAmount(hours) ?? 40)),
+      inflation: Math.max(0, parseAmount(inflation) ?? 5),
     });
     toast('Ajustes guardados');
   };
@@ -368,6 +408,14 @@ function SettingsForm() {
         <Field label="Saldo con el que arrancaste ese mes">
           <input inputMode="decimal" value={startBalance} onChange={(e) => setStartBalance(e.target.value)} />
         </Field>
+        <div className="row">
+          <Field label="Horas de trabajo por semana" hint="Para decir cuántas horas de tu trabajo cuesta un gasto">
+            <input inputMode="numeric" value={hours} onChange={(e) => setHours(e.target.value.replace(/\D/g, ''))} />
+          </Field>
+          <Field label="Inflación por año (%)" hint="Para comparar contado contra cuotas">
+            <input inputMode="decimal" value={inflation} onChange={(e) => setInflation(e.target.value)} />
+          </Field>
+        </div>
         <button className="btn btn-primary" type="submit">
           Guardar
         </button>

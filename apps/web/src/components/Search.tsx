@@ -37,6 +37,11 @@ const PAGES: { label: string; path: string; words: string }[] = [
   { label: 'Tu salud (puntaje)', path: '/salud', words: 'salud financiera puntaje fondo emergencia colchon balance vida' },
   { label: 'Piloto automático', path: '/piloto', words: 'automatico reglas debito solo automatizar' },
   { label: 'Tu plata', path: '/plata', words: 'sobra libre disponible patrimonio cobro repartir sueldo inversiones plazo fijo' },
+  {
+    label: 'Día a día',
+    path: '/dia-a-dia',
+    words: 'hormiga cafe kiosco tarjeta cierre conviene cuotas contado descuento inflacion gimnasio uso costo',
+  },
   { label: 'Calendario', path: '/calendario', words: 'agenda dias mes cobros pagos vencimientos examenes' },
   { label: 'Vacaciones y mes difícil', path: '/epocas', words: 'viaje vacaciones modo ajustado tope dificil' },
   { label: 'Tu año', path: '/tu-anio', words: 'retrospectiva wrapped anual resumen año' },

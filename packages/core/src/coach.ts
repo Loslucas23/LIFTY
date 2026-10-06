@@ -4,7 +4,7 @@ import { cardAutoPayments } from './card';
 import { isDue } from './habits';
 import { goalPlans, upcomingEvents } from './insights';
 import { daysInMonth, monthDiff, monthOf } from './months';
-import { round2 } from './money';
+import { formatNumber, round2 } from './money';
 import type { Goal, LiftyData } from './schema';
 import { median } from './smart';
 import { stockOverview } from './stock';
@@ -269,22 +269,22 @@ export function weekPlan(data: LiftyData, b: MonthBudget, today: string): WeekPl
 
 // ---------------- ¿Cuántas horas de trabajo es? ----------------
 
-/** Horas de trabajo por mes que se suponen (8 h × 22 días). */
-export const WORK_HOURS_PER_MONTH = 176;
+/** Horas de trabajo por mes: las horas por semana (Ajustes; 40 si no) × 52 semanas ÷ 12 meses. */
+export const workHoursPerMonth = (weeklyHours?: number | null) => ((weeklyHours || 40) * 52) / 12;
 
-/** Lo que ganás por hora (sueldo líquido del mes ÷ 176 h), o null si no hay sueldo cargado. */
-export function hourlyWage(b: MonthBudget): number | null {
+/** Lo que ganás por hora (sueldo líquido del mes ÷ horas por mes), o null si no hay sueldo cargado. */
+export function hourlyWage(b: MonthBudget, weeklyHours?: number | null): number | null {
   const salary = b.income.planned.filter((l) => l.kind === 'salary').reduce((s, l) => s + l.planned, 0);
-  return salary > 0 ? round2(salary / WORK_HOURS_PER_MONTH) : null;
+  return salary > 0 ? round2(salary / workHoursPerMonth(weeklyHours)) : null;
 }
 
 /** "Esto son 2,5 h de tu trabajo" (o días, si es mucho). */
-export function workTime(amountUYU: number, b: MonthBudget): string | null {
-  const w = hourlyWage(b);
+export function workTime(amountUYU: number, b: MonthBudget, weeklyHours?: number | null): string | null {
+  const w = hourlyWage(b, weeklyHours);
   if (!w || amountUYU <= 0) return null;
   const hours = amountUYU / w;
   if (hours < 0.5) return `${Math.max(1, Math.round(hours * 60))} min de tu trabajo`;
-  if (hours < 16) return `${hours.toLocaleString('es-UY', { maximumFractionDigits: 1 })} h de tu trabajo`;
+  if (hours < 16) return `${formatNumber(hours, 1, 0)} h de tu trabajo`;
   const days = hours / 8;
-  return `${days.toLocaleString('es-UY', { maximumFractionDigits: 1 })} días de tu trabajo`;
+  return `${formatNumber(days, 1, 0)} días de tu trabajo`;
 }

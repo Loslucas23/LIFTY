@@ -58,6 +58,7 @@ export function Food() {
                   investKind: null,
                   rate: null,
                   maturity: null,
+                  closingDay: null,
                   currency: 'UYU',
                   icon: '🍽️',
                   color: '#0d9488',

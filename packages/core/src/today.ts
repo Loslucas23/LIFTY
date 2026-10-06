@@ -1,6 +1,7 @@
 import { accountBalances, debtStatus } from './accounts';
 import type { MonthBudget } from './budget';
 import { monthOf } from './months';
+import { debtsToRemind } from './daytoday';
 import { reminderStatus } from './extras';
 import { habitsToday } from './habits';
 import { upcomingEvents } from './insights';
@@ -27,7 +28,8 @@ export type AgendaKind =
   | 'journal'
   | 'checkin'
   | 'loan'
-  | 'invest';
+  | 'invest'
+  | 'remind';
 
 export interface AgendaItem {
   key: string;
@@ -163,6 +165,21 @@ export function todayAgenda(data: LiftyData, b: MonthBudget, today: string, hour
         e.daysLeft < 0 ? 'Ya venció: usalo o tiralo' : e.daysLeft === 0 ? 'Vence hoy: usalo' : `Vence en ${e.daysLeft} días`,
       urgency: e.daysLeft <= 0 ? 2 : 1,
       done: false,
+    });
+  }
+
+  // Plata que te deben hace más de una semana: recordarlo con amabilidad (como mucho 2 por día).
+  for (const d of debtsToRemind(data, today).slice(0, 2)) {
+    const s = debtStatus(d);
+    items.push({
+      key: `remind:${d.id}`,
+      kind: 'remind',
+      refId: d.id,
+      title: `💬 Recordale a ${d.person}`,
+      detail: `${d.description && d.description !== 'Gasto dividido' ? `${d.description} · ` : ''}te debe desde el ${Number(d.date.slice(8))}/${Number(d.date.slice(5, 7))}`,
+      urgency: 0,
+      done: false,
+      amount: s.remaining,
     });
   }
 

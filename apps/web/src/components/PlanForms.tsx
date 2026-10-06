@@ -294,6 +294,8 @@ export function FixedForm({ fixed, month, onClose }: { fixed: FixedExpense | nul
   const [accountId, setAccountId] = useState<string | null>(fixed?.accountId ?? null);
   const [day, setDay] = useState(fixed?.dayOfMonth ? String(fixed.dayOfMonth) : '');
   const [autopay, setAutopay] = useState(fixed?.autopay ?? false);
+  const [habitId, setHabitId] = useState<string | null>(fixed?.habitId ?? null);
+  const habits = data.habits.filter((h) => !h.archived || h.id === habitId);
   const [startMonth, setStartMonth] = useState(fixed?.startMonth ?? month ?? monthOf(today));
   const [endMonth, setEndMonth] = useState<string | null>(fixed?.endMonth ?? null);
   const [freq, setFreq] = useState({
@@ -318,6 +320,7 @@ export function FixedForm({ fixed, month, onClose }: { fixed: FixedExpense | nul
       everyMonths: freq.once ? 1 : freq.every,
       archived: fixed?.archived ?? false,
       autopay: !!day && autopay,
+      habitId,
     });
     if (!result.success) return setError('Escribí un monto mayor a 0.');
     mutate('fixed', 'upsert', result.data);
@@ -417,6 +420,22 @@ export function FixedForm({ fixed, month, onClose }: { fixed: FixedExpense | nul
           />
         </Field>
         {day && <Toggle checked={autopay} onChange={setAutopay} label={`🤖 Se debita solo: marcarlo pagado el día ${day}`} />}
+        {habits.length > 0 && (
+          <Field
+            label="¿Lo usás con una rutina? (opcional)"
+            hint="Gimnasio, clases, una app: Lifty te dice cuánto te sale cada vez que lo usás"
+          >
+            <Chips
+              label="Rutina"
+              value={habitId}
+              onChange={setHabitId}
+              options={[
+                { value: null as string | null, label: 'Ninguna' },
+                ...habits.map((h) => ({ value: h.id as string | null, label: h.name, icon: h.icon })),
+              ]}
+            />
+          </Field>
+        )}
         <FrequencyPicker every={freq.every} once={freq.once} onChange={setFreq} />
         <div className="row">
           <Field label={freq.once ? 'Mes' : freq.every === 1 ? 'Desde' : 'Primera vez'}>

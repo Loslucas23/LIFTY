@@ -1,4 +1,5 @@
 import { Component, lazy, Suspense, useEffect, useState, type ComponentType, type ReactNode } from 'react';
+import { DebtReminderHost } from './components/DebtReminder';
 import { EditorsHost } from './components/Editors';
 import { Layout } from './components/Layout';
 import { SearchHost } from './components/Search';
@@ -76,6 +77,7 @@ const Retro = lazyPage(() => import('./pages/Retro'), 'Retro');
 const Study = lazyPage(() => import('./pages/Study'), 'Study');
 const Recipes = lazyPage(() => import('./pages/Recipes'), 'Recipes');
 const Simulator = lazyPage(() => import('./pages/Simulator'), 'Simulator');
+const DayToDay = lazyPage(() => import('./pages/DayToDay'), 'DayToDay');
 const Routines = lazyPage(() => import('./pages/Routines'), 'Routines');
 const Week = lazyPage(() => import('./pages/Extras'), 'Week');
 const Recurring = lazyPage(() => import('./pages/Extras'), 'Recurring');
@@ -151,6 +153,7 @@ const ROUTES: [string, (p: Record<string, string>) => ReactNode][] = [
   ['/stock', () => <Stock />],
   ['/lista', () => <Stock initialTab="lista" />],
   ['/plata', () => <Plata />],
+  ['/dia-a-dia', () => <DayToDay />],
   ['/calendario', () => <LifeCalendar />],
   ['/calendario/:month', (p) => <LifeCalendar month={p.month} />],
   ['/epocas', () => <Periods />],
@@ -251,6 +254,7 @@ export function App() {
       <EditorsHost />
       <SearchHost />
       <SetupHost />
+      <DebtReminderHost />
       <AutopilotRunner />
       <Toasts />
     </>

@@ -271,6 +271,7 @@ export function AccountForm({ account, onClose }: { account: Account | null; onC
   const [autoLoad, setAutoLoad] = useState(account?.autoLoad ?? false);
   const [payFrom, setPayFrom] = useState<string | null>(account?.payFromAccountId ?? null);
   const [payDay, setPayDay] = useState(account?.payDay ? String(account.payDay) : '');
+  const [closingDay, setClosingDay] = useState(account?.closingDay ? String(account.closingDay) : '');
   const [investKind, setInvestKind] = useState<InvestKind | null>(account?.investKind ?? null);
   const [rateText, setRateText] = useState(account?.rate != null ? String(account.rate).replace('.', ',') : '');
   const [maturity, setMaturity] = useState(account?.maturity ?? '');
@@ -301,6 +302,7 @@ export function AccountForm({ account, onClose }: { account: Account | null; onC
       autopay: type === 'credit' ? autopay : true,
       payFromAccountId: type === 'credit' ? payFrom : null,
       payDay: type === 'credit' && payDay ? Math.min(28, Math.max(1, Number(payDay))) : null,
+      closingDay: type === 'credit' && closingDay ? Math.min(31, Math.max(1, Number(closingDay))) : null,
       autoLoad: type === 'food' && autoLoad,
       investKind: type === 'bank' || type === 'cash' ? investKind : null,
       rate: investKind ? (parseAmount(rateText) ?? null) : null,
@@ -373,6 +375,31 @@ export function AccountForm({ account, onClose }: { account: Account | null; onC
         )}
         {type === 'credit' && (
           <>
+            <div className="row">
+              <Field label="Día de cierre" hint="Lo que comprás después entra en el resumen siguiente">
+                <input
+                  inputMode="numeric"
+                  value={closingDay}
+                  onChange={(e) => setClosingDay(e.target.value.replace(/\D/g, '').slice(0, 2))}
+                  placeholder="Ej: 22"
+                />
+              </Field>
+              <Field
+                label="Día de pago"
+                hint={
+                  closingDay && payDay && Number(payDay) > Number(closingDay)
+                    ? 'Del mismo mes en que cierra'
+                    : 'Del mes siguiente (vacío: el último día del mes)'
+                }
+              >
+                <input
+                  inputMode="numeric"
+                  value={payDay}
+                  onChange={(e) => setPayDay(e.target.value.replace(/\D/g, '').slice(0, 2))}
+                  placeholder="Ej: 10"
+                />
+              </Field>
+            </div>
             <Toggle
               checked={autopay}
               onChange={setAutopay}
@@ -393,14 +420,6 @@ export function AccountForm({ account, onClose }: { account: Account | null; onC
                       { value: null as string | null, label: payable[0] ? `La principal (${payable[0].name})` : 'La principal' },
                       ...payable.map((a) => ({ value: a.id as string | null, label: a.name, icon: a.icon })),
                     ]}
-                  />
-                </Field>
-                <Field label="Día de pago (del mes siguiente)" hint="Si lo dejás vacío, se toma el último día del mes">
-                  <input
-                    inputMode="numeric"
-                    value={payDay}
-                    onChange={(e) => setPayDay(e.target.value.replace(/\D/g, '').slice(0, 2))}
-                    placeholder="Ej: 10"
                   />
                 </Field>
               </>

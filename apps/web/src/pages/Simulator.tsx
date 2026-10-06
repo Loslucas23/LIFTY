@@ -24,6 +24,9 @@ export function Simulator() {
   return (
     <div className="page narrow">
       <PageHeader title="¿Me lo puedo comprar?" subtitle="Cómo quedaría tu plata cada mes si lo comprás" />
+      <p className="muted small">
+        ¿Te ofrecen descuento por pagar contado? <a href="#/dia-a-dia">Compará contado contra cuotas</a> (con la inflación).
+      </p>
       <div className="card pad form">
         <Field label="¿Qué?">
           <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Ej: Heladera" maxLength={60} />
@@ -77,10 +80,10 @@ export function Simulator() {
                 {money(Math.round(-r.firstShort!.after))}.{installments < 12 ? ' Probá con más cuotas o esperá a juntarlo.' : ''}
               </>
             )}
-            {workTime(amount, b) && (
+            {workTime(amount, b, data.settings.weeklyHours) && (
               <>
                 <br />
-                ⏱️ Son {workTime(amount, b)}.
+                ⏱️ Son {workTime(amount, b, data.settings.weeklyHours)}.
               </>
             )}
             {r.monthsToSave !== null && (

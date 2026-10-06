@@ -65,6 +65,12 @@ export const accountSchema = z.object({
   payFromAccountId: id.nullable().default(null),
   /** Día del mes siguiente en que se paga el resumen (si no, se toma el último día del mes). */
   payDay: z.number().int().min(1).max(28).nullable().default(null),
+  /**
+   * Tarjeta: día de cierre del resumen. Lo que comprás después del cierre entra en el resumen
+   * siguiente (lo pagás un mes más tarde). Solo cambia cuándo sale la plata del banco, no el mes
+   * del presupuesto en que cuenta el gasto.
+   */
+  closingDay: z.number().int().min(1).max(31).nullable().default(null),
   /** Tarjeta de alimentación: la carga del mes se anota sola el día de carga. */
   autoLoad: z.boolean().default(false),
   /**
@@ -79,6 +85,9 @@ export const accountSchema = z.object({
 });
 export type Account = z.infer<typeof accountSchema>;
 
+export const ROLLOVER_MODES = ['none', 'carry', 'save'] as const;
+export type RolloverMode = (typeof ROLLOVER_MODES)[number];
+
 export const categorySchema = z.object({
   ...base,
   name: z.string().min(1).max(60),
@@ -92,6 +101,14 @@ export const categorySchema = z.object({
   parentId: id.nullable().default(null),
   /** Presupuesto mensual en UYU para todos los meses (cada mes se puede cambiar aparte). */
   monthlyLimit: money.positive().nullable().default(null),
+  /**
+   * Qué pasa con lo que sobra del presupuesto de la categoría a fin de mes. none: queda libre
+   * (como siempre). carry: se acumula en la categoría para el mes siguiente (ropa, regalos,
+   * arreglos: meses de poco y meses de mucho), desde `rolloverFrom`. save: Lifty propone
+   * pasarlo al ahorro.
+   */
+  rollover: z.enum(ROLLOVER_MODES).default('none'),
+  rolloverFrom: month.nullable().default(null),
   archived: z.boolean().default(false),
   sort: z.number().default(0),
 });
@@ -207,6 +224,8 @@ export const fixedSchema = z.object({
   archived: z.boolean().default(false),
   /** Piloto automático: se debita solo (UTE, Antel, cuota…): el día que vence se marca pagado. */
   autopay: z.boolean().default(false),
+  /** Se usa con una rutina (gimnasio, clases, Kindle…): para saber cuánto te sale cada uso. */
+  habitId: id.nullable().default(null),
 });
 export type FixedExpense = z.infer<typeof fixedSchema>;
 
@@ -265,6 +284,10 @@ export const settingsSchema = z.object({
   autoSaveGoals: z.boolean().default(false),
   /** Piloto automático: lo que se termina en el stock va solo a la lista de compras. */
   autoShop: z.boolean().default(false),
+  /** Horas que trabajás por semana: para decir cuántas horas de trabajo cuesta un gasto. */
+  weeklyHours: z.number().min(1).max(100).default(40),
+  /** Inflación anual estimada (%): para comparar contado contra cuotas. */
+  inflation: z.number().min(0).max(1000).default(5),
 });
 export type Settings = z.infer<typeof settingsSchema>;
 
@@ -320,6 +343,10 @@ export const debtSchema = z.object({
   payDay: z.number().int().min(1).max(28).nullable().default(null),
   /** Cuántas cuotas son en total (para saber cuánto pagás de intereses). */
   installments: z.number().int().min(1).max(600).nullable().default(null),
+  /** Celular de la persona (para recordarle por WhatsApp). */
+  phone: z.string().max(30).default(''),
+  /** Última vez que le recordaste (para no insistir de más). */
+  remindedAt: date.nullable().default(null),
 });
 export type Debt = z.infer<typeof debtSchema>;
 
