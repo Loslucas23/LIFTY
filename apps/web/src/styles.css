@@ -2557,6 +2557,16 @@ button.stat {
 }
 .mismatch {
   border-color: var(--warn);
+  /* En el celular los botones bajan abajo del texto (en vez de aplastarlo). */
+  flex-wrap: wrap;
+}
+.mismatch .tile-text {
+  flex: 1 1 220px;
+  min-width: 0;
+}
+.mismatch .btn-row {
+  flex: 0 0 auto;
+  margin-left: auto;
 }
 
 /* Stock */
