@@ -1,4 +1,5 @@
 import { offBudgetAccounts } from './budget';
+import { cardAutoPayments } from './card';
 import { addMonths, daysInMonth, monthOf } from './months';
 import { round2 } from './money';
 import type { Account, Currency, Debt, LiftyData, Transaction } from './schema';
@@ -60,6 +61,12 @@ export function accountBalances(data: LiftyData, upTo: string): AccountBalance[]
         break;
     }
   }
+  // Débito automático de la tarjeta: los resúmenes vencidos que no anotaste se dan por pagados.
+  for (const tx of cardAutoPayments(data, upTo)) {
+    const r = txRateOf(tx, rate);
+    add(tx.accountId, -tx.amount, tx.currency, r);
+    add(tx.toAccountId, tx.amount, tx.currency, r);
+  }
   for (const d of data.debts ?? []) {
     // Si viene de un gasto dividido, la plata ya salió con ese gasto.
     if (d.date <= upTo && !d.fromTxId) add(d.accountId, d.direction === 'lent' ? -d.amount : d.amount, d.currency, rate);
@@ -74,10 +81,24 @@ export function accountBalances(data: LiftyData, upTo: string): AccountBalance[]
   });
 }
 
-/** Saldo inicial necesario para que la cuenta muestre `desired` hoy ("ajustar saldo"). */
+/**
+ * Saldo inicial necesario para que la cuenta muestre `desired` hoy ("ajustar saldo"). Se calcula
+ * sin el saldo anterior (en la tarjeta, la deuda de antes se paga con el débito y depende de él).
+ */
 export function initialBalanceFor(data: LiftyData, accountId: string, desired: number, today: string): number {
-  const b = accountBalances(data, today).find((x) => x.account.id === accountId);
-  return round2(desired - (b?.flows ?? 0));
+  const clean = {
+    ...data,
+    accounts: data.accounts.map((a) => (a.id === accountId ? { ...a, initialBalance: 0, initialBalanceDate: null } : a)),
+  };
+  const b = accountBalances(clean, today).find((x) => x.account.id === accountId);
+  return round2(desired - (b?.balance ?? 0));
+}
+
+/** La cuenta con el saldo ajustado para que hoy muestre `desired` (y la fecha del ajuste). */
+export function adjustBalance(data: LiftyData, accountId: string, desired: number, today: string): Account | null {
+  const account = data.accounts.find((a) => a.id === accountId);
+  if (!account) return null;
+  return { ...account, initialBalance: initialBalanceFor(data, accountId, desired, today), initialBalanceDate: today };
 }
 
 // ---------------- Tarjeta de alimentación ----------------

@@ -200,6 +200,7 @@ function IncomesStep({ month }: { month: string }) {
       endMonth: null,
       everyMonths: 1,
       aguinaldo: true,
+      aguinaldoOnExit: false,
       payDay: null,
       categoryId: 'cat-sueldo',
       accountId: null,

@@ -16,6 +16,7 @@ import {
   stockOverview,
   todayAgenda,
   upcomingEvents,
+  cashFlowWarning,
   weekdayForecast,
   weightStats,
   type AgendaItem,
@@ -28,7 +29,9 @@ import { confirmPlanned } from '../lib/actions';
 import { openBudgetEditor, openBudgetWizard, openExplain, openFixedForm, openIncomeForm, openMenu } from '../components/Editors';
 import { Icon, type IconName } from '../components/Icon';
 import { useMoneyCheck } from '../components/MoneyCheck';
+import { openSetup } from '../components/Setup';
 import { QuickJournal } from './Journal';
+import { reviewMonth } from './Review';
 import { renewReminder } from './Extras';
 import { tapHabit } from './Routines';
 import { openTxForm } from '../components/TxForm';
@@ -53,7 +56,22 @@ export function Home() {
   const name = data.settings.ownerName;
   const weight = weightStats(data.weights, { heightCm: data.settings.heightCm, goalKg: data.settings.goalWeightKg });
   const empty = data.transactions.length === 0 && data.incomes.length === 0 && data.fixed.length === 0;
-  const insights = empty ? [] : monthInsights(data, b, today);
+  // ¿Las cuentas quedan en rojo antes de fin de mes? Va primero en los avisos.
+  const low = empty ? null : cashFlowWarning(data, b, today);
+  const insights: Insight[] = [
+    ...(low
+      ? [
+          {
+            id: 'cashflow',
+            tone: 'bad' as const,
+            text: `Ojo: el día ${Number(low.date.slice(8))} tus cuentas quedarían en ${money(Math.round(low.balance))}.`,
+            detail: '',
+            href: '#/cuentas',
+          },
+        ]
+      : []),
+    ...(empty ? [] : monthInsights(data, b, today)),
+  ];
   const events = upcomingEvents(data, b, today);
   const debts = debtTotals(data);
   const foodCards = data.accounts.filter((a) => a.type === 'food' && !a.archived);
@@ -349,6 +367,15 @@ export function Home() {
             title={`Metas ${today.slice(0, 4)}`}
             text={`${yearGoals.filter((g) => g.status === 'behind').length ? `${yearGoals.filter((g) => g.status === 'behind').length} atrasada(s)` : 'Todas al día'}`}
             value={`${Math.round((yearGoals.reduce((s, g) => s + g.progress, 0) / yearGoals.length) * 100)}%`}
+          />
+        )}
+        {!empty && (
+          <Tile
+            href="#/resumen"
+            icon="chart"
+            title={`Tu ${monthLabel(reviewMonth(today), false).toLowerCase()}`}
+            text="Plata, rutinas, sueño y ánimo del mes"
+            value="Ver"
           />
         )}
         <Tile
@@ -672,19 +699,30 @@ function EventRow({ event: e }: { event: UpcomingEvent }) {
 function MoneyMismatch() {
   const c = useMoneyCheck();
   if (Math.abs(c.difference) < 100) return null;
+  // Si la diferencia es grande o hay cuentas en negativo, lo más probable es que falten los saldos reales.
+  const big = Math.abs(c.difference) > 5000 || c.accounts.some((x) => x.balanceUYU < 0);
   return (
-    <a className="card pad tile-link mismatch" href="#/cuentas">
+    <div className="card pad tile-link mismatch">
       <span aria-hidden="true">⚖️</span>
       <span className="tile-text">
         <strong>Tus cuentas no cuadran por {money(Math.round(Math.abs(c.difference)))}</strong>
         <span className="muted small">
-          {c.difference < 0
-            ? 'En tus cuentas hay menos plata de la que dice tu presupuesto: ¿algún gasto sin anotar?'
-            : 'En tus cuentas hay más plata de la que dice tu presupuesto: ¿algún ingreso sin anotar?'}
+          {big
+            ? 'Decime cuánto tenés hoy en cada cuenta y Lifty cuadra todo desde hoy (1 minuto).'
+            : c.difference < 0
+              ? 'En tus cuentas hay menos plata de la que dice tu presupuesto: ¿algún gasto sin anotar?'
+              : 'En tus cuentas hay más plata de la que dice tu presupuesto: ¿algún ingreso sin anotar?'}
         </span>
       </span>
-      <Icon name="right" size={18} />
-    </a>
+      <div className="btn-row">
+        <button className="btn btn-primary" onClick={() => openSetup()}>
+          Poner a punto
+        </button>
+        <a className="btn btn-ghost" href="#/cuentas">
+          Ver
+        </a>
+      </div>
+    </div>
   );
 }
 
@@ -737,10 +775,16 @@ function SurplusProposal({ month }: { month: string }) {
   const already = data.transactions.some(
     (t) => t.kind === 'saving' && t.description === description && monthOf(t.date) === prevMonth,
   );
-  const hasActivity = data.transactions.some((t) => monthOf(t.date) === prevMonth) || prev.income.total > 0;
+  // Solo si el mes pasó de verdad: con movimientos y cerrado (o con lo que se cobra tildado). Si
+  // no, "lo que sobró" sería una proyección, no plata real.
+  const hasActivity = data.transactions.some((t) => monthOf(t.date) === prevMonth && !t.linkKind);
+  // (Un cierre hecho por "Poner a punto" no es un sobrante: es el punto de partida.)
+  const closedForReal = !!prev.closing && prev.closing.note !== 'Cuadre con las cuentas';
+  const reliable =
+    prev.carryover.source !== 'projected' && (closedForReal || (hasActivity && !prev.closing && prev.income.pending <= 0));
   const end = prev.closing ? prev.closing.realBalance : prev.result;
   const surplus = Math.floor(round2(end - prev.carryover.amount));
-  if (dismissed || already || !hasActivity || surplus < 100) return null;
+  if (dismissed || already || !reliable || surplus < 100) return null;
   const goals = data.goals.filter((g) => !g.archived && g.currency === 'UYU');
   const send = (goalId: string | null) => {
     const id = newId();
@@ -857,9 +901,9 @@ function FirstSteps({ month }: { month: string }) {
     },
     { done: data.settings.savingsMode !== 'none', label: 'Elegí cuánto querés ahorrar por mes', run: () => navigate('/ahorro') },
     {
-      done: data.accounts.some((a) => a.initialBalance !== 0),
-      label: 'Poné cuánto tenés en cada cuenta',
-      run: () => navigate('/cuentas'),
+      done: data.accounts.some((a) => a.initialBalance !== 0) || !!local.get('lifty-setup-done'),
+      label: 'Poné cuánto tenés hoy en cada cuenta (para que todo cuadre)',
+      run: () => openSetup(),
     },
     {
       done:

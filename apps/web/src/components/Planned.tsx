@@ -17,6 +17,8 @@ export function PlannedList({ lines, month }: { lines: PlannedLine[]; month: str
   /** Estado del vencimiento para lo que todavía no se pagó / cobró. */
   const due = (line: PlannedLine): { text: string; tone: '' | 'warn' | 'bad' } => {
     const fixed = line.kind === 'fixed';
+    // Un mes que ya pasó: no está "pendiente", falta tildarlo (cuenta como si se hubiera hecho).
+    if (month < today.slice(0, 7)) return { text: fixed ? 'Sin tildar: ¿lo pagaste?' : 'Sin tildar: ¿lo cobraste?', tone: '' };
     if (!line.day) return { text: 'Pendiente', tone: '' };
     if (isCurrent) {
       const diff = line.day - todayDay;

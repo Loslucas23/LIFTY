@@ -48,9 +48,13 @@ function acc(id: string, name: string, type: Account['type'], icon: string, colo
     archived: false,
     sort,
     initialBalance: 0,
+    initialBalanceDate: null,
     monthlyLoad: null,
     loadDay: null,
     reserved: false,
+    autopay: true,
+    payFromAccountId: null,
+    payDay: null,
   };
 }
 

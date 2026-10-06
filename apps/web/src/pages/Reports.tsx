@@ -20,9 +20,12 @@ import { money } from '../lib/format';
 import { useData, useLookups, useMonths, useToday } from '../lib/store';
 
 /** Pestañas compartidas entre "Este año" y "Tendencias". */
-export function ReportTabs({ active }: { active: 'anio' | 'informes' }) {
+export function ReportTabs({ active }: { active: 'anio' | 'informes' | 'resumen' }) {
   return (
     <nav className="report-tabs" aria-label="Informes">
+      <a href="#/resumen" className={active === 'resumen' ? 'on' : ''} aria-current={active === 'resumen' ? 'page' : undefined}>
+        Resumen del mes
+      </a>
       <a href="#/anio" className={active === 'anio' ? 'on' : ''} aria-current={active === 'anio' ? 'page' : undefined}>
         Año
       </a>

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  adjustBalance,
   accountBalances,
   applyMutation,
   cardStatements,
@@ -380,8 +381,10 @@ describe('resumen de la tarjeta', () => {
       },
       { usdRate: 40 },
     );
+    // Esta tarjeta se paga a mano (en partes): sin débito automático.
+    d.accounts = d.accounts.map((a) => (a.id === 'acc-tarjeta' ? { ...a, autopay: false } : a));
     const b = computeMonth(d, '2026-10', '2026-10-11');
-    const [s] = cardStatements(d, b);
+    const [s] = cardStatements(d, b, '2026-10-11');
     expect(s.uyu).toBe(3000);
     expect(s.usd).toBe(20);
     expect(s.totalUYU).toBe(3800);
@@ -394,6 +397,63 @@ describe('resumen de la tarjeta', () => {
     // La deuda con la tarjeta baja con el pago (9000 + 800 − 2000).
     const card = accountBalances(d, '2026-10-31').find((a) => a.account.id === 'acc-tarjeta')!;
     expect(card.balance).toBe(-7800);
+  });
+
+  it('lo que debías al poner el saldo de la tarjeta se paga con el resumen siguiente', () => {
+    const d = data({}, {});
+    const card = adjustBalance(d, 'acc-tarjeta', -6000, '2026-10-06')!;
+    expect(card).toMatchObject({ initialBalance: -6000, initialBalanceDate: '2026-10-06' });
+    d.accounts = d.accounts.map((a) => (a.id === card.id ? card : a));
+    const bal = (date: string, id: string) => accountBalances(d, date).find((a) => a.account.id === id)!.balance;
+    expect(bal('2026-10-06', 'acc-tarjeta')).toBe(-6000);
+    // Sin día de pago: se debita el último día del mes, desde el BROU.
+    expect(bal('2026-10-31', 'acc-tarjeta')).toBe(0);
+    expect(bal('2026-10-31', 'acc-brou')).toBe(-6000);
+    const [oct] = cardStatements(d, computeMonth(d, '2026-10', '2026-10-06'), '2026-10-06');
+    expect(oct).toMatchObject({ opening: 6000, uyu: 6000, status: 'pending', payDate: '2026-10-31' });
+    // Volver a ajustar no se confunde con lo ya debitado.
+    const again = adjustBalance(d, 'acc-tarjeta', -500, '2026-11-02')!;
+    d.accounts = d.accounts.map((a) => (a.id === again.id ? again : a));
+    expect(bal('2026-11-02', 'acc-tarjeta')).toBe(-500);
+  });
+
+  it('con débito automático los resúmenes vencidos se dan por pagados desde la cuenta principal', () => {
+    const d = data(
+      {
+        transactions: [
+          tx({ date: '2026-09-02', kind: 'expense', amount: 9000, accountId: 'acc-tarjeta', installments: 3 }),
+          tx({ date: '2026-10-03', kind: 'expense', amount: 20, currency: 'USD', fxRate: 40, accountId: 'acc-tarjeta' }),
+          // Un pago a mano de una parte del resumen de octubre.
+          tx({
+            date: '2026-10-05',
+            kind: 'transfer',
+            amount: 2000,
+            accountId: 'acc-brou',
+            toAccountId: 'acc-tarjeta',
+            linkKind: 'cardbill',
+            linkId: 'acc-tarjeta',
+            linkMonth: '2026-10',
+          }),
+        ],
+      },
+      { usdRate: 41 },
+    );
+    // Se debita el 10 del mes siguiente.
+    d.accounts = d.accounts.map((a) => (a.id === 'acc-tarjeta' ? { ...a, payDay: 10 } : a));
+    const bal = (date: string, id: string) => accountBalances(d, date).find((a) => a.account.id === id)!.balance;
+    // 11/10: setiembre (3000) ya se debitó; de octubre falta 1000 + US$ 20; noviembre, 3000.
+    expect(bal('2026-10-11', 'acc-tarjeta')).toBe(-4800);
+    expect(bal('2026-10-11', 'acc-brou')).toBe(-5000);
+    // 10/11: se debita lo que faltaba de octubre (los dólares a la cotización de la compra: 40).
+    expect(bal('2026-11-10', 'acc-tarjeta')).toBe(-3000);
+    expect(bal('2026-11-10', 'acc-brou')).toBe(-6800);
+    const [oct] = cardStatements(d, computeMonth(d, '2026-10', '2026-11-10'), '2026-11-10');
+    expect(oct.status).toBe('paid');
+    expect(oct.payDate).toBe('2026-11-10');
+    expect(oct.payments.filter((p) => p.id.startsWith('auto-')).map((p) => [p.currency, p.amount])).toEqual([
+      ['UYU', 1000],
+      ['USD', 20],
+    ]);
   });
 });
 

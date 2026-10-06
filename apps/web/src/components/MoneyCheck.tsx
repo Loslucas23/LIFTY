@@ -1,9 +1,10 @@
-import { initialBalanceFor, moneyCheck, monthLabel, newId, type LiftyData, type MoneyCheck as Check } from '@lifty/core';
+import { adjustBalance, moneyCheck, monthLabel, newId, type LiftyData, type MoneyCheck as Check } from '@lifty/core';
 import { money } from '../lib/format';
 import { navigate } from '../lib/router';
 import { useData, useMonth, useToday } from '../lib/store';
 import { mutate } from '../lib/sync';
 import { openExplain, openMenu, openPrompt } from './Editors';
+import { openSetup } from './Setup';
 import { toast } from './ui';
 
 export function useMoneyCheck(): Check {
@@ -48,7 +49,7 @@ export function askRealBalances(data: LiftyData, c: Check, today: string, i = 0)
     hint: 'Mirá la app del banco o contá el efectivo. Lifty ajusta el saldo inicial; los movimientos no cambian.',
     confirm: i + 1 < c.accounts.length ? 'Siguiente' : 'Listo',
     onSubmit: (value) => {
-      mutate('account', 'upsert', { ...current, initialBalance: initialBalanceFor(data, a.id, value, today) });
+      mutate('account', 'upsert', adjustBalance(data, a.id, value, today) ?? current);
       setTimeout(() => askRealBalances(data, c, today, i + 1), 50);
     },
   });
@@ -204,7 +205,7 @@ export function WhereIsMyMoney() {
           <button
             className="link"
             onClick={() => {
-              mutate('account', 'upsert', { ...account, initialBalance: initialBalanceFor(data, account.id, -balance, today) });
+              mutate('account', 'upsert', adjustBalance(data, account.id, -balance, today) ?? account);
               toast(`${account.name}: debés ${money(balance, account.currency)}`, {
                 action: { label: 'Deshacer', run: () => mutate('account', 'upsert', account) },
               });
@@ -232,9 +233,14 @@ export function WhereIsMyMoney() {
               Ojo: tenés cuentas en negativo, seguramente falta poner su saldo real.{' '}
             </>
           )}
-          <button className="link" onClick={() => fixDifference(data, c, today)}>
-            Arreglarlo
-          </button>
+          <div className="btn-row">
+            <button className="btn btn-primary" onClick={() => openSetup()}>
+              Poner a punto
+            </button>
+            <button className="btn btn-ghost" onClick={() => fixDifference(data, c, today)}>
+              Otras formas
+            </button>
+          </div>
         </div>
       )}
       {c.cardFuture > 0 && (

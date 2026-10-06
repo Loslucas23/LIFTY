@@ -11,6 +11,7 @@ const GROUPS: { title: string; items: { href: string; icon: IconName; label: str
       { href: '/tarjeta', icon: 'card', label: 'Tarjeta de crédito', hint: 'Cuotas, resumen y lo que vas a pagar' },
       { href: '/ahorro', icon: 'piggy', label: 'Ahorro', hint: 'Meta del mes y metas con fecha' },
       { href: '/deudas', icon: 'people', label: 'Deudas y préstamos', hint: 'Lo que te deben y lo que debés' },
+      { href: '/resumen', icon: 'chart', label: 'Resumen del mes', hint: 'Plata, rutinas, sueño, ánimo y peso del mes juntos' },
       { href: '/informes', icon: 'chart', label: 'Informes', hint: 'El año mes a mes, tendencias y patrimonio' },
       { href: '/simulador', icon: 'card', label: '¿Me lo puedo comprar?', hint: 'Simulá una compra al contado o en cuotas' },
       { href: '/metas', icon: 'chart', label: 'Metas del año', hint: 'Ahorro, peso, estudio y hábitos: si vas al día' },

@@ -88,6 +88,7 @@ export async function smokeTour(): Promise<string[]> {
     '/recetas',
     '/simulador',
     '/diario',
+    '/resumen',
     '/',
   ];
   for (const r of routes) await go(r);
@@ -411,16 +412,24 @@ export async function smokeTour(): Promise<string[]> {
   // ¿Dónde está tu plata? (cuadre de cuentas y presupuesto)
   await go('/cuentas');
   if (!(await waitFor('.where'))) problems.push('cuadre: no aparece "¿Dónde está tu plata?"');
-  const fix = [...document.querySelectorAll<HTMLButtonElement>('.where button.link')].find((b) =>
-    b.textContent?.includes('Arreglarlo'),
+  // Si no cuadra: "Poner a punto" (saldos de hoy) y tiene que quedar cuadrando.
+  const setupBtn = [...document.querySelectorAll<HTMLButtonElement>('.where .btn')].find((b) =>
+    b.textContent?.includes('Poner a punto'),
   );
-  if (fix) {
-    fix.click();
-    if (!(await waitFor('.action-list'))) problems.push('cuadre: no se abrió "Arreglarlo"');
-    clickText('.action-list button', 'Empezar a cuadrar');
-    if (!(await until(() => $('.where .tag')?.textContent === 'Cuadra')))
-      problems.push(`cuadre: después de "Empezar a cuadrar desde hoy" sigue sin cuadrar (${$('.where .tag')?.textContent})`);
+  if (setupBtn) {
+    setupBtn.click();
+    if (!(await waitFor('.sheet input[aria-label^="Saldo de"]'))) problems.push('poner a punto: no se abrió');
+    for (const input of document.querySelectorAll<HTMLInputElement>('.sheet input[aria-label^="Saldo de"]'))
+      if (!input.value) type(input, '1000');
+    await sleep(100);
+    $<HTMLButtonElement>('.sheet-foot .btn-primary')?.click();
+    if (!(await until(() => !$('.sheet') && $('.where .tag')?.textContent === 'Cuadra', 4000)))
+      problems.push(
+        `poner a punto: sigue sin cuadrar (${$('.where .tag')?.textContent}; ${$('.sheet .field-error')?.textContent ?? ''})`,
+      );
   }
+  // ¿Llegás a fin de mes?
+  if (!document.body.textContent?.includes('¿Llegás a fin de mes?')) problems.push('cuentas: falta "¿Llegás a fin de mes?"');
   check('cuadre');
 
   // Stock: producto, compra con precio (y gasto), uso, conteo y lista de compras.

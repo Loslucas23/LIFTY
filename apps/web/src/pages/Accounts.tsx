@@ -3,7 +3,7 @@ import {
   ACCOUNT_TYPES,
   accountBalances,
   debtTotals,
-  initialBalanceFor,
+  adjustBalance,
   newId,
   round2,
   type Account,
@@ -12,6 +12,7 @@ import {
 import { openExplain, openMenu, openPrompt } from '../components/Editors';
 import { Icon } from '../components/Icon';
 import { WhereIsMyMoney } from '../components/MoneyCheck';
+import { CashFlowCard } from './Review';
 import { openTxForm } from '../components/TxForm';
 import { Chips, Field, PageHeader, Section, Sheet, Toggle, toast } from '../components/ui';
 import { money, parseAmount } from '../lib/format';
@@ -55,7 +56,7 @@ export function Accounts() {
       initial: String(credit ? Math.max(0, -b.balance) : b.balance),
       onSubmit: (value) => {
         const target = credit ? -Math.abs(value) : value;
-        mutate('account', 'upsert', { ...b.account, initialBalance: initialBalanceFor(data, b.account.id, target, today) });
+        mutate('account', 'upsert', adjustBalance(data, b.account.id, target, today) ?? b.account);
         toast(
           credit
             ? `${b.account.name}: debés ${money(Math.abs(value), b.account.currency)}`
@@ -163,6 +164,7 @@ export function Accounts() {
       </section>
 
       <WhereIsMyMoney />
+      <CashFlowCard />
 
       <Section title="Bancos y efectivo">
         <div className="card list">{money_.map(row)}</div>
@@ -226,6 +228,10 @@ export function AccountForm({ account, onClose }: { account: Account | null; onC
   const [load, setLoad] = useState(account?.monthlyLoad ? String(account.monthlyLoad) : '');
   const [loadDay, setLoadDay] = useState(account?.loadDay ? String(account.loadDay) : '');
   const [reserved, setReserved] = useState(account?.reserved ?? false);
+  const [autopay, setAutopay] = useState(account?.autopay ?? true);
+  const [payFrom, setPayFrom] = useState<string | null>(account?.payFromAccountId ?? null);
+  const [payDay, setPayDay] = useState(account?.payDay ? String(account.payDay) : '');
+  const payable = data.accounts.filter((a) => (a.type === 'bank' || a.type === 'cash') && !a.archived && !a.reserved);
   const save = () => {
     if (!name.trim()) return;
     mutate('account', 'upsert', {
@@ -239,9 +245,13 @@ export function AccountForm({ account, onClose }: { account: Account | null; onC
       archived,
       sort: account?.sort ?? data.accounts.length + 1,
       initialBalance: account?.initialBalance ?? 0,
+      initialBalanceDate: account?.initialBalanceDate ?? null,
       monthlyLoad: type === 'food' ? parseAmount(load) || null : null,
       loadDay: type === 'food' && loadDay ? Math.min(31, Math.max(1, Number(loadDay))) : null,
       reserved: (type === 'bank' || type === 'cash') && reserved,
+      autopay: type === 'credit' ? autopay : true,
+      payFromAccountId: type === 'credit' ? payFrom : null,
+      payDay: type === 'credit' && payDay ? Math.min(28, Math.max(1, Number(payDay))) : null,
     });
     toast('Cuenta guardada');
     onClose();
@@ -305,6 +315,46 @@ export function AccountForm({ account, onClose }: { account: Account | null; onC
                 />
               </Field>
             </div>
+          </>
+        )}
+        {type === 'credit' && (
+          <>
+            <Toggle
+              checked={autopay}
+              onChange={setAutopay}
+              label="Pago el resumen entero todos los meses (débito automático o a mano)"
+            />
+            {autopay ? (
+              <>
+                <p className="muted small">
+                  Cada resumen vencido se da por pagado desde la cuenta que elijas, aunque no lo anotes. Si un mes pagás vos (o
+                  una parte), anotalo con "Pagar" y Lifty usa eso.
+                </p>
+                <Field label="Se paga desde">
+                  <Chips
+                    label="Se paga desde"
+                    value={payFrom}
+                    onChange={setPayFrom}
+                    options={[
+                      { value: null as string | null, label: payable[0] ? `La principal (${payable[0].name})` : 'La principal' },
+                      ...payable.map((a) => ({ value: a.id as string | null, label: a.name, icon: a.icon })),
+                    ]}
+                  />
+                </Field>
+                <Field label="Día de pago (del mes siguiente)" hint="Si lo dejás vacío, se toma el último día del mes">
+                  <input
+                    inputMode="numeric"
+                    value={payDay}
+                    onChange={(e) => setPayDay(e.target.value.replace(/\D/g, '').slice(0, 2))}
+                    placeholder="Ej: 10"
+                  />
+                </Field>
+              </>
+            ) : (
+              <p className="muted small">
+                Pagás el mínimo o en partes: anotá cada pago en Tarjeta → Pagar. Lo que no pagues queda como deuda.
+              </p>
+            )}
           </>
         )}
         {(type === 'bank' || type === 'cash') && (

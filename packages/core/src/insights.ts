@@ -2,6 +2,7 @@ import { convert } from './accounts';
 import { countsInBudget, goalBalances, offBudgetAccounts, ownAmount, type MonthBudget } from './budget';
 import { addMonths, daysInMonth, monthDiff, monthLabel, monthOf, occursIn } from './months';
 import { round2 } from './money';
+import { addDays } from './weight';
 import { detectRecurring, unusualExpenses, weekdayForecast } from './smart';
 import { netSalary } from './salary';
 import type { Goal, LiftyData, Transaction } from './schema';
@@ -269,7 +270,11 @@ export function monthInsights(data: LiftyData, b: MonthBudget, today: string): I
     });
 
   const free = noSpendDays(data, month, today);
-  if (free.streak >= 2 && data.transactions.length > 0) {
+  // Solo si venís anotando gastos (si no, "días sin gastar" serían días sin anotar).
+  const using = data.transactions.some(
+    (t) => t.kind === 'expense' && !t.linkKind && t.date >= addDays(today, -21) && t.date <= today,
+  );
+  if (free.streak >= 2 && using) {
     out.push({
       id: 'no-spend',
       tone: 'good',

@@ -65,8 +65,8 @@ export function aguinaldoSemesterOf(month: string): { start: string; end: string
 
 /**
  * Aguinaldo estimado que cobra `src` en `month`: la doceava parte de lo cobrado en el
- * semestre. Si el trabajo termina antes del mes de cobro, la parte proporcional se
- * cobra con la liquidación, en el mes en que termina.
+ * semestre. Si el trabajo termina antes del mes de cobro, la parte proporcional solo se
+ * cuenta si lo pediste (`aguinaldoOnExit`), en el mes en que termina.
  */
 export function aguinaldoFor(src: IncomeSource, month: string): AguinaldoPayment | null {
   if (!src.aguinaldo) return null;
@@ -87,7 +87,7 @@ export function aguinaldoFor(src: IncomeSource, month: string): AguinaldoPayment
     }
   }
 
-  if (src.endMonth === month) {
+  if (src.endMonth === month && src.aguinaldoOnExit) {
     const sem = aguinaldoSemesterOf(month);
     const total = sumActive(sem.start, month);
     if (total > 0) payments.push({ month, from: sem.start, to: month, amount: round2(total / 12), settlement: true });

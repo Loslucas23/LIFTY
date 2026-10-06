@@ -43,6 +43,7 @@ export function IncomeForm({ income, month, onClose }: { income: IncomeSource | 
   });
   const recurringMonthly = freq.every === 1 && !freq.once;
   const [aguinaldo, setAguinaldo] = useState(income?.aguinaldo ?? true);
+  const [onExit, setOnExit] = useState(income?.aguinaldoOnExit ?? false);
   const [payDay, setPayDay] = useState(income?.payDay ? String(income.payDay) : '');
   const [accountId, setAccountId] = useState<string | null>(income?.accountId ?? null);
   const [error, setError] = useState<string | null>(null);
@@ -66,6 +67,7 @@ export function IncomeForm({ income, month, onClose }: { income: IncomeSource | 
     endMonth: freq.once ? startMonth : endMonth,
     everyMonths: freq.once ? 1 : freq.every,
     aguinaldo: recurringMonthly && aguinaldo,
+    aguinaldoOnExit: recurringMonthly && aguinaldo && onExit,
     payDay: payDay ? Math.min(31, Math.max(1, Number(payDay))) : null,
     categoryId: income?.categoryId ?? 'cat-sueldo',
     accountId,
@@ -257,9 +259,15 @@ export function IncomeForm({ income, month, onClose }: { income: IncomeSource | 
           <p className="muted small">
             Aguinaldo estimado {year}: {agJune ? `junio ${money(agJune.amount, currency)}` : ''}
             {agJune && agDec ? ' · ' : ''}
-            {agDec ? `diciembre ${money(agDec.amount, currency)}` : ''}. Si el trabajo termina antes, la parte proporcional se
-            suma en el último mes.
+            {agDec ? `diciembre ${money(agDec.amount, currency)}` : ''}.
           </p>
+        )}
+        {recurringMonthly && aguinaldo && endMonth && !freq.once && (
+          <Toggle
+            checked={onExit}
+            onChange={setOnExit}
+            label="Al terminar me pagan el aguinaldo proporcional (con la liquidación, el último mes)"
+          />
         )}
       </div>
     </Sheet>

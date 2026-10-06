@@ -542,7 +542,7 @@ function compareWithSheet(
     part('Sueldos', inc, 'Sueldo', salary);
     part('Aguinaldo', inc, 'Aguinaldo', aguinaldo, (excel) =>
       aguinaldo > excel
-        ? `Lifty calcula el aguinaldo por semestre (se cobra en junio y diciembre) y el proporcional cuando termina un trabajo: ${money(aguinaldo)}.`
+        ? `Lifty calcula el aguinaldo por semestre (se cobra en junio y diciembre): ${money(aguinaldo)}.`
         : `La planilla calcula el aguinaldo como medio sueldo (${money(excel)}); Lifty lo calcula por lo cobrado en el semestre.`,
     );
     part('Otros ingresos', inc, 'Extras', b.income.total - salary - aguinaldo);

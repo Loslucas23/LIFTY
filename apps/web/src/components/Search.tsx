@@ -32,6 +32,7 @@ const PAGES: { label: string; path: string; words: string }[] = [
   { label: 'Estudio', path: '/estudio', words: 'examen materias facultad' },
   { label: 'Diario', path: '/diario', words: 'sueño dormir animo' },
   { label: 'Peso', path: '/peso', words: 'kilos balanza' },
+  { label: 'Resumen del mes', path: '/resumen', words: 'mes balance como me fue animo sueño' },
   { label: 'Informes', path: '/informes', words: 'graficos patrimonio reportes' },
   { label: 'Resumen del año', path: '/anio', words: 'anual' },
   { label: 'Tu semana', path: '/semana', words: 'resumen semanal' },

@@ -2,6 +2,7 @@ import { useEffect, type ReactNode } from 'react';
 import { EditorsHost } from './components/Editors';
 import { Layout } from './components/Layout';
 import { SearchHost } from './components/Search';
+import { SetupHost } from './components/Setup';
 import { TxFormHost } from './components/TxForm';
 import { Toasts, toast } from './components/ui';
 import { match, useRoute } from './lib/router';
@@ -28,6 +29,7 @@ import { Study } from './pages/Study';
 import { Recipes } from './pages/Recipes';
 import { Journal } from './pages/Journal';
 import { Simulator } from './pages/Simulator';
+import { Review } from './pages/Review';
 import { Recurring, Reminders, Week, YearGoals } from './pages/Extras';
 import { usePrivacy } from './lib/privacy';
 import { Year } from './pages/Year';
@@ -65,6 +67,8 @@ const ROUTES: [string, (p: Record<string, string>) => ReactNode][] = [
   ['/recetas', () => <Recipes />],
   ['/diario', () => <Journal />],
   ['/simulador', () => <Simulator />],
+  ['/resumen', () => <Review />],
+  ['/resumen/:month', (p) => <Review month={p.month} />],
 ];
 
 export function App() {
@@ -121,6 +125,7 @@ export function App() {
       <TxFormHost />
       <EditorsHost />
       <SearchHost />
+      <SetupHost />
       <Toasts />
     </>
   );

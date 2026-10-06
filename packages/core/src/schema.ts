@@ -39,6 +39,11 @@ export const accountSchema = z.object({
   sort: z.number().default(0),
   /** Saldo inicial (en la moneda de la cuenta). En la tarjeta de crédito, negativo = deuda. */
   initialBalance: money.default(0),
+  /**
+   * Cuándo se ajustó el saldo por última vez. En la tarjeta, lo que debías ese día se paga
+   * en el resumen siguiente (con el débito automático).
+   */
+  initialBalanceDate: date.nullable().default(null),
   /** Tarjeta de alimentación: lo que carga la empresa cada mes y qué día. */
   monthlyLoad: money.min(0).nullable().default(null),
   loadDay: z.number().int().min(1).max(31).nullable().default(null),
@@ -47,6 +52,16 @@ export const accountSchema = z.object({
    * pasarle plata cuenta como ahorro (sacarle, como retiro de ahorro).
    */
   reserved: z.boolean().default(false),
+  /**
+   * Tarjeta de crédito: el resumen se paga entero todos los meses (débito automático o lo
+   * pagás vos). Así, cada resumen vencido se da por pagado desde `payFromAccountId` (o tu
+   * cuenta principal) aunque no lo anotes. Si pagás el mínimo o en partes, desactivalo y
+   * anotá cada pago.
+   */
+  autopay: z.boolean().default(true),
+  payFromAccountId: id.nullable().default(null),
+  /** Día del mes siguiente en que se paga el resumen (si no, se toma el último día del mes). */
+  payDay: z.number().int().min(1).max(28).nullable().default(null),
 });
 export type Account = z.infer<typeof accountSchema>;
 
@@ -141,8 +156,14 @@ export const incomeSchema = z.object({
   endMonth: month.nullable().default(null),
   /** Cada cuántos meses se cobra: 1 = todos los meses, 12 = una vez al año. */
   everyMonths: z.number().int().min(1).max(24).default(1),
-  /** Genera aguinaldo (junio y diciembre, o proporcional al terminar). */
+  /** Genera aguinaldo (junio y diciembre). */
   aguinaldo: z.boolean().default(true),
+  /**
+   * Al terminar el trabajo, ¿te pagan el aguinaldo proporcional con la liquidación? Por defecto
+   * no se cuenta: muchas veces se cobra tarde, junto con el último sueldo o nunca; si sabés que
+   * lo vas a cobrar, se activa y se suma en el último mes.
+   */
+  aguinaldoOnExit: z.boolean().default(false),
   payDay: z.number().int().min(1).max(31).nullable().default(null),
   categoryId: id.nullable().default(null),
   accountId: id.nullable().default(null),

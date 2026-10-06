@@ -6,6 +6,7 @@ import { PageHeader, Section, toast } from '../components/ui';
 import { navigate } from '../lib/router';
 import { useData, useSync } from '../lib/store';
 import { ApiError, getToken, mutate, mutateMany } from '../lib/sync';
+import { openSetup } from '../components/Setup';
 
 interface ImportPreview {
   records: { entity: EntityName; record: { id: string } & Record<string, unknown> }[];
@@ -119,6 +120,12 @@ export function ImportExcel() {
     mutate('settings', 'upsert', { ...data.settings, ...preview.settings });
     toast('Planilla importada');
     navigate('/');
+    // La planilla trae el pasado; para que hoy cuadre hacen falta los saldos de hoy.
+    setTimeout(
+      () =>
+        openSetup('Listo, importé tu planilla. Para que los números de hoy sean reales, decime cuánto tenés hoy en cada lugar.'),
+      400,
+    );
   };
 
   return (

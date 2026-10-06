@@ -13,6 +13,7 @@ import {
 import { openBudgetEditor, openBudgetWizard, openExplain, openFixedForm, openIncomeForm } from '../components/Editors';
 import { Icon } from '../components/Icon';
 import { PlannedList } from '../components/Planned';
+import { openSetup } from '../components/Setup';
 import { openTxForm } from '../components/TxForm';
 import { Empty, Field, MonthPicker, PageHeader, Progress, Section, Sheet, toast } from '../components/ui';
 import { money, parseAmount } from '../lib/format';
@@ -254,6 +255,7 @@ const CARRY_LABEL: Record<MonthBudget['carryover']['source'], string> = {
 
 function Receipt({ b, onClose }: { b: MonthBudget; onClose: () => void }) {
   const data = useData();
+  const today = useToday();
   const rows: [string, number, string?][] = [];
   if (b.carryover.source !== 'none')
     rows.push([
@@ -319,6 +321,17 @@ function Receipt({ b, onClose }: { b: MonthBudget; onClose: () => void }) {
           </>
         )}
       </dl>
+      {b.carryover.source === 'projected' && b.month === monthOf(today) && (
+        <p className="note small">
+          Lo que viene de {monthLabel(b.carryover.fromMonth ?? addMonths(b.month, -1), false).toLowerCase()} es una{' '}
+          <strong>estimación</strong> (ese mes no está cerrado): suma lo planificado aunque no lo hayas tildado. Para que sea
+          real,{' '}
+          <button className="link" onClick={() => openSetup()}>
+            poné a punto tus saldos de hoy
+          </button>
+          .
+        </p>
+      )}
       {b.closing ? (
         <div className="btn-row">
           <span className="pill pill-ok">Mes cerrado</span>

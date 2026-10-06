@@ -3,6 +3,7 @@ import {
   accountBalances,
   activeInstallmentPlans,
   addMonths,
+  cardPayFrom,
   cardStatements,
   monthLabel,
   monthOf,
@@ -36,7 +37,7 @@ export function Card() {
   const max = Math.max(1, ...next.map((m) => m.card.total));
   const remaining = round2(plans.reduce((s, p) => s + p.remaining, 0));
   const cards = data.accounts.filter((a) => a.type === 'credit' && !a.archived);
-  const statements = cardStatements(data, b);
+  const statements = cardStatements(data, b, today);
   const owed = round2(
     accountBalances(data, today)
       .filter((x) => x.account.type === 'credit')
@@ -65,7 +66,7 @@ export function Card() {
             openExplain({
               title: 'Lo que debés con la tarjeta',
               intro:
-                'Todo lo que compraste con la tarjeta (incluidas las cuotas que todavía no vencieron) menos lo que ya pagaste de los resúmenes.',
+                'Todo lo que compraste con la tarjeta (incluidas las cuotas que todavía no vencieron) menos lo que ya pagaste de los resúmenes. Con "pago el resumen entero" (débito automático), los resúmenes vencidos se dan por pagados aunque no los anotes.',
               rows: accountBalances(data, today)
                 .filter((x) => x.account.type === 'credit')
                 .map((x) => ({ label: x.account.name, value: -x.balanceUYU })),
@@ -184,12 +185,15 @@ function Statement({ statement: s }: { statement: CardStatement }) {
     openExplain({
       title: `${s.account.name}: resumen de ${name}`,
       intro: 'Las cuotas y compras que caen este mes. Ya cuentan como gasto del mes: pagar el resumen no suma de nuevo.',
-      rows: s.items.map((l) => ({
-        label: `${l.description || category.get(l.categoryId ?? '')?.name || 'Compra'}${l.installment ? ` (cuota ${l.installment.number}/${l.installment.of})` : ''}`,
-        value: l.amount,
-        op: '+' as const,
-        note: l.currency === 'USD' ? money(l.original, 'USD') : undefined,
-      })),
+      rows: [
+        ...s.items.map((l) => ({
+          label: `${l.description || category.get(l.categoryId ?? '')?.name || 'Compra'}${l.installment ? ` (cuota ${l.installment.number}/${l.installment.of})` : ''}`,
+          value: l.amount,
+          op: '+' as const,
+          note: l.currency === 'USD' ? money(l.original, 'USD') : undefined,
+        })),
+        ...(s.opening > 0 ? [{ label: 'Lo que debías al poner el saldo', value: s.opening, op: '+' as const }] : []),
+      ],
       result: { label: 'Total en pesos', value: s.totalUYU },
       footnote:
         s.usd > 0
@@ -205,7 +209,7 @@ function Statement({ statement: s }: { statement: CardStatement }) {
         </strong>
         <span className={`tag ${st.tone}`}>{st.label}</span>
       </div>
-      <button className="statement-total" onClick={explain} disabled={s.items.length === 0}>
+      <button className="statement-total" onClick={explain} disabled={s.items.length === 0 && !s.opening}>
         <span className="statement-value">{money(Math.round(s.totalUYU))}</span>
         <span className="muted small">
           {s.usd > 0
@@ -214,6 +218,17 @@ function Statement({ statement: s }: { statement: CardStatement }) {
           {s.items.length > 0 ? ' · tocá para ver el detalle' : ''}
         </span>
       </button>
+      {s.opening > 0 && (
+        <p className="small muted">
+          Incluye {money(s.opening, s.account.currency)} que debías cuando pusiste el saldo de la tarjeta.
+        </p>
+      )}
+      {s.autopay && s.status !== 'paid' && s.status !== 'empty' && (
+        <p className="small">
+          🔁 Se paga solo el {s.payDate.split('-').reverse().join('/')} desde{' '}
+          {cardPayFrom(data, s.account)?.name ?? 'tu cuenta principal'}. Si lo pagás antes o una parte, anotalo con "Pagar".
+        </p>
+      )}
       {(s.paidUYU > 0 || s.paidUSD > 0) && (
         <p className="small">
           Pagaste{' '}
@@ -244,9 +259,23 @@ function Statement({ statement: s }: { statement: CardStatement }) {
       </p>
       {s.payments.length > 0 && (
         <div className="card list">
-          {s.payments.map((t) => (
-            <TxRow key={t.id} tx={t} showDate />
-          ))}
+          {s.payments.map((t) =>
+            t.id.startsWith('auto-') ? (
+              <div key={t.id} className="tx-row static">
+                <span className="tx-icon">🔁</span>
+                <span className="tx-main">
+                  <span className="tx-title">{t.description}</span>
+                  <span className="tx-meta">
+                    {t.date.split('-').reverse().join('/')} · {cardPayFrom(data, s.account)?.name ?? 'Sin cuenta'} · no hace falta
+                    anotarlo
+                  </span>
+                </span>
+                <span className="tx-amount">{money(t.amount, t.currency)}</span>
+              </div>
+            ) : (
+              <TxRow key={t.id} tx={t} showDate />
+            ),
+          )}
         </div>
       )}
     </section>

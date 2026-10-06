@@ -4,6 +4,7 @@ import { openExplain } from '../components/Editors';
 import { PageHeader, Section } from '../components/ui';
 import { dayLabel, money } from '../lib/format';
 import { useData, useToday } from '../lib/store';
+import { MoodFactorsSection } from './Review';
 import { getState, mutate } from '../lib/sync';
 
 export const MOODS = ['😞', '😕', '😐', '🙂', '😄'];
@@ -136,6 +137,7 @@ export function Journal() {
           })}
         </div>
       </Section>
+      <MoodFactorsSection />
       <Section title="Lo que se nota">
         {lines.length ? (
           <ul className="insights">

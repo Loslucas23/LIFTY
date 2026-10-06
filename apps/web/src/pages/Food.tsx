@@ -64,6 +64,10 @@ export function Food() {
                   monthlyLoad: null,
                   loadDay: null,
                   reserved: false,
+                  initialBalanceDate: null,
+                  autopay: true,
+                  payFromAccountId: null,
+                  payDay: null,
                 }
               : editing
           }

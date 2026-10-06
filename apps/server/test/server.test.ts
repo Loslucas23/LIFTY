@@ -151,7 +151,7 @@ describe('importar Excel', () => {
     const toUYU = (row: number, result: number) => ({ formula: `IF(D${row}="UYU",C${row},C${row}*39)`, result });
     card.addRow([new Date(Date.UTC(2026, 2, 3)), 'Curso online', 900, 'UYU', 1, 6, toUYU(2, 900)]);
     card.addRow([new Date(Date.UTC(2026, 3, 3)), 'Curso online', 900, 'UYU', 2, 6, toUYU(3, 900)]);
-    card.addRow([new Date(Date.UTC(2026, 2, 5)), 'Youtube music', 3.49, 'USD', 3, 12, toUYU(4, 136.11)]);
+    card.addRow([new Date(Date.UTC(2026, 2, 5)), 'Spotify', 4.49, 'USD', 3, 12, toUYU(4, 175.11)]);
     // Totales de la planilla: marzo con la fórmula, abril con la tarjeta escrita a mano.
     const gastos = wb.addWorksheet('Gastos');
     gastos.addRow(['Mes', 'Mesnro', 'Monto fijo', 'Monto Variable', 'Tarjeta']);
@@ -160,7 +160,7 @@ describe('importar Excel', () => {
       3,
       { formula: 'SUMIFS(x)', result: 15000 },
       { formula: 'SUMIFS(y)', result: 0 },
-      { formula: 'SUMIF(z)', result: 1036.11 },
+      { formula: 'SUMIF(z)', result: 1075.11 },
     ]);
     gastos.addRow(['Abril', 4, { formula: 'SUMIFS(x)', result: 16500 }, { formula: 'SUMIFS(y)', result: 0 }, 5000]);
     const res = wb.addWorksheet('RESUMEN');
@@ -197,8 +197,8 @@ describe('importar Excel', () => {
       installments: 6,
       firstInstallmentMonth: '2026-03',
     });
-    expect(txs.find((t) => String(t.description).startsWith('Youtube music'))).toMatchObject({
-      description: 'Youtube music (cuotas 3 a 12 de 12)',
+    expect(txs.find((t) => String(t.description).startsWith('Spotify'))).toMatchObject({
+      description: 'Spotify (cuotas 3 a 12 de 12)',
       installments: 10,
       firstInstallmentMonth: '2026-03',
     });
@@ -213,12 +213,12 @@ describe('importar Excel', () => {
 
   it('usa la cotización de la hoja Tarjeta y compara los totales con la planilla', async () => {
     const result = await importWorkbook(await workbook());
-    const yt = result.records.find((r) => (r.record as { description?: string }).description?.startsWith('Youtube'));
+    const yt = result.records.find((r) => (r.record as { description?: string }).description?.startsWith('Spotify'));
     expect(yt?.record).toMatchObject({ currency: 'USD', fxRate: 39 });
     expect(result.warnings.some((w) => w.includes('a 39'))).toBe(true);
     const march = result.comparison.find((m) => m.month === '2026-03')!;
-    // Curso 900 + Youtube US$ 3,49 × 39 = 1036,11: igual que la planilla.
-    expect(march.parts.find((p) => p.label === 'Tarjeta')).toMatchObject({ excel: 1036.11, lifty: 1036.11, note: null });
+    // Curso 900 + Spotify US$ 4,49 × 39 = 1075,11: igual que la planilla.
+    expect(march.parts.find((p) => p.label === 'Tarjeta')).toMatchObject({ excel: 1075.11, lifty: 1075.11, note: null });
     expect(march.parts.find((p) => p.label === 'Gastos fijos')).toMatchObject({ lifty: 15000, note: null });
     const april = result.comparison.find((m) => m.month === '2026-04')!;
     expect(april.parts.find((p) => p.label === 'Tarjeta')).toMatchObject({ excel: 5000, explained: true });

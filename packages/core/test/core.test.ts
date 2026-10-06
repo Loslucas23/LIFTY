@@ -69,8 +69,11 @@ describe('sueldo', () => {
     expect(aguinaldoFor(src, '2026-06')?.amount).toBe(1000);
   });
 
-  it('aguinaldo de liquidación en el mes en que termina', () => {
-    const src = income({ name: 'Viejo', gross: 12000, netOverride: 12000, startMonth: '2026-01', endMonth: '2026-04' });
+  it('aguinaldo de liquidación en el mes en que termina (solo si lo pediste)', () => {
+    const base = { name: 'Viejo', gross: 12000, netOverride: 12000, startMonth: '2026-01', endMonth: '2026-04' };
+    // Por defecto no se suma: no se sabe si lo vas a cobrar ni cuándo.
+    expect(aguinaldoFor(income(base), '2026-04')).toBeNull();
+    const src = income({ ...base, aguinaldoOnExit: true });
     // dic-2025 no trabajó; ene-abr = 4 meses
     expect(aguinaldoFor(src, '2026-04')).toMatchObject({ amount: 4000, settlement: true });
     expect(aguinaldoFor(src, '2026-06')).toBeNull();
