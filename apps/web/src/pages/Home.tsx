@@ -30,7 +30,8 @@ import { openBudgetEditor, openBudgetWizard, openExplain, openFixedForm, openInc
 import { Icon, type IconName } from '../components/Icon';
 import { useMoneyCheck } from '../components/MoneyCheck';
 import { openSetup } from '../components/Setup';
-import { QuickJournal } from './Journal';
+import { QuickJournal, saveJournal } from './Journal';
+import { useHealth } from './Health';
 import { reviewMonth } from './Review';
 import { renewReminder } from './Extras';
 import { tapHabit } from './Routines';
@@ -210,6 +211,8 @@ export function Home() {
         </a>
       </div>
 
+      <AutopilotToday />
+
       <SurplusProposal month={month} />
 
       <CloseReminder month={month} />
@@ -378,6 +381,7 @@ export function Home() {
             value="Ver"
           />
         )}
+        <HealthTile />
         <Tile
           href="#/semana"
           icon="calendar"
@@ -440,6 +444,21 @@ export function Home() {
   );
 }
 
+/** Los dos puntajes (plata y vida) en una tarjeta. */
+function HealthTile() {
+  const { money: h, life } = useHealth();
+  if (!h && !life) return null;
+  return (
+    <Tile
+      href="#/salud"
+      icon="chart"
+      title="Tu salud"
+      text={[h ? `Plata ${h.score}/100` : null, life ? `Vida ${life.score}/100` : null].filter(Boolean).join(' · ')}
+      value="Ver"
+    />
+  );
+}
+
 function weekday(date: string): string {
   const name = new Date(`${date}T12:00:00`).toLocaleDateString('es-UY', { weekday: 'long' });
   return name.charAt(0).toUpperCase() + name.slice(1);
@@ -498,7 +517,7 @@ function TodayList({ b, events, stock }: { b: MonthBudget; events: UpcomingEvent
   const data = useData();
   const today = useToday();
   const [showDone, setShowDone] = useState(false);
-  const agenda = todayAgenda(data, b, today);
+  const agenda = todayAgenda(data, b, today, new Date().getHours());
   if (!agenda.items.length) return null;
   const done = agenda.items.filter((i) => i.done).length;
   const shown = showDone ? agenda.items : agenda.items.filter((i) => !i.done);
@@ -594,6 +613,17 @@ function AgendaRow({ item, stock }: { item: AgendaItem; stock: StockOverview | n
     case 'journal':
       open = () => navigate('/diario');
       break;
+    case 'checkin': {
+      const ask = () =>
+        openMenu('¿Gastaste algo hoy?', [
+          { label: 'Sí: anotar un gasto', run: () => openTxForm({ preset: { kind: 'expense' } }) },
+          { label: 'Hoy no gasté nada', run: () => saveJournal(today, { noSpend: true }) },
+        ]);
+      check = ask;
+      checkLabel = 'Responder: ¿gastaste algo hoy?';
+      open = ask;
+      break;
+    }
   }
   return (
     <li className={item.done ? 'done' : ''}>
@@ -692,6 +722,28 @@ function EventRow({ event: e }: { event: UpcomingEvent }) {
       </button>
       <span className="planned-amount">{money(e.amount)}</span>
     </li>
+  );
+}
+
+/** Lo que el piloto automático hizo hoy (una línea, con link al historial). */
+function AutopilotToday() {
+  const data = useData();
+  const today = useToday();
+  const logs = data.autoLogs.filter((l) => l.date === today && !l.undone);
+  if (!logs.length) return null;
+  return (
+    <a className="auto-today" href="#/piloto">
+      <span aria-hidden="true">🤖</span>
+      <span className="grow">
+        Hoy Lifty hizo solo:{' '}
+        {logs
+          .slice(0, 3)
+          .map((l) => l.title)
+          .join(' · ')}
+        {logs.length > 3 ? ` y ${logs.length - 3} más` : ''}
+      </span>
+      <Icon name="right" size={16} />
+    </a>
   );
 }
 

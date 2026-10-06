@@ -45,6 +45,7 @@ export function IncomeForm({ income, month, onClose }: { income: IncomeSource | 
   const [aguinaldo, setAguinaldo] = useState(income?.aguinaldo ?? true);
   const [onExit, setOnExit] = useState(income?.aguinaldoOnExit ?? false);
   const [payDay, setPayDay] = useState(income?.payDay ? String(income.payDay) : '');
+  const [autoConfirm, setAutoConfirm] = useState(income?.autoConfirm ?? false);
   const [accountId, setAccountId] = useState<string | null>(income?.accountId ?? null);
   const [error, setError] = useState<string | null>(null);
 
@@ -69,6 +70,7 @@ export function IncomeForm({ income, month, onClose }: { income: IncomeSource | 
     aguinaldo: recurringMonthly && aguinaldo,
     aguinaldoOnExit: recurringMonthly && aguinaldo && onExit,
     payDay: payDay ? Math.min(31, Math.max(1, Number(payDay))) : null,
+    autoConfirm: !!payDay && autoConfirm,
     categoryId: income?.categoryId ?? 'cat-sueldo',
     accountId,
     archived: false,
@@ -237,6 +239,13 @@ export function IncomeForm({ income, month, onClose }: { income: IncomeSource | 
             placeholder="Ej: 5"
           />
         </Field>
+        {payDay && (
+          <Toggle
+            checked={autoConfirm}
+            onChange={setAutoConfirm}
+            label={`🤖 Marcarlo cobrado solo el día ${payDay} (si te depositan siempre ese día)`}
+          />
+        )}
         <Field label="¿Dónde lo cobrás?">
           <Chips
             label="Cuenta"
@@ -283,6 +292,7 @@ export function FixedForm({ fixed, month, onClose }: { fixed: FixedExpense | nul
   const [categoryId, setCategoryId] = useState<string | null>(fixed?.categoryId ?? null);
   const [accountId, setAccountId] = useState<string | null>(fixed?.accountId ?? null);
   const [day, setDay] = useState(fixed?.dayOfMonth ? String(fixed.dayOfMonth) : '');
+  const [autopay, setAutopay] = useState(fixed?.autopay ?? false);
   const [startMonth, setStartMonth] = useState(fixed?.startMonth ?? month ?? monthOf(today));
   const [endMonth, setEndMonth] = useState<string | null>(fixed?.endMonth ?? null);
   const [freq, setFreq] = useState({
@@ -305,6 +315,8 @@ export function FixedForm({ fixed, month, onClose }: { fixed: FixedExpense | nul
       startMonth,
       endMonth: freq.once ? startMonth : endMonth,
       everyMonths: freq.once ? 1 : freq.every,
+      archived: fixed?.archived ?? false,
+      autopay: !!day && autopay,
     });
     if (!result.success) return setError('Escribí un monto mayor a 0.');
     mutate('fixed', 'upsert', result.data);
@@ -400,6 +412,7 @@ export function FixedForm({ fixed, month, onClose }: { fixed: FixedExpense | nul
             placeholder="Ej: 10"
           />
         </Field>
+        {day && <Toggle checked={autopay} onChange={setAutopay} label={`🤖 Se debita solo: marcarlo pagado el día ${day}`} />}
         <FrequencyPicker every={freq.every} once={freq.once} onChange={setFreq} />
         <div className="row">
           <Field label={freq.once ? 'Mes' : freq.every === 1 ? 'Desde' : 'Primera vez'}>

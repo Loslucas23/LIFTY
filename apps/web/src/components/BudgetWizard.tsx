@@ -201,6 +201,7 @@ function IncomesStep({ month }: { month: string }) {
       everyMonths: 1,
       aguinaldo: true,
       aguinaldoOnExit: false,
+      autoConfirm: false,
       payDay: null,
       categoryId: 'cat-sueldo',
       accountId: null,
@@ -259,6 +260,7 @@ function FixedStep({ month }: { month: string }) {
       endMonth: null,
       everyMonths: 1,
       archived: false,
+      autopay: false,
     };
     mutate('fixed', 'upsert', fixed);
     setName('');

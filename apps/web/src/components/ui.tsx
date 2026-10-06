@@ -187,12 +187,25 @@ export function Chips<T extends string | null>({
   );
 }
 
-export function Toggle({ checked, onChange, label }: { checked: boolean; onChange: (v: boolean) => void; label: string }) {
+export function Toggle({
+  checked,
+  onChange,
+  label,
+  disabled = false,
+  compact = false,
+}: {
+  checked: boolean;
+  onChange: (v: boolean) => void;
+  label: string;
+  disabled?: boolean;
+  /** Solo el interruptor (el texto queda para lectores de pantalla). */
+  compact?: boolean;
+}) {
   return (
-    <label className="toggle">
-      <input type="checkbox" checked={checked} onChange={(e) => onChange(e.target.checked)} />
+    <label className={`toggle ${compact ? 'toggle-compact' : ''} ${disabled ? 'is-disabled' : ''}`}>
+      <input type="checkbox" checked={checked} disabled={disabled} onChange={(e) => onChange(e.target.checked)} />
       <span className="toggle-track" aria-hidden="true" />
-      <span>{label}</span>
+      <span className={compact ? 'sr-only' : ''}>{label}</span>
     </label>
   );
 }

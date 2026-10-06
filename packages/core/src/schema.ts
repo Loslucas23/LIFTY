@@ -62,6 +62,8 @@ export const accountSchema = z.object({
   payFromAccountId: id.nullable().default(null),
   /** Día del mes siguiente en que se paga el resumen (si no, se toma el último día del mes). */
   payDay: z.number().int().min(1).max(28).nullable().default(null),
+  /** Tarjeta de alimentación: la carga del mes se anota sola el día de carga. */
+  autoLoad: z.boolean().default(false),
 });
 export type Account = z.infer<typeof accountSchema>;
 
@@ -164,6 +166,8 @@ export const incomeSchema = z.object({
    * lo vas a cobrar, se activa y se suma en el último mes.
    */
   aguinaldoOnExit: z.boolean().default(false),
+  /** Piloto automático: el día de cobro se marca cobrado solo (si te depositan siempre el mismo día). */
+  autoConfirm: z.boolean().default(false),
   payDay: z.number().int().min(1).max(31).nullable().default(null),
   categoryId: id.nullable().default(null),
   accountId: id.nullable().default(null),
@@ -184,6 +188,8 @@ export const fixedSchema = z.object({
   /** Cada cuántos meses se paga: 1 = mensual, 3 = trimestral, 12 = anual (patente, contribución…). */
   everyMonths: z.number().int().min(1).max(24).default(1),
   archived: z.boolean().default(false),
+  /** Piloto automático: se debita solo (UTE, Antel, cuota…): el día que vence se marca pagado. */
+  autopay: z.boolean().default(false),
 });
 export type FixedExpense = z.infer<typeof fixedSchema>;
 
@@ -235,6 +241,11 @@ export const settingsSchema = z.object({
   goalWeightKg: z.number().min(20).max(400).nullable().default(null),
   /** Módulo Stock: cada cuántos días hacés las compras (para saber qué comprar ahora). */
   shoppingDays: z.number().int().min(1).max(60).default(7),
+  /** Piloto automático: cuando cobrás, lo que falta para la meta de ahorro del mes pasa solo al ahorro. */
+  autoSave: z.boolean().default(false),
+  autoSaveGoalId: id.nullable().default(null),
+  /** Piloto automático: lo que se termina en el stock va solo a la lista de compras. */
+  autoShop: z.boolean().default(false),
 });
 export type Settings = z.infer<typeof settingsSchema>;
 
@@ -459,8 +470,40 @@ export const journalSchema = z.object({
   /** 1 (mal) a 5 (muy bien). */
   mood: z.number().int().min(1).max(5).nullable().default(null),
   note: z.string().max(500).default(''),
+  /** "Hoy no gasté" (para distinguir un día sin gastos de un día sin anotar). */
+  noSpend: z.boolean().default(false),
 });
 export type JournalEntry = z.infer<typeof journalSchema>;
+
+/** Regla de categoría: si la descripción contiene `contains`, va a `categoryId`. */
+export const ruleSchema = z.object({
+  ...base,
+  contains: z.string().trim().min(2).max(40),
+  categoryId: id,
+});
+export type CategoryRule = z.infer<typeof ruleSchema>;
+
+export const AUTO_KINDS = ['fixed', 'income', 'load', 'saving', 'shop', 'category'] as const;
+
+/**
+ * Lo que hizo el piloto automático (una vez por clave: `fixed:<id>:<mes>`…). Si lo deshacés,
+ * queda `undone` y no lo vuelve a hacer.
+ */
+export const autoLogSchema = z.object({
+  ...base,
+  date,
+  kind: z.enum(AUTO_KINDS),
+  title: z.string().max(120),
+  /** Lo que creó o cambió (para deshacer). */
+  created: z
+    .array(z.object({ entity: z.string(), id }))
+    .max(30)
+    .default([]),
+  /** Cómo estaba antes lo que cambió (por ejemplo, la categoría de un movimiento). */
+  before: z.array(z.unknown()).max(30).default([]),
+  undone: z.boolean().default(false),
+});
+export type AutoLog = z.infer<typeof autoLogSchema>;
 
 export const ENTITY_SCHEMAS = {
   account: accountSchema,
@@ -485,6 +528,8 @@ export const ENTITY_SCHEMAS = {
   yearGoal: yearGoalSchema,
   recipe: recipeSchema,
   journal: journalSchema,
+  rule: ruleSchema,
+  autoLog: autoLogSchema,
 } as const;
 
 export type EntityName = keyof typeof ENTITY_SCHEMAS;
@@ -513,6 +558,8 @@ export interface EntityTypes {
   yearGoal: YearGoal;
   recipe: Recipe;
   journal: JournalEntry;
+  rule: CategoryRule;
+  autoLog: AutoLog;
 }
 
 export function isEntityName(value: string): value is EntityName {
@@ -556,4 +603,6 @@ export interface LiftyData {
   yearGoals: YearGoal[];
   recipes: Recipe[];
   journal: JournalEntry[];
+  rules: CategoryRule[];
+  autoLogs: AutoLog[];
 }

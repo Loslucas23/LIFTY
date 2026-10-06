@@ -68,6 +68,7 @@ export function Food() {
                   autopay: true,
                   payFromAccountId: null,
                   payDay: null,
+                  autoLoad: false,
                 }
               : editing
           }

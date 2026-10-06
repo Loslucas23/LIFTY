@@ -29,6 +29,9 @@ export function defaultSettings(): Settings {
     heightCm: null,
     goalWeightKg: null,
     shoppingDays: 7,
+    autoSave: false,
+    autoSaveGoalId: null,
+    autoShop: false,
   };
 }
 
@@ -55,6 +58,7 @@ function acc(id: string, name: string, type: Account['type'], icon: string, colo
     autopay: true,
     payFromAccountId: null,
     payDay: null,
+    autoLoad: false,
   };
 }
 

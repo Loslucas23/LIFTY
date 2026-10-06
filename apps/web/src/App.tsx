@@ -30,6 +30,8 @@ import { Recipes } from './pages/Recipes';
 import { Journal } from './pages/Journal';
 import { Simulator } from './pages/Simulator';
 import { Review } from './pages/Review';
+import { Autopilot, AutopilotRunner } from './pages/Autopilot';
+import { Health } from './pages/Health';
 import { Recurring, Reminders, Week, YearGoals } from './pages/Extras';
 import { usePrivacy } from './lib/privacy';
 import { Year } from './pages/Year';
@@ -68,6 +70,8 @@ const ROUTES: [string, (p: Record<string, string>) => ReactNode][] = [
   ['/diario', () => <Journal />],
   ['/simulador', () => <Simulator />],
   ['/resumen', () => <Review />],
+  ['/piloto', () => <Autopilot />],
+  ['/salud', () => <Health />],
   ['/resumen/:month', (p) => <Review month={p.month} />],
 ];
 
@@ -126,6 +130,7 @@ export function App() {
       <EditorsHost />
       <SearchHost />
       <SetupHost />
+      <AutopilotRunner />
       <Toasts />
     </>
   );

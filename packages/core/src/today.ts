@@ -3,6 +3,7 @@ import { reminderStatus } from './extras';
 import { habitsToday } from './habits';
 import { upcomingEvents } from './insights';
 import { fold, round2 } from './money';
+import { addDays } from './weight';
 import type { LiftyData } from './schema';
 import { stockOverview } from './stock';
 import { subjectStatus } from './study';
@@ -11,7 +12,7 @@ import { subjectStatus } from './study';
  * "Para hoy": todo lo del día en una sola lista, venga del módulo que venga (plata, rutinas,
  * estudio, stock, vencimientos, diario). Cada ítem dice si ya está hecho.
  */
-export type AgendaKind = 'fixed' | 'income' | 'load' | 'habit' | 'study' | 'stock' | 'reminder' | 'journal';
+export type AgendaKind = 'fixed' | 'income' | 'load' | 'habit' | 'study' | 'stock' | 'reminder' | 'journal' | 'checkin';
 
 export interface AgendaItem {
   key: string;
@@ -33,7 +34,8 @@ export interface Agenda {
   total: number;
 }
 
-export function todayAgenda(data: LiftyData, b: MonthBudget, today: string): Agenda {
+/** `hour`: la hora actual (0-23), para lo que depende del momento del día ("¿gastaste algo hoy?" a la noche). */
+export function todayAgenda(data: LiftyData, b: MonthBudget, today: string, hour?: number): Agenda {
   const items: AgendaItem[] = [];
 
   // Plata: fijos que vencen hoy o ya vencieron, cobros y cargas de hoy.
@@ -162,6 +164,26 @@ export function todayAgenda(data: LiftyData, b: MonthBudget, today: string): Age
       urgency: 1,
       done: j?.sleepHours != null && j?.mood != null,
     });
+  }
+
+  // ¿Gastaste algo hoy? A la noche, si venís anotando gastos: para que un día sin anotar no
+  // pase por un día sin gastar.
+  if (hour !== undefined && hour >= 18) {
+    const dayToDay = (t: (typeof data.transactions)[number]) => t.kind === 'expense' && !t.linkKind;
+    const using = data.transactions.some((t) => dayToDay(t) && t.date >= addDays(today, -14) && t.date < today);
+    if (using) {
+      const spent = data.transactions.some((t) => dayToDay(t) && t.date === today);
+      const j = data.journal.find((x) => x.date === today);
+      items.push({
+        key: 'checkin',
+        kind: 'checkin',
+        refId: today,
+        title: '💸 ¿Gastaste algo hoy?',
+        detail: spent ? 'Ya anotaste lo de hoy' : j?.noSpend ? 'Hoy no gastaste nada' : 'Anotalo, o marcá que hoy no gastaste',
+        urgency: 1,
+        done: spent || !!j?.noSpend,
+      });
+    }
   }
 
   items.sort((a, b) => Number(a.done) - Number(b.done) || b.urgency - a.urgency);

@@ -229,6 +229,7 @@ export function AccountForm({ account, onClose }: { account: Account | null; onC
   const [loadDay, setLoadDay] = useState(account?.loadDay ? String(account.loadDay) : '');
   const [reserved, setReserved] = useState(account?.reserved ?? false);
   const [autopay, setAutopay] = useState(account?.autopay ?? true);
+  const [autoLoad, setAutoLoad] = useState(account?.autoLoad ?? false);
   const [payFrom, setPayFrom] = useState<string | null>(account?.payFromAccountId ?? null);
   const [payDay, setPayDay] = useState(account?.payDay ? String(account.payDay) : '');
   const payable = data.accounts.filter((a) => (a.type === 'bank' || a.type === 'cash') && !a.archived && !a.reserved);
@@ -252,6 +253,7 @@ export function AccountForm({ account, onClose }: { account: Account | null; onC
       autopay: type === 'credit' ? autopay : true,
       payFromAccountId: type === 'credit' ? payFrom : null,
       payDay: type === 'credit' && payDay ? Math.min(28, Math.max(1, Number(payDay))) : null,
+      autoLoad: type === 'food' && autoLoad,
     });
     toast('Cuenta guardada');
     onClose();
@@ -315,6 +317,7 @@ export function AccountForm({ account, onClose }: { account: Account | null; onC
                 />
               </Field>
             </div>
+            <Toggle checked={autoLoad} onChange={setAutoLoad} label="🤖 Anotar la carga sola el día de carga" />
           </>
         )}
         {type === 'credit' && (

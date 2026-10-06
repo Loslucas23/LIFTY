@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState, useSyncExternalStore } from 'react';
 import {
   buildWordIndex,
   installmentsOf,
+  matchRule,
   monthLabel,
   monthOf,
   newId,
@@ -9,6 +10,7 @@ import {
   suggestCategory,
   todayISO,
   transactionSchema,
+  type CategorySuggestion,
   type Currency,
   type Transaction,
   type TxKind,
@@ -122,14 +124,15 @@ function TxForm({
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [data.transactions, kind],
   );
-  const suggested = useMemo(
-    () =>
-      (kind === 'expense' || kind === 'income') && !linked
-        ? suggestCategory(wordIndex, description, new Set(categories.map((c) => c.id)))
-        : null,
+  const suggested = useMemo((): (CategorySuggestion | { categoryId: string; word: string; source: 'rule' }) | null => {
+    if ((kind !== 'expense' && kind !== 'income') || linked) return null;
+    const valid = new Set(categories.map((c) => c.id));
+    // Primero tus reglas ("uber" → Transporte); después lo que aprendió de lo que cargaste.
+    const rule = matchRule(data.rules, description);
+    if (rule && valid.has(rule.categoryId)) return { categoryId: rule.categoryId, word: rule.contains, source: 'rule' };
+    return suggestCategory(wordIndex, description, valid);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [wordIndex, description, kind, linked, data.categories],
-  );
+  }, [wordIndex, description, kind, linked, data.categories, data.rules]);
   useEffect(() => {
     if (categoryTouched || tx) return;
     setCategoryId(suggested?.categoryId ?? null);
@@ -525,9 +528,11 @@ function TxForm({
                 {!categoryTouched && !tx && suggested && categoryId === suggested.categoryId && (
                   <span className="budget-hint suggest-hint">
                     ✨ Sugerida{' '}
-                    {suggested.source === 'history'
-                      ? `porque "${suggested.word}" lo cargaste ${suggested.count} de ${suggested.total} ${suggested.total === 1 ? 'vez' : 'veces'} en ${categories.find((c) => c.id === suggested.categoryId)?.name ?? 'esa categoría'}`
-                      : `por la palabra "${suggested.word}"`}
+                    {suggested.source === 'rule'
+                      ? `por tu regla "${suggested.word}"`
+                      : suggested.source === 'history'
+                        ? `porque "${suggested.word}" lo cargaste ${suggested.count} de ${suggested.total} ${suggested.total === 1 ? 'vez' : 'veces'} en ${categories.find((c) => c.id === suggested.categoryId)?.name ?? 'esa categoría'}`
+                        : `por la palabra "${suggested.word}"`}
                     . Tocá otra para cambiarla.
                   </span>
                 )}

@@ -19,6 +19,7 @@ export function saveJournal(date: string, patch: Partial<JournalEntry>) {
     sleepHours: null,
     mood: null,
     note: '',
+    noSpend: false,
     ...(prev ?? {}),
     ...patch,
   });

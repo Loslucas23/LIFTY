@@ -114,6 +114,7 @@ describe('presupuesto mensual', () => {
           endMonth: null,
           everyMonths: 1,
           archived: false,
+          autopay: false,
         },
         {
           id: 'gym',
@@ -128,6 +129,7 @@ describe('presupuesto mensual', () => {
           endMonth: '2026-01',
           everyMonths: 1,
           archived: false,
+          autopay: false,
         },
       ],
       transactions: [

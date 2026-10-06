@@ -89,6 +89,8 @@ export async function smokeTour(): Promise<string[]> {
     '/simulador',
     '/diario',
     '/resumen',
+    '/piloto',
+    '/salud',
     '/',
   ];
   for (const r of routes) await go(r);
@@ -626,6 +628,21 @@ export async function smokeTour(): Promise<string[]> {
   if (!(await until(() => document.querySelectorAll('.journal-quick .chip.on').length === 2)))
     problems.push('diario: no se guardó el sueño y el ánimo');
   check('diario');
+
+  // Piloto automático: una regla de categoría (se agrega y se borra).
+  await go('/piloto');
+  const ruleWord = `regla${Date.now() % 100000}`;
+  type($<HTMLInputElement>('input[placeholder="Ej: uber, farmacia, disco"]'), ruleWord);
+  [...document.querySelectorAll<HTMLButtonElement>('.page .chip')].find((c) => c.textContent?.includes('Supermercado'))?.click();
+  await sleep(100);
+  clickText('.page .btn-primary', 'Agregar regla');
+  const ruleRow = () => [...document.querySelectorAll<HTMLElement>('.tx-row')].find((r) => r.textContent?.includes(ruleWord));
+  if (!(await until(() => !!ruleRow()))) problems.push('piloto: no se agregó la regla');
+  else {
+    ruleRow()!.querySelector<HTMLButtonElement>('.icon-btn')?.click();
+    if (!(await until(() => !ruleRow()))) problems.push('piloto: no se borró la regla');
+  }
+  check('piloto automático');
 
   // Modo privado (tecla P): oculta los montos y se vuelve a mostrar.
   await go('/');

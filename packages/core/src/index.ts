@@ -19,3 +19,5 @@ export * from './life';
 export * from './today';
 export * from './smart';
 export * from './whole';
+export * from './autopilot';
+export * from './health';
