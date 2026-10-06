@@ -75,7 +75,7 @@ function confirmLine(data: LiftyData, line: PlannedLine, month: string, date: st
 }
 
 /** Tu cuenta principal en pesos (de donde sale lo que el piloto pasa al ahorro). */
-function mainAccount(data: LiftyData) {
+export function mainAccount(data: LiftyData) {
   return (
     data.accounts.find((a) => a.type === 'bank' && a.currency === 'UYU' && !a.archived && !a.reserved) ??
     data.accounts.find((a) => (a.type === 'bank' || a.type === 'cash') && !a.archived && !a.reserved) ??

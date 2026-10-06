@@ -26,6 +26,7 @@ import { Reports } from './pages/Reports';
 import { Stock } from './pages/Stock';
 import { LifeCalendar } from './pages/LifeCalendar';
 import { Periods } from './pages/Periods';
+import { Plata } from './pages/Plata';
 import { Retro } from './pages/Retro';
 import { Routines } from './pages/Routines';
 import { Study } from './pages/Study';
@@ -65,6 +66,7 @@ const ROUTES: [string, (p: Record<string, string>) => ReactNode][] = [
   ['/deudas', () => <Debts />],
   ['/stock', () => <Stock />],
   ['/lista', () => <Stock initialTab="lista" />],
+  ['/plata', () => <Plata />],
   ['/calendario', () => <LifeCalendar />],
   ['/calendario/:month', (p) => <LifeCalendar month={p.month} />],
   ['/epocas', () => <Periods />],

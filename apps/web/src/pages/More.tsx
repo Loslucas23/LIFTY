@@ -6,7 +6,18 @@ const GROUPS: { title: string; items: { href: string; icon: IconName; label: str
   {
     title: 'Plata',
     items: [
-      { href: '/cuentas', icon: 'bank', label: 'Cuentas y saldos', hint: 'BROU, Itaú, efectivo, dólares; transferir' },
+      {
+        href: '/plata',
+        icon: 'wallet',
+        label: 'Tu plata',
+        hint: 'Cuánto te sobra de verdad, dónde está cada peso, metas, inversiones y patrimonio',
+      },
+      {
+        href: '/cuentas',
+        icon: 'bank',
+        label: 'Cuentas y saldos',
+        hint: 'BROU, Itaú, efectivo, dólares, inversiones; transferir',
+      },
       { href: '/alimentacion', icon: 'food', label: 'Tarjeta de alimentación', hint: 'Va aparte: saldo, carga y cuánto por día' },
       { href: '/tarjeta', icon: 'card', label: 'Tarjeta de crédito', hint: 'Cuotas, resumen y lo que vas a pagar' },
       { href: '/ahorro', icon: 'piggy', label: 'Ahorro', hint: 'Meta del mes y metas con fecha' },

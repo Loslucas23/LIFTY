@@ -259,11 +259,19 @@ function buildIndex(data: LiftyData): Index {
   const linked: Index['linked'] = new Map();
   const offBudget = offBudgetAccounts(data);
   const reserved = reservedAccounts(data);
+  const investing = new Set(data.accounts.filter((a) => a.investKind).map((a) => a.id));
   for (const raw of data.transactions) {
     const asSaving = savingFromTransfer(raw, reserved);
     const original: Transaction =
       asSaving === null ? raw : { ...raw, kind: 'saving', amount: asSaving, toAccountId: null, goalId: null };
     if (!countsInBudget(original, offBudget)) continue;
+    // Adentro de la plata guardada (asignar a una meta lo que ya está en una cuenta de ahorro,
+    // los intereses de un plazo fijo): no toca el presupuesto del mes.
+    if (asSaving === null && original.accountId && reserved.has(original.accountId)) {
+      if (original.kind === 'saving') continue;
+      if (original.kind === 'income' && (investing.has(original.accountId) || original.categoryId === 'cat-rendimientos'))
+        continue;
+    }
     const tx = original.sharedAmount ? { ...original, amount: ownAmount(original) } : original;
     if (tx.linkKind && tx.linkId && tx.linkMonth) {
       const key = `${tx.linkKind}:${tx.linkId}:${tx.linkMonth}`;

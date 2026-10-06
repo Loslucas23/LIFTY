@@ -179,6 +179,35 @@ export function debtStatus(d: Debt): DebtStatus {
   return { debt: d, paid, remaining, done: d.settled || remaining <= 0.009 };
 }
 
+export interface LoanPlan {
+  installment: number;
+  payDay: number;
+  /** Cuotas que faltan (con la última, que puede ser menor). */
+  left: number;
+  /** Mes de la última cuota. */
+  endMonth: string;
+  /** Lo que pagás de más (intereses), si sabés cuántas cuotas son en total. */
+  interest: number | null;
+}
+
+/** Un préstamo en cuotas: cuántas faltan, cuándo terminás y cuánto pagás de intereses. */
+export function loanPlan(d: Debt, today: string): LoanPlan | null {
+  if (!d.installmentAmount || !d.payDay) return null;
+  const s = debtStatus(d);
+  const left = s.done ? 0 : Math.ceil(s.remaining / d.installmentAmount - 1e-9);
+  // Si la cuota de este mes ya está paga, la próxima es el mes que viene.
+  const month = monthOf(today);
+  const paidThisMonth = d.payments.some((p) => monthOf(p.date) === month);
+  const first = paidThisMonth || Number(today.slice(8)) > d.payDay ? addMonths(month, 1) : month;
+  return {
+    installment: d.installmentAmount,
+    payDay: d.payDay,
+    left,
+    endMonth: addMonths(first, Math.max(0, left - 1)),
+    interest: d.installments ? round2(Math.max(0, d.installments * d.installmentAmount - d.amount)) : null,
+  };
+}
+
 /** Total que te deben y que debés (en pesos), de lo que sigue abierto. */
 export function debtTotals(data: LiftyData): { owedToMe: number; iOwe: number } {
   const rate = data.settings.usdRate;

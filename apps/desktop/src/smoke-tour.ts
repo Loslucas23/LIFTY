@@ -93,6 +93,7 @@ export async function smokeTour(): Promise<string[]> {
     '/salud',
     '/desafios',
     '/lista',
+    '/plata',
     '/calendario',
     '/epocas',
     '/tu-anio',
@@ -714,6 +715,16 @@ export async function smokeTour(): Promise<string[]> {
     }
   } else problems.push('vacaciones: no se abrió el formulario');
   check('vacaciones');
+
+  // Tu plata: te sobra, y repartir el cobro.
+  await go('/plata');
+  if (!$('.hero')) problems.push('tu plata: no muestra cuánto te sobra');
+  clickText('.plata-actions .btn', 'Repartir el cobro');
+  if (await waitFor('.sheet')) {
+    if (!$('.sheet input[inputmode="decimal"]')) problems.push('repartir el cobro: falta el monto');
+    await closeSheet();
+  } else problems.push('repartir el cobro: no se abrió');
+  check('tu plata');
 
   // Calendario: tocar hoy muestra el detalle del día.
   await go('/calendario');

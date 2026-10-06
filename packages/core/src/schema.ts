@@ -24,6 +24,9 @@ const base = {
 };
 
 export const ACCOUNT_TYPES = ['bank', 'cash', 'credit', 'food'] as const;
+/** Tipos de inversión (una inversión es una cuenta de plata guardada con tasa y vencimiento). */
+export const INVEST_KINDS = ['plazo-fijo', 'ui', 'letras', 'fondo', 'acciones', 'cripto', 'otro'] as const;
+export type InvestKind = (typeof INVEST_KINDS)[number];
 export const accountSchema = z.object({
   ...base,
   name: z.string().min(1).max(60),
@@ -64,6 +67,15 @@ export const accountSchema = z.object({
   payDay: z.number().int().min(1).max(28).nullable().default(null),
   /** Tarjeta de alimentación: la carga del mes se anota sola el día de carga. */
   autoLoad: z.boolean().default(false),
+  /**
+   * Inversión (plazo fijo, UI, letras, fondo…): es plata guardada (`reserved`) con tasa y
+   * vencimiento. Lifty estima los intereses y avisa cuando vence.
+   */
+  investKind: z.enum(INVEST_KINDS).nullable().default(null),
+  /** Tasa anual (%, TNA) para estimar lo que rinde. */
+  rate: z.number().min(0).max(1000).nullable().default(null),
+  /** Cuándo vence (plazo fijo, letras…). */
+  maturity: date.nullable().default(null),
 });
 export type Account = z.infer<typeof accountSchema>;
 
@@ -300,6 +312,14 @@ export const debtSchema = z.object({
   payments: z.array(debtPaymentSchema).default([]),
   /** Saldada a mano (perdonada, compensada…). */
   settled: z.boolean().default(false),
+  /**
+   * Préstamo en cuotas (BROU, financiera, un familiar): lo que pagás (o te pagan) por mes y
+   * qué día. Así entra en lo comprometido, el calendario y "Para hoy".
+   */
+  installmentAmount: money.positive().nullable().default(null),
+  payDay: z.number().int().min(1).max(28).nullable().default(null),
+  /** Cuántas cuotas son en total (para saber cuánto pagás de intereses). */
+  installments: z.number().int().min(1).max(600).nullable().default(null),
 });
 export type Debt = z.infer<typeof debtSchema>;
 

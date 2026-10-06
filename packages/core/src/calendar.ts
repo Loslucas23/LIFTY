@@ -1,4 +1,4 @@
-import { convert } from './accounts';
+import { convert, debtStatus } from './accounts';
 import { countsInBudget, offBudgetAccounts, ownAmount, type MonthBudget } from './budget';
 import { cardAutoPayments } from './card';
 import { habitsToday } from './habits';
@@ -17,7 +17,7 @@ export interface CalendarItem {
   text: string;
   /** + entra, − sale (pesos). */
   amount?: number;
-  kind: 'income' | 'fixed' | 'card' | 'load' | 'reminder' | 'exam' | 'period';
+  kind: 'income' | 'fixed' | 'card' | 'load' | 'reminder' | 'exam' | 'period' | 'loan' | 'invest';
   done?: boolean;
 }
 
@@ -93,6 +93,25 @@ export function monthCalendar(data: LiftyData, b: MonthBudget, today: string): C
     if (!day) continue;
     const amount = round2(convert(p.amount, p.currency, 'UYU', p.currency === 'USD' ? p.fxRate || rate : 1));
     day.items.push({ icon: '💳', text: p.description, amount: -amount, kind: 'card', done: p.date <= today });
+  }
+  // Cuotas de préstamos y vencimientos de inversiones.
+  for (const d of data.debts ?? []) {
+    if (!d.installmentAmount || !d.payDay || debtStatus(d).done) continue;
+    const day = dayOf(d.payDay);
+    if (!day) continue;
+    const paid = d.payments.some((p) => p.date.slice(0, 7) === month);
+    const amount = round2(convert(d.installmentAmount, d.currency, 'UYU', rate));
+    day.items.push({
+      icon: d.direction === 'borrowed' ? '🏦' : '🤝',
+      text: `Cuota: ${d.description || d.person}`,
+      amount: d.direction === 'borrowed' ? -amount : amount,
+      kind: 'loan',
+      done: paid,
+    });
+  }
+  for (const a of data.accounts) {
+    const day = a.investKind && a.maturity && !a.archived ? at.get(a.maturity) : undefined;
+    if (day) day.items.push({ icon: '📈', text: `Vence: ${a.name}`, kind: 'invest' });
   }
   for (const r of data.reminders) {
     const day = !r.archived ? at.get(r.date) : undefined;

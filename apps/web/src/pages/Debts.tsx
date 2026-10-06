@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
-import { debtSchema, debtStatus, debtTotals, newId, todayISO, type Currency, type Debt } from '@lifty/core';
+import { debtSchema, debtStatus, debtTotals, loanPlan, monthLabel, newId, todayISO, type Currency, type Debt } from '@lifty/core';
 import { Icon } from '../components/Icon';
-import { Chips, Empty, Field, PageHeader, Progress, Section, Segmented, Sheet, toast } from '../components/ui';
+import { Chips, Empty, Field, PageHeader, Progress, Section, Segmented, Sheet, Toggle, toast } from '../components/ui';
 import { dayLabel, money, parseAmount } from '../lib/format';
 import { useData, useToday } from '../lib/store';
 import { mutate } from '../lib/sync';
@@ -32,7 +32,13 @@ export function Debts() {
       <span className="tx-main">
         <span className="tx-title">{s.debt.person}</span>
         <span className="tx-meta">
-          {[s.debt.description, dayLabel(s.debt.date, today, true), s.paid > 0 ? `pagó ${money(s.paid, s.debt.currency)}` : null]
+          {[
+            s.debt.description,
+            s.debt.installmentAmount && s.debt.payDay
+              ? `cuota ${money(s.debt.installmentAmount, s.debt.currency)} el ${s.debt.payDay}`
+              : dayLabel(s.debt.date, today, true),
+            s.paid > 0 ? `pagó ${money(s.paid, s.debt.currency)}` : null,
+          ]
             .filter(Boolean)
             .join(' · ')}
         </span>
@@ -109,6 +115,10 @@ function DebtForm({ debt, onClose }: { debt: Debt | null; onClose: () => void })
   const [date, setDate] = useState(debt?.date ?? todayISO());
   const [accountId, setAccountId] = useState<string | null>(debt?.accountId ?? null);
   const [description, setDescription] = useState(debt?.description ?? '');
+  const [inParts, setInParts] = useState(!!debt?.installmentAmount);
+  const [installment, setInstallment] = useState(debt?.installmentAmount ? String(debt.installmentAmount) : '');
+  const [payDay, setPayDay] = useState(debt?.payDay ? String(debt.payDay) : '');
+  const [count, setCount] = useState(debt?.installments ? String(debt.installments) : '');
   const [error, setError] = useState<string | null>(null);
   const people = useMemo(() => [...new Set(data.debts.map((d) => d.person))].sort(), [data.debts]);
   const save = () => {
@@ -123,8 +133,12 @@ function DebtForm({ debt, onClose }: { debt: Debt | null; onClose: () => void })
       date,
       accountId,
       description: description.trim(),
+      installmentAmount: inParts ? (parseAmount(installment) ?? null) : null,
+      payDay: inParts && payDay ? Math.min(28, Math.max(1, Number(payDay))) : null,
+      installments: inParts && count ? Math.max(1, Number(count)) : null,
     });
     if (!result.success) return setError('Poné el nombre y un monto mayor a 0.');
+    if (inParts && (!result.data.installmentAmount || !result.data.payDay)) return setError('Poné la cuota y el día de pago.');
     mutate('debt', 'upsert', result.data);
     toast(
       direction === 'lent'
@@ -215,6 +229,46 @@ function DebtForm({ debt, onClose }: { debt: Debt | null; onClose: () => void })
             maxLength={200}
           />
         </Field>
+        <Toggle
+          checked={inParts}
+          onChange={setInParts}
+          label={
+            direction === 'borrowed' ? 'Lo pago en cuotas (préstamo del banco, una financiera…)' : 'Me lo devuelve en cuotas'
+          }
+        />
+        {inParts && (
+          <>
+            <div className="row">
+              <Field label="Cuota por mes">
+                <input
+                  inputMode="decimal"
+                  value={installment}
+                  onChange={(e) => setInstallment(e.target.value)}
+                  placeholder="Ej: 3500"
+                />
+              </Field>
+              <Field label="Día de pago">
+                <input
+                  inputMode="numeric"
+                  value={payDay}
+                  onChange={(e) => setPayDay(e.target.value.replace(/\D/g, '').slice(0, 2))}
+                  placeholder="Ej: 10"
+                />
+              </Field>
+            </div>
+            <Field label="¿Cuántas cuotas son en total? (opcional)" hint="Para saber cuánto pagás de intereses">
+              <input
+                inputMode="numeric"
+                value={count}
+                onChange={(e) => setCount(e.target.value.replace(/\D/g, '').slice(0, 3))}
+                placeholder="Ej: 12"
+              />
+            </Field>
+            <p className="muted small">
+              La cuota entra en lo comprometido hasta el cobro (en Tu plata), en el calendario y en «Para hoy» el día de pago.
+            </p>
+          </>
+        )}
       </div>
     </Sheet>
   );
@@ -224,7 +278,8 @@ function DebtSheet({ debt, onClose, onEdit }: { debt: Debt; onClose: () => void;
   const data = useData();
   const today = useToday();
   const s = debtStatus(debt);
-  const [amount, setAmount] = useState(String(s.remaining));
+  const plan = loanPlan(debt, today);
+  const [amount, setAmount] = useState(String(plan ? Math.min(plan.installment, s.remaining) : s.remaining));
   const [date, setDate] = useState(todayISO());
   const [accountId, setAccountId] = useState<string | null>(debt.accountId);
   const lent = debt.direction === 'lent';
@@ -280,8 +335,18 @@ function DebtSheet({ debt, onClose, onEdit }: { debt: Debt; onClose: () => void;
           <strong>{money(s.done ? debt.amount : s.remaining, debt.currency)}</strong>
         </div>
         <Progress value={s.paid} max={debt.amount} label="Pagado" />
+        {plan && !s.done && (
+          <p className="small">
+            Cuota de <strong>{money(plan.installment, debt.currency)}</strong> el día {plan.payDay} · faltan {plan.left} cuota
+            {plan.left === 1 ? '' : 's'} · terminás en <strong>{monthLabel(plan.endMonth).toLowerCase()}</strong>
+            {plan.interest !== null && plan.interest > 0
+              ? ` · en total pagás ${money(plan.interest, debt.currency)} de intereses (${Math.round((plan.interest / debt.amount) * 100)}% más)`
+              : ''}
+          </p>
+        )}
         <p className="muted small">
-          {money(debt.amount, debt.currency)} desde el {dayLabel(debt.date, today, true).toLowerCase()}
+          {money(debt.amount, debt.currency)}{' '}
+          {debt.date === today ? 'desde hoy' : `desde el ${dayLabel(debt.date, today, true).toLowerCase()}`}
           {debt.description ? ` · ${debt.description}` : ''}
           {debt.fromTxId ? ' · de un gasto dividido' : ''}
         </p>

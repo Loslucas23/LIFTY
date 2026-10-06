@@ -60,6 +60,9 @@ function acc(id: string, name: string, type: Account['type'], icon: string, colo
     payFromAccountId: null,
     payDay: null,
     autoLoad: false,
+    investKind: null,
+    rate: null,
+    maturity: null,
   };
 }
 
@@ -96,6 +99,7 @@ export function seedRecords(): { entity: EntityName; record: EntityTypes[EntityN
     cat('cat-sueldo', 'Sueldo', 'income', '💼', '#16a34a', 1),
     cat('cat-extras', 'Extras', 'income', '✨', '#84cc16', 2),
     cat('cat-regalos', 'Regalos', 'income', '🎁', '#d946ef', 3),
+    cat('cat-rendimientos', 'Rendimientos', 'income', '📈', '#0d9488', 4),
   ];
   const accounts: Account[] = [
     acc('acc-brou', 'BROU', 'bank', '🏦', '#1d4ed8', 1),
@@ -107,7 +111,8 @@ export function seedRecords(): { entity: EntityName; record: EntityTypes[EntityN
   ];
   const goals: Goal[] = [
     goal('goal-uyu', 'Ahorro en pesos', 'UYU', '🐷', '#0ea5e9'),
-    goal('goal-usd', 'Ahorro en dólares', 'USD', '💵', '#16a34a'),
+    // Los dólares ahorrados están en la cuenta en dólares (cada meta vive en una cuenta).
+    { ...goal('goal-usd', 'Ahorro en dólares', 'USD', '💵', '#16a34a'), accountId: 'acc-brou-usd' },
   ];
   return [
     { entity: 'settings', record: defaultSettings() },

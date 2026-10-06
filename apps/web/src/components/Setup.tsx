@@ -1,5 +1,7 @@
 import { useState, useSyncExternalStore } from 'react';
 import {
+  goalBalances,
+  suggestGoalAccount,
   accountBalances,
   convert,
   adjustBalance,
@@ -15,7 +17,7 @@ import { local } from '../lib/local';
 import { useData, useMonth, useToday } from '../lib/store';
 import { mutate } from '../lib/sync';
 import { startFromToday } from './MoneyCheck';
-import { Field, Sheet, toast } from './ui';
+import { Chips, Field, Sheet, toast } from './ui';
 
 /**
  * "Poner a punto": decís cuánto tenés HOY en cada cuenta (y cuánto debés de la tarjeta) y Lifty
@@ -79,12 +81,42 @@ function SetupSheet({ intro, onClose }: { intro?: string; onClose: () => void })
     ),
   );
   const [error, setError] = useState<string | null>(null);
+  // Metas que no dicen en qué cuenta están: primero eso (así el saldo de cada cuenta incluye su ahorro).
+  const gb = goalBalances(data);
+  const homeless = data.goals.filter(
+    (g) =>
+      !g.archived &&
+      (!g.accountId || !data.accounts.some((a) => a.id === g.accountId)) &&
+      Math.abs(gb.find((x) => x.goalId === g.id)?.balance ?? 0) > 0.004,
+  );
+  const [goalPlace, setGoalPlace] = useState<Record<string, string | null>>(() =>
+    Object.fromEntries(homeless.map((g) => [g.id, suggestGoalAccount(data, g)?.id ?? null])),
+  );
+  const places = data.accounts.filter((a) => !a.archived && (a.type === 'bank' || a.type === 'cash'));
+  const goalsIn = (accountId: string) =>
+    data.goals
+      .filter((g) => !g.archived && (g.accountId === accountId || goalPlace[g.id] === accountId))
+      .map((g) => {
+        const bal = gb.find((x) => x.goalId === g.id)?.balance ?? 0;
+        return bal ? `${g.name} ${money(bal, g.currency)}` : null;
+      })
+      .filter(Boolean)
+      .join(' · ');
   const groups: { title: string; hint?: string; list: typeof balances }[] = [
     {
       title: 'Bancos y efectivo',
       list: balances.filter((x) => (x.account.type === 'bank' || x.account.type === 'cash') && !x.account.reserved),
     },
-    { title: 'Plata guardada', list: balances.filter((x) => x.account.reserved) },
+    {
+      title: 'Plata guardada',
+      hint: 'Todo lo que hay (con lo de tus metas adentro). Lo que no sea de ninguna meta queda "sin destino".',
+      list: balances.filter((x) => x.account.reserved && !x.account.investKind),
+    },
+    {
+      title: 'Inversiones',
+      hint: 'Lo que vale hoy (sin los intereses que todavía no cobraste).',
+      list: balances.filter((x) => x.account.investKind),
+    },
     {
       title: 'Tarjetas de crédito',
       hint: 'Lo que debés hoy: lo del resumen que todavía no pagaste (sin las cuotas de los meses que vienen, que Lifty ya conoce).',
@@ -102,6 +134,16 @@ function SetupSheet({ intro, onClose }: { intro?: string; onClose: () => void })
     // Primero las tarjetas (lo que debías se paga desde el banco con el débito) y después los
     // bancos, ya con las tarjetas nuevas: así cada saldo queda exactamente como lo pusiste.
     let current = data;
+    // Las metas en su cuenta.
+    const goalsBefore: typeof data.goals = [];
+    for (const g of homeless) {
+      const acc = goalPlace[g.id];
+      if (!acc) continue;
+      goalsBefore.push(g);
+      const updated = { ...g, accountId: acc };
+      mutate('goal', 'upsert', updated);
+      current = { ...current, goals: current.goals.map((x) => (x.id === g.id ? updated : x)) };
+    }
     const ordered = [...balances].sort((a, b) => Number(b.account.type === 'credit') - Number(a.account.type === 'credit'));
     for (const x of ordered) {
       const v = parseAmount(values[x.account.id] ?? '');
@@ -154,6 +196,25 @@ function SetupSheet({ intro, onClose }: { intro?: string; onClose: () => void })
           y arranca a cuadrar desde hoy: lo de antes queda como historia, pero ya no desordena tus números.
         </p>
         {error && <p className="field-error">{error}</p>}
+        {homeless.length > 0 && (
+          <div className="setup-group">
+            <strong className="small">¿Dónde está tu ahorro?</strong>
+            <p className="muted small">Cada meta vive en una cuenta: así no se cuenta dos veces ni se mezcla con lo de gastar.</p>
+            {homeless.map((g) => (
+              <Field
+                key={g.id}
+                label={`${g.icon} ${g.name} (${money(gb.find((x) => x.goalId === g.id)?.balance ?? 0, g.currency)})`}
+              >
+                <Chips
+                  label={`Cuenta de ${g.name}`}
+                  value={goalPlace[g.id] ?? null}
+                  onChange={(v) => setGoalPlace({ ...goalPlace, [g.id]: v })}
+                  options={places.map((a) => ({ value: a.id as string | null, label: a.name, icon: a.icon }))}
+                />
+              </Field>
+            ))}
+          </div>
+        )}
         {groups.map((g) => (
           <div key={g.title} className="setup-group">
             <strong className="small">{g.title}</strong>
@@ -162,7 +223,7 @@ function SetupSheet({ intro, onClose }: { intro?: string; onClose: () => void })
               <Field
                 key={x.account.id}
                 label={`${x.account.icon} ${x.account.name}${x.account.type === 'credit' ? ': ¿cuánto debés?' : ''} (${x.account.currency === 'USD' ? 'US$' : '$'})`}
-                hint={`Lifty dice ${money(x.account.type === 'credit' ? Math.max(0, cardDebtToday(data, x.account, x.balance, today)) : x.balance, x.account.currency)}`}
+                hint={`Lifty dice ${money(x.account.type === 'credit' ? Math.max(0, cardDebtToday(data, x.account, x.balance, today)) : x.balance, x.account.currency)}${goalsIn(x.account.id) ? ` · adentro: ${goalsIn(x.account.id)}` : ''}`}
               >
                 <input
                   inputMode="decimal"

@@ -36,6 +36,7 @@ const PAGES: { label: string; path: string; words: string }[] = [
   { label: 'Desafíos', path: '/desafios', words: 'reto desafio juego meta corta' },
   { label: 'Tu salud (puntaje)', path: '/salud', words: 'salud financiera puntaje fondo emergencia colchon balance vida' },
   { label: 'Piloto automático', path: '/piloto', words: 'automatico reglas debito solo automatizar' },
+  { label: 'Tu plata', path: '/plata', words: 'sobra libre disponible patrimonio cobro repartir sueldo inversiones plazo fijo' },
   { label: 'Calendario', path: '/calendario', words: 'agenda dias mes cobros pagos vencimientos examenes' },
   { label: 'Vacaciones y mes difícil', path: '/epocas', words: 'viaje vacaciones modo ajustado tope dificil' },
   { label: 'Tu año', path: '/tu-anio', words: 'retrospectiva wrapped anual resumen año' },

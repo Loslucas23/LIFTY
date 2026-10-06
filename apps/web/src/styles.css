@@ -3324,3 +3324,51 @@ h3.small-title {
 .nowrap {
   white-space: nowrap;
 }
+
+/* Tu plata. */
+.plata-actions {
+  margin: 12px 0 4px;
+}
+.plata-bar {
+  margin-bottom: 10px;
+}
+.plata-group + .plata-group {
+  margin-top: 12px;
+}
+.plata-place + .plata-place {
+  border-top: 1px solid var(--line);
+}
+.plata-place .tx-row {
+  border-bottom: 0;
+}
+.todo-card {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+.todo-card p {
+  margin: 0;
+}
+.plata-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 10px;
+  color: inherit;
+  text-decoration: none;
+}
+.plata-card .grow strong {
+  font-size: 1.15em;
+}
+/* En Tu plata, los renglones de adentro (metas, sin destino, intereses) bajan el botón si no entra. */
+.plata-place .sub-row {
+  flex-wrap: wrap;
+}
+.plata-place .sub-row .tx-main {
+  min-width: 0;
+  flex: 1 1 140px;
+}
+.plata-place .sub-row .tx-title {
+  white-space: normal;
+}

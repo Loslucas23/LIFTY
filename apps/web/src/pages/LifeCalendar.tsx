@@ -127,7 +127,7 @@ function DayCell({
   const num = Number(d.date.slice(8));
   const pay = d.items.some((i) => (i.amount ?? 0) < 0);
   const earn = d.items.some((i) => (i.amount ?? 0) > 0);
-  const event = d.items.some((i) => i.kind === 'reminder' || i.kind === 'exam');
+  const event = d.items.some((i) => i.kind === 'reminder' || i.kind === 'exam' || i.kind === 'invest');
   const label = [
     dayLabel(d.date, today, true),
     d.spent > 0 ? `gastaste ${money(Math.round(d.spent))}` : d.date < today ? 'sin gastos' : null,

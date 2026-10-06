@@ -4,10 +4,12 @@ import {
   accountBalances,
   debtTotals,
   adjustBalance,
+  INVEST_KINDS,
   newId,
   round2,
   type Account,
   type Currency,
+  type InvestKind,
 } from '@lifty/core';
 import { openExplain, openMenu, openPrompt } from '../components/Editors';
 import { Icon } from '../components/Icon';
@@ -27,6 +29,16 @@ export const TYPE_LABEL: Record<Account['type'], string> = {
   food: 'Tarjeta de alimentación',
 };
 
+export const INVEST_LABEL: Record<InvestKind, string> = {
+  'plazo-fijo': 'Plazo fijo',
+  ui: 'UI (unidades indexadas)',
+  letras: 'Letras / bonos',
+  fondo: 'Fondo de inversión',
+  acciones: 'Acciones / ETF',
+  cripto: 'Cripto',
+  otro: 'Otra',
+};
+
 const COLORS = ['#1d4ed8', '#ea580c', '#16a34a', '#7c3aed', '#0d9488', '#dc2626', '#0ea5e9', '#64748b'];
 
 /** Cuentas y saldos: cuánto tenés en cada lado, transferir, ajustar y deudas. */
@@ -37,7 +49,10 @@ export function Accounts() {
   const balances = accountBalances(data, today);
   const visible = balances.filter((b) => !b.account.archived);
   const money_ = visible.filter((b) => (b.account.type === 'bank' || b.account.type === 'cash') && !b.account.reserved);
-  const saved = visible.filter((b) => (b.account.type === 'bank' || b.account.type === 'cash') && b.account.reserved);
+  const saved = visible.filter(
+    (b) => (b.account.type === 'bank' || b.account.type === 'cash') && b.account.reserved && !b.account.investKind,
+  );
+  const invest = visible.filter((b) => b.account.investKind);
   const credit = visible.filter((b) => b.account.type === 'credit');
   const food = visible.filter((b) => b.account.type === 'food');
   const totalMoney = round2(money_.reduce((s, b) => s + b.balanceUYU, 0));
@@ -163,6 +178,14 @@ export function Accounts() {
         </div>
       </section>
 
+      <a className="card pad tile-link" href="#/plata">
+        <span aria-hidden="true">💰</span>
+        <span className="tile-text">
+          <strong>Tu plata: cuánto te sobra de verdad</strong>
+          <span className="muted small">Dónde está cada peso, tus metas adentro de cada cuenta, inversiones y patrimonio</span>
+        </span>
+        <Icon name="right" />
+      </a>
       <WhereIsMyMoney />
       <CashFlowCard />
 
@@ -175,6 +198,22 @@ export function Accounts() {
           <p className="muted small">
             No entra en lo disponible. Pasarle plata (transferir desde el BROU, comprar dólares) cuenta como ahorro; sacarle, como
             retiro.
+          </p>
+        </Section>
+      )}
+      {invest.length > 0 && (
+        <Section
+          title="Inversiones"
+          action={
+            <a className="link small" href="#/plata">
+              Intereses
+            </a>
+          }
+        >
+          <div className="card list">{invest.map(row)}</div>
+          <p className="muted small">
+            Plazo fijo, UI, letras, fondos… Es plata guardada: pasarle plata cuenta como ahorro. En Tu plata ves los intereses
+            estimados y cuándo vence.
           </p>
         </Section>
       )}
@@ -232,6 +271,15 @@ export function AccountForm({ account, onClose }: { account: Account | null; onC
   const [autoLoad, setAutoLoad] = useState(account?.autoLoad ?? false);
   const [payFrom, setPayFrom] = useState<string | null>(account?.payFromAccountId ?? null);
   const [payDay, setPayDay] = useState(account?.payDay ? String(account.payDay) : '');
+  const [investKind, setInvestKind] = useState<InvestKind | null>(account?.investKind ?? null);
+  const [rateText, setRateText] = useState(account?.rate != null ? String(account.rate).replace('.', ',') : '');
+  const [maturity, setMaturity] = useState(account?.maturity ?? '');
+  /** Para qué es: gastar, plata guardada o una inversión. */
+  const purpose = investKind ? 'invest' : reserved ? 'saved' : 'spend';
+  const setPurpose = (p: 'spend' | 'saved' | 'invest') => {
+    setReserved(p !== 'spend');
+    setInvestKind(p === 'invest' ? (investKind ?? 'plazo-fijo') : null);
+  };
   const payable = data.accounts.filter((a) => (a.type === 'bank' || a.type === 'cash') && !a.archived && !a.reserved);
   const save = () => {
     if (!name.trim()) return;
@@ -249,11 +297,14 @@ export function AccountForm({ account, onClose }: { account: Account | null; onC
       initialBalanceDate: account?.initialBalanceDate ?? null,
       monthlyLoad: type === 'food' ? parseAmount(load) || null : null,
       loadDay: type === 'food' && loadDay ? Math.min(31, Math.max(1, Number(loadDay))) : null,
-      reserved: (type === 'bank' || type === 'cash') && reserved,
+      reserved: (type === 'bank' || type === 'cash') && (reserved || !!investKind),
       autopay: type === 'credit' ? autopay : true,
       payFromAccountId: type === 'credit' ? payFrom : null,
       payDay: type === 'credit' && payDay ? Math.min(28, Math.max(1, Number(payDay))) : null,
       autoLoad: type === 'food' && autoLoad,
+      investKind: type === 'bank' || type === 'cash' ? investKind : null,
+      rate: investKind ? (parseAmount(rateText) ?? null) : null,
+      maturity: investKind && maturity ? maturity : null,
     });
     toast('Cuenta guardada');
     onClose();
@@ -362,11 +413,52 @@ export function AccountForm({ account, onClose }: { account: Account | null; onC
         )}
         {(type === 'bank' || type === 'cash') && (
           <>
-            <Toggle checked={reserved} onChange={setReserved} label="Es plata guardada (no se usa para gastar)" />
-            {reserved && (
+            <Field label="¿Para qué es?">
+              <Chips
+                label="Para qué es"
+                value={purpose}
+                onChange={setPurpose}
+                options={[
+                  { value: 'spend', label: 'Para gastar' },
+                  { value: 'saved', label: 'Plata guardada' },
+                  { value: 'invest', label: 'Inversión' },
+                ]}
+              />
+            </Field>
+            {purpose === 'saved' && (
               <p className="muted small">
-                Ej: BROU dólares, caja de ahorro. Va aparte de lo disponible y pasarle plata cuenta como ahorro.
+                Ej: BROU dólares, caja de ahorro. Va aparte de lo disponible y pasarle plata cuenta como ahorro. Tus metas pueden
+                vivir acá.
               </p>
+            )}
+            {purpose === 'invest' && (
+              <>
+                <Field label="Tipo de inversión">
+                  <Chips
+                    label="Tipo de inversión"
+                    value={investKind ?? 'plazo-fijo'}
+                    onChange={(k) => setInvestKind(k)}
+                    options={INVEST_KINDS.map((k) => ({ value: k, label: INVEST_LABEL[k] }))}
+                  />
+                </Field>
+                <div className="row">
+                  <Field label="Tasa anual (%)" hint="Para estimar los intereses (TNA)">
+                    <input
+                      inputMode="decimal"
+                      value={rateText}
+                      onChange={(e) => setRateText(e.target.value)}
+                      placeholder="Ej: 6,5"
+                    />
+                  </Field>
+                  <Field label="Vence" hint="Plazo fijo, letras… (opcional)">
+                    <input type="date" value={maturity} onChange={(e) => setMaturity(e.target.value)} />
+                  </Field>
+                </div>
+                <p className="muted small">
+                  Para invertir, hacé una transferencia desde tu cuenta (cuenta como ahorro). Lifty estima los intereses y te
+                  avisa cuando vence.
+                </p>
+              </>
             )}
           </>
         )}

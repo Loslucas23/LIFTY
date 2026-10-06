@@ -1,9 +1,11 @@
+import { accountBalances, debtStatus } from './accounts';
 import type { MonthBudget } from './budget';
+import { monthOf } from './months';
 import { reminderStatus } from './extras';
 import { habitsToday } from './habits';
 import { upcomingEvents } from './insights';
 import { fold, round2 } from './money';
-import { addDays } from './weight';
+import { addDays, daysBetween } from './weight';
 import type { LiftyData } from './schema';
 import { routinesPaused } from './periods';
 import { routineItems } from './shopping';
@@ -14,7 +16,18 @@ import { subjectStatus } from './study';
  * "Para hoy": todo lo del día en una sola lista, venga del módulo que venga (plata, rutinas,
  * estudio, stock, vencimientos, diario). Cada ítem dice si ya está hecho.
  */
-export type AgendaKind = 'fixed' | 'income' | 'load' | 'habit' | 'study' | 'stock' | 'reminder' | 'journal' | 'checkin';
+export type AgendaKind =
+  | 'fixed'
+  | 'income'
+  | 'load'
+  | 'habit'
+  | 'study'
+  | 'stock'
+  | 'reminder'
+  | 'journal'
+  | 'checkin'
+  | 'loan'
+  | 'invest';
 
 export interface AgendaItem {
   key: string;
@@ -149,6 +162,49 @@ export function todayAgenda(data: LiftyData, b: MonthBudget, today: string, hour
       detail:
         e.daysLeft < 0 ? 'Ya venció: usalo o tiralo' : e.daysLeft === 0 ? 'Vence hoy: usalo' : `Vence en ${e.daysLeft} días`,
       urgency: e.daysLeft <= 0 ? 2 : 1,
+      done: false,
+    });
+  }
+
+  // Cuotas de préstamos: el día de pago (y las atrasadas del mes).
+  for (const d of data.debts ?? []) {
+    if (!d.installmentAmount || !d.payDay) continue;
+    const s = debtStatus(d);
+    if (s.done) continue;
+    const date = `${monthOf(today)}-${String(Math.min(d.payDay, 28)).padStart(2, '0')}`;
+    const paid = d.payments.some((p) => monthOf(p.date) === monthOf(today));
+    if (paid || date > addDays(today, 2)) continue;
+    const borrowed = d.direction === 'borrowed';
+    items.push({
+      key: `loan:${d.id}:${monthOf(today)}`,
+      kind: 'loan',
+      refId: d.id,
+      title: `${borrowed ? '🏦 Cuota' : '🤝 Te pagan la cuota'}: ${d.description || d.person}`,
+      detail: date < today ? `Venció el ${date.slice(8)}` : date === today ? 'Es hoy' : `El ${date.slice(8)}`,
+      urgency: date < today ? 2 : date === today ? 1 : 0,
+      done: false,
+      amount: Math.min(d.installmentAmount, s.remaining),
+    });
+  }
+
+  // Inversiones que vencen (plazo fijo, letras…): renovar o pasar la plata.
+  const invBalances = new Map(accountBalances(data, today).map((x) => [x.account.id, x.balance]));
+  for (const a of data.accounts) {
+    if (!a.investKind || !a.maturity || a.archived || (invBalances.get(a.id) ?? 0) <= 0) continue;
+    const left = daysBetween(today, a.maturity);
+    if (left > 3) continue;
+    items.push({
+      key: `invest:${a.id}:${a.maturity}`,
+      kind: 'invest',
+      refId: a.id,
+      title: `📈 ${a.name}`,
+      detail:
+        left < 0
+          ? `Venció hace ${-left} días: ¿lo renovás o lo pasás a tu cuenta?`
+          : left === 0
+            ? 'Vence hoy: ¿lo renovás o lo pasás a tu cuenta?'
+            : `Vence en ${left} días`,
+      urgency: left <= 0 ? 2 : 0,
       done: false,
     });
   }

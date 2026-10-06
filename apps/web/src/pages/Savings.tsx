@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import {
-  accountBalances,
+  suggestGoalAccount,
   addMonths,
   goalBalances,
   goalMonths,
@@ -24,6 +24,7 @@ import { Chips, Empty, Field, PageHeader, Progress, Section, Segmented, Sheet, t
 import { money, parseAmount } from '../lib/format';
 import { useData, useMonth, useMonths, useToday } from '../lib/store';
 import { mutate } from '../lib/sync';
+import { usePlata } from './Plata';
 
 const STATUS: Record<GoalPlan['status'], { label: string; tone: string }> = {
   done: { label: '¡Lograda!', tone: 'tag-good' },
@@ -39,14 +40,12 @@ export function Savings() {
   const month = monthOf(today);
   const balances = goalBalances(data);
   const plans = new Map(goalPlans(data, today).map((p) => [p.goal.id, p]));
-  // Cuentas de plata guardada (ej: BROU dólares): su saldo es ahorro. Las metas guardadas ahí ya están adentro.
-  const reservedBalances = accountBalances(data, today).filter((b) => b.account.reserved && !b.account.archived);
-  const reservedIds = new Set(reservedBalances.map((b) => b.account.id));
-  const goalAccount = new Map(data.goals.map((g) => [g.id, g.accountId]));
-  const looseGoals = balances.filter((g) => !(g.goalId && reservedIds.has(goalAccount.get(g.goalId) ?? '')));
-  const totalUYU = round2(
-    looseGoals.reduce((s, g) => s + g.balanceUYU, 0) + reservedBalances.reduce((s, b) => s + b.balanceUYU, 0),
-  );
+  // Todo lo guardado sale de Tu plata: cuentas de ahorro e inversiones (con sus metas adentro),
+  // lo apartado para metas en las cuentas para gastar, y las metas que todavía no dicen dónde están.
+  const p = usePlata();
+  const reservedBalances = p.places.filter((x) => x.group === 'saved' || x.group === 'invest');
+  const homelessUYU = round2(p.homeless.reduce((s, h) => s + h.balance.balanceUYU, 0));
+  const totalUYU = round2(p.saved + p.invested + p.goalsInSpend + homelessUYU);
   const history = data.transactions.filter((t) => t.kind === 'saving').slice(0, 30);
   const [editing, setEditing] = useState<Goal | 'new' | null>(null);
   const [goalSheet, setGoalSheet] = useState(false);
@@ -80,19 +79,22 @@ export function Savings() {
           openExplain({
             title: 'Ahorrado en total',
             intro:
-              'Tus cuentas de plata guardada más lo que tenés en las metas (las que están guardadas en esas cuentas ya van adentro). Los dólares se pasan a pesos con la cotización de Ajustes.',
+              'Tus cuentas de plata guardada e inversiones (con las metas que viven ahí adentro), lo apartado para metas en tus cuentas para gastar, y las metas que todavía no dicen dónde están. Los dólares se pasan a pesos con la cotización de Ajustes.',
             rows: [
               ...reservedBalances.map((b) => ({
-                label: `🔒 ${b.account.name}`,
+                label: `${b.group === 'invest' ? '📈' : '🔒'} ${b.account.name}`,
                 value: b.balanceUYU,
                 op: '+' as const,
                 note: b.account.currency === 'USD' ? `${money(b.balance, 'USD')} × ${data.settings.usdRate}` : undefined,
               })),
-              ...looseGoals.map((g) => ({
-                label: g.name,
-                value: g.balanceUYU,
+              ...(p.goalsInSpend
+                ? [{ label: 'Apartado para metas en tus cuentas para gastar', value: p.goalsInSpend, op: '+' as const }]
+                : []),
+              ...p.homeless.map((h) => ({
+                label: `${h.goal.name} (sin cuenta)`,
+                value: h.balance.balanceUYU,
                 op: '+' as const,
-                note: g.currency === 'USD' ? `${money(g.balance, 'USD')} × ${data.settings.usdRate}` : undefined,
+                note: h.goal.currency === 'USD' ? `${money(h.balance.balance, 'USD')} × ${data.settings.usdRate}` : undefined,
               })),
             ],
             result: { label: 'Total', value: totalUYU },
@@ -107,11 +109,21 @@ export function Savings() {
       {reservedBalances.length > 0 && (
         <div className="card list">
           {reservedBalances.map((b) => (
-            <a key={b.account.id} className="tx-row" href="#/cuentas">
+            <a key={b.account.id} className="tx-row" href="#/plata">
               <span className="tx-icon">{b.account.icon}</span>
               <span className="tx-main">
-                <span className="tx-title">🔒 {b.account.name}</span>
-                <span className="tx-meta">Plata guardada: pasarle plata cuenta como ahorro</span>
+                <span className="tx-title">
+                  {b.group === 'invest' ? '📈' : '🔒'} {b.account.name}
+                </span>
+                <span className="tx-meta">
+                  {[
+                    b.goals.length ? b.goals.map((g) => `${g.goal.name} ${money(g.balance, g.goal.currency)}`).join(' · ') : null,
+                    b.unassignedUYU > 0.5 ? `sin destino ${money(Math.round(b.unassignedUYU))}` : null,
+                    b.invest ? `${b.invest.rate}% anual` : null,
+                  ]
+                    .filter(Boolean)
+                    .join(' · ') || 'Plata guardada: pasarle plata cuenta como ahorro'}
+                </span>
               </span>
               <span className="tx-amount">
                 {money(b.balance, b.account.currency)}
@@ -152,13 +164,17 @@ export function Savings() {
                   )}
                 </div>
                 <p className="goal-value">{money(g.balance, g.currency)}</p>
-                {goal && (
-                  <p className="muted small">
-                    {goal.accountId
-                      ? `Guardado en ${data.accounts.find((a) => a.id === goal.accountId)?.name ?? 'una cuenta'}`
-                      : 'Guardado fuera de tus cuentas'}
-                  </p>
-                )}
+                {goal &&
+                  (goal.accountId && data.accounts.some((a) => a.id === goal.accountId) ? (
+                    <p className="muted small">Guardado en {data.accounts.find((a) => a.id === goal.accountId)!.name}</p>
+                  ) : (
+                    <p className="small text-bad">
+                      ¿En qué cuenta está?{' '}
+                      <button className="link" onClick={() => setEditing(goal)}>
+                        Decilo
+                      </button>
+                    </p>
+                  ))}
                 {g.currency === 'USD' && <p className="muted small">≈ {money(Math.round(g.balanceUYU))}</p>}
                 {g.target && <Progress value={g.balance} max={g.target} label={`Avance de ${g.name}`} />}
                 {plan && <PlanLine plan={plan} />}
@@ -504,7 +520,10 @@ function GoalForm({ goal, onClose }: { goal: Goal | null; onClose: () => void })
   const [currency, setCurrency] = useState<Currency>(goal?.currency ?? 'UYU');
   const [target, setTarget] = useState(goal?.target ? String(goal.target) : '');
   const [targetMonth, setTargetMonth] = useState(goal?.targetMonth ?? '');
-  const [accountId, setAccountId] = useState<string | null>(goal?.accountId ?? null);
+  // Cada meta vive en una cuenta (la sugerida: la de ahorro en su moneda).
+  const [accountId, setAccountId] = useState<string | null>(
+    goal ? goal.accountId : (suggestGoalAccount(data, { currency: 'UYU' })?.id ?? null),
+  );
   const places = data.accounts.filter((a) => (a.type === 'bank' || a.type === 'cash') && (!a.archived || a.id === accountId));
   const t = parseAmount(target) ?? 0;
   const balance = goal ? (goalBalances(data).find((g) => g.goalId === goal.id)?.balance ?? 0) : 0;
@@ -580,7 +599,11 @@ function GoalForm({ goal, onClose }: { goal: Goal | null; onClose: () => void })
           <Chips
             label="Moneda"
             value={currency}
-            onChange={setCurrency}
+            onChange={(c) => {
+              setCurrency(c);
+              // Meta nueva: la cuenta sugerida sigue a la moneda (dólares → la cuenta en dólares).
+              if (!goal) setAccountId(suggestGoalAccount(data, { currency: c })?.id ?? accountId);
+            }}
             options={[
               { value: 'UYU', label: 'Pesos' },
               { value: 'USD', label: 'Dólares' },
@@ -588,22 +611,22 @@ function GoalForm({ goal, onClose }: { goal: Goal | null; onClose: () => void })
           />
         </Field>
         <Field
-          label="¿Dónde la tenés guardada?"
+          label="¿En qué cuenta está la plata?"
           hint={
             accountId
-              ? 'Ahorrar no saca la plata de esa cuenta: queda ahí, apartada, y no cuenta para gastar.'
-              : 'Fuera de tus cuentas (alcancía, otro banco…): ahorrar la saca de la cuenta de donde sale.'
+              ? 'Queda ahí, apartada: no cuenta para gastar. Depositar desde otra cuenta la pasa a esta.'
+              : 'Elegí dónde está: así Lifty sabe qué parte de esa cuenta es de esta meta.'
           }
         >
           <Chips
             label="Dónde está guardada"
             value={accountId}
             onChange={setAccountId}
-            options={[
-              { value: null, label: 'Fuera de mis cuentas' },
-              ...places.map((a) => ({ value: a.id as string | null, label: a.name, icon: a.icon })),
-            ]}
+            options={places.map((a) => ({ value: a.id as string | null, label: a.name, icon: a.icon }))}
           />
+          <a className="link small" href="#/cuentas" onClick={onClose}>
+            + Otra cuenta (caja de ahorro, alcancía, plazo fijo…)
+          </a>
         </Field>
         <div className="row">
           <Field label="¿Cuánto? (opcional)">

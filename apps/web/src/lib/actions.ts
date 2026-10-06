@@ -159,7 +159,7 @@ export function syncSplitDebt(data: LiftyData, tx: Transaction) {
   const existing = data.debts.find((d) => d.fromTxId === tx.id);
   if (tx.kind === 'expense' && tx.sharedAmount > 0 && tx.sharedWith) {
     mutate('debt', 'upsert', {
-      ...(existing ?? { id: newId(), payments: [], settled: false }),
+      ...(existing ?? { id: newId(), payments: [], settled: false, installmentAmount: null, payDay: null, installments: null }),
       updatedAt: '',
       person: tx.sharedWith,
       direction: 'lent',

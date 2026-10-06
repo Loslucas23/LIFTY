@@ -27,3 +27,4 @@ export * from './shopping';
 export * from './periods';
 export * from './calendar';
 export * from './retro';
+export * from './plata';

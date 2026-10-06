@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import {
+  addDays,
   addMonths,
   daysInMonth,
   debtTotals,
@@ -36,6 +37,8 @@ import { QuickJournal, saveJournal } from './Journal';
 import { useHealth } from './Health';
 import { useActiveChallenges } from './Challenges';
 import { PeriodLine, useActivePeriods } from './Periods';
+import { PaydaySheet, usePlata } from './Plata';
+import { payInstallment } from '../lib/plata';
 import { reviewMonth } from './Review';
 import { renewReminder } from './Extras';
 import { tapHabit } from './Routines';
@@ -239,6 +242,8 @@ export function Home() {
         </a>
       </div>
 
+      {!empty && <PlataCard />}
+      <PaydayPrompt />
       <PeriodNotes />
       <AutopilotToday />
 
@@ -475,6 +480,74 @@ export function Home() {
 }
 
 /** Los desafíos en curso (el más cercano a terminar). */
+/** Te sobra de verdad (lo libre en tus cuentas hasta el cobro), con el detalle en Tu plata. */
+function PlataCard() {
+  const p = usePlata();
+  if (p.spend === 0 && p.saved === 0 && p.invested === 0) return null;
+  return (
+    <a className={`card pad plata-card ${p.free < 0 ? 'mismatch' : ''}`} href="#/plata">
+      <span className="tx-icon" aria-hidden="true">
+        💰
+      </span>
+      <span className="grow">
+        <span className="muted small">{p.free >= 0 ? 'Te sobra de verdad' : 'Te falta hasta el cobro'}</span>
+        <br />
+        <strong className={p.free < 0 ? 'text-bad' : ''}>{money(Math.round(Math.abs(p.free)))}</strong>
+        <span className="muted small">
+          {p.free >= 0 && p.freePerDay !== null
+            ? ` · ${money(Math.round(p.freePerDay))}/día hasta ${p.nextIncome ? `el ${p.until.slice(8)}` : 'fin de mes'}`
+            : ''}
+          {` · en tus cuentas ${money(Math.round(p.spend))}, comprometido ${money(Math.round(p.committed))}`}
+        </span>
+      </span>
+      <Icon name="right" />
+    </a>
+  );
+}
+
+/** Cuando cobrás: proponer repartir el sueldo (una vez por cobro). */
+function PaydayPrompt() {
+  const data = useData();
+  const today = useToday();
+  const [open, setOpen] = useState(false);
+  const [, force] = useState(0);
+  const salary = data.transactions.find(
+    (t) => t.kind === 'income' && t.linkKind === 'salary' && t.date <= today && t.date >= addDays(today, -3),
+  );
+  if (!salary) return null;
+  const key = `lifty-payday-${salary.id}`;
+  if (local.get(key) === '1' && !open) return null;
+  const dismiss = () => {
+    local.set(key, '1');
+    force((n) => n + 1);
+  };
+  return (
+    <section className="card pad surplus">
+      <p>
+        💼 Cobraste <strong>{money(salary.amount, salary.currency)}</strong>. ¿Lo repartimos? Primero lo que tiene fecha, después
+        tus metas, y lo que queda es para gastar por día.
+      </p>
+      <div className="btn-row">
+        <button className="btn btn-primary" onClick={() => setOpen(true)}>
+          Repartir el cobro
+        </button>
+        <button className="btn btn-ghost" onClick={dismiss}>
+          Ahora no
+        </button>
+      </div>
+      {open && (
+        <PaydaySheet
+          amount={salary.amount}
+          onClose={() => {
+            setOpen(false);
+            dismiss();
+          }}
+        />
+      )}
+    </section>
+  );
+}
+
 /** Vacaciones o mes difícil: cuánto llevás (y lo que viene en la semana). */
 function PeriodNotes() {
   const periods = useActivePeriods();
@@ -677,6 +750,20 @@ function AgendaRow({ item, stock }: { item: AgendaItem; stock: StockOverview | n
     }
     case 'journal':
       open = () => navigate('/diario');
+      break;
+    case 'loan': {
+      const d = data.debts.find((x) => x.id === item.refId);
+      if (d && item.amount) {
+        check = () => payInstallment(data, d, item.amount!, today);
+        checkLabel = `Marcar la cuota de ${d.description || d.person} como ${d.direction === 'borrowed' ? 'pagada' : 'cobrada'}`;
+      }
+      open = () => navigate('/deudas');
+      break;
+    }
+    case 'invest':
+      open = () => navigate('/plata');
+      check = open;
+      checkLabel = 'Ver la inversión que vence';
       break;
     case 'checkin': {
       const ask = () =>

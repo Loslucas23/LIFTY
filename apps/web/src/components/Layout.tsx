@@ -136,7 +136,7 @@ export function Layout({ route, privacy, children }: { route: string; privacy: b
             on={
               n.match.test(route) ||
               (n.href === '/mas' &&
-                /^\/(anio|informes|tarjeta|ahorro|peso|cuentas|deudas|alimentacion|stock|lista|calendario|epocas|tu-anio|rutinas|estudio|semana|suscripciones|vencimientos|metas|recetas|simulador|diario|resumen|piloto|salud|desafios)/.test(
+                /^\/(anio|informes|tarjeta|ahorro|peso|cuentas|deudas|alimentacion|stock|lista|calendario|epocas|tu-anio|plata|rutinas|estudio|semana|suscripciones|vencimientos|metas|recetas|simulador|diario|resumen|piloto|salud|desafios)/.test(
                   route,
                 ))
             }
