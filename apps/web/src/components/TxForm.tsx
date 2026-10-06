@@ -1,9 +1,12 @@
-import { useMemo, useState, useSyncExternalStore } from 'react';
+import { useEffect, useMemo, useState, useSyncExternalStore } from 'react';
 import {
+  buildWordIndex,
   installmentsOf,
   monthLabel,
   monthOf,
   newId,
+  possibleDuplicate,
+  suggestCategory,
   todayISO,
   transactionSchema,
   type Currency,
@@ -97,6 +100,11 @@ function TxForm({
     ),
   );
   const [error, setError] = useState<string | null>(null);
+  /** Si elegiste la categoría a mano, Lifty no la cambia más. */
+  const [categoryTouched, setCategoryTouched] = useState(!!start.categoryId);
+  /** "¿Ya lo cargaste?": el movimiento parecido que encontró (si lo confirmás, se guarda igual). */
+  const [lookAlike, setLookAlike] = useState<Transaction | null>(null);
+  const [lookAlikeOk, setLookAlikeOk] = useState<string | null>(null);
 
   const linked = !!(tx?.linkKind ?? preset?.linkKind);
   const accounts = data.accounts.filter((a) => !a.archived || a.id === accountId || a.id === toAccountId);
@@ -107,6 +115,29 @@ function TxForm({
     (c) => c.kind === (kind === 'income' ? 'income' : 'expense') && (!c.archived || c.id === categoryId),
   );
   const goals = data.goals.filter((g) => !g.archived || g.id === goalId);
+
+  // Categoría sugerida por las palabras de la descripción ("uber" → Transporte).
+  const wordIndex = useMemo(
+    () => buildWordIndex(data, kind === 'income' ? 'income' : 'expense'),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [data.transactions, kind],
+  );
+  const suggested = useMemo(
+    () =>
+      (kind === 'expense' || kind === 'income') && !linked
+        ? suggestCategory(wordIndex, description, new Set(categories.map((c) => c.id)))
+        : null,
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [wordIndex, description, kind, linked, data.categories],
+  );
+  useEffect(() => {
+    if (categoryTouched || tx) return;
+    setCategoryId(suggested?.categoryId ?? null);
+  }, [suggested?.categoryId, categoryTouched, tx]);
+  const pickCategory = (id: string | null) => {
+    setCategoryTouched(true);
+    setCategoryId(id);
+  };
   const people = useMemo(() => [...new Set(data.debts.map((d) => d.person))].sort(), [data.debts]);
 
   const parsed = parseAmount(amountText);
@@ -182,7 +213,10 @@ function TxForm({
 
   const changeKind = (k: TxKind) => {
     setKind(k);
-    if (k !== kind) setCategoryId(null);
+    if (k !== kind) {
+      setCategoryId(null);
+      setCategoryTouched(false);
+    }
     if (k === 'saving' && !goalId) {
       const g = goals.find((x) => x.currency === currency) ?? goals[0];
       if (g) setGoalId(g.id);
@@ -229,6 +263,15 @@ function TxForm({
       setError(result.error.issues[0]?.message ?? 'Revisá los datos.');
       return;
     }
+    // ¿Ya lo cargaste? (mismo monto, ±1 día, misma categoría o descripción). Se avisa una vez.
+    if (!tx && (kind === 'expense' || kind === 'income')) {
+      const dup = possibleDuplicate(data, result.data);
+      if (dup && lookAlikeOk !== dup.id) {
+        setLookAlike(dup);
+        setLookAlikeOk(dup.id);
+        return;
+      }
+    }
     mutate('transaction', 'upsert', result.data);
     syncSplitDebt(data, result.data);
     onClose();
@@ -261,7 +304,10 @@ function TxForm({
     const match = suggestions.find((x) => x.text.toLowerCase() === text.trim().toLowerCase());
     if (!match) return;
     const last = match.last;
-    if (fromChip || categoryId === null) setCategoryId(last.categoryId);
+    if (fromChip || categoryId === null || !categoryTouched) {
+      setCategoryId(last.categoryId);
+      setCategoryTouched(true);
+    }
     if (fromChip || accountId === null) setAccountId(last.accountId);
     if (last.kind === 'transfer' && (fromChip || toAccountId === null)) setToAccountId(last.toAccountId);
     if (last.kind === 'saving' && (fromChip || goalId === null)) setGoalId(last.goalId);
@@ -473,9 +519,18 @@ function TxForm({
                 <Chips
                   label="Categoría"
                   value={categoryId}
-                  onChange={setCategoryId}
+                  onChange={pickCategory}
                   options={categories.map((c) => ({ value: c.id as string | null, label: c.name, icon: c.icon, color: c.color }))}
                 />
+                {!categoryTouched && !tx && suggested && categoryId === suggested.categoryId && (
+                  <span className="budget-hint suggest-hint">
+                    ✨ Sugerida{' '}
+                    {suggested.source === 'history'
+                      ? `porque "${suggested.word}" lo cargaste ${suggested.count} de ${suggested.total} ${suggested.total === 1 ? 'vez' : 'veces'} en ${categories.find((c) => c.id === suggested.categoryId)?.name ?? 'esa categoría'}`
+                      : `por la palabra "${suggested.word}"`}
+                    . Tocá otra para cambiarla.
+                  </span>
+                )}
                 {budgetHint && <span className={`budget-hint ${budgetHint.bad ? 'bad' : ''}`}>{budgetHint.text}</span>}
               </Field>
             )}
@@ -600,6 +655,14 @@ function TxForm({
         )}
 
         {dailyHint && <p className={`note ${dailyHint.bad ? 'note-bad' : 'note-good'}`}>{dailyHint.text}</p>}
+
+        {lookAlike && (
+          <p className="note note-bad dup-note" role="alert">
+            🤔 ¿Ya lo cargaste? Hay {lookAlike.kind === 'income' ? 'un ingreso' : 'un gasto'} igual de{' '}
+            {money(Math.abs(lookAlike.amount), lookAlike.currency)} el {lookAlike.date.split('-').reverse().join('/')}
+            {lookAlike.description ? ` ("${lookAlike.description}")` : ''}. Si es otro, tocá Guardar de nuevo.
+          </p>
+        )}
 
         <div className="row">
           <Field label="Fecha">

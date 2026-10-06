@@ -1,6 +1,7 @@
 import { useEffect, type ReactNode } from 'react';
 import { togglePrivacy } from '../lib/privacy';
 import { useSync } from '../lib/store';
+import { useUpdateAvailable } from '../lib/update';
 import { sync } from '../lib/sync';
 import { Icon, type IconName } from './Icon';
 import { openSearch } from './Search';
@@ -110,6 +111,7 @@ export function Layout({ route, privacy, children }: { route: string; privacy: b
       </aside>
 
       <main className="main">
+        <UpdateBanner />
         <div className="mobile-top">
           <a className="brand" href="#/">
             <img src="./icon.svg" alt="" width={26} height={26} />
@@ -162,8 +164,21 @@ function TabLink({ n, on, first }: { n: (typeof NAV)[number]; on: boolean; first
   );
 }
 
+function UpdateBanner() {
+  const available = useUpdateAvailable();
+  if (!available) return null;
+  return (
+    <div className="update-banner" role="status">
+      <span>✨ Hay una versión nueva de Lifty.</span>
+      <button className="btn btn-primary" onClick={() => window.location.reload()}>
+        Actualizar
+      </button>
+    </div>
+  );
+}
+
 export function SyncBadge() {
-  const { status, outbox, lastSync, local } = useSync();
+  const { status, outbox, lastSync, local, live } = useSync();
   const pending = outbox.length;
   let label: string;
   let icon: IconName = 'cloud';
@@ -182,9 +197,18 @@ export function SyncBadge() {
   } else {
     label = local ? 'En esta compu' : 'Sincronizado';
   }
-  const title = lastSync ? `Última sincronización: ${new Date(lastSync).toLocaleString('es-UY')}` : undefined;
+  const title = [
+    lastSync ? `Última sincronización: ${new Date(lastSync).toLocaleString('es-UY')}` : null,
+    live ? 'En vivo: los cambios de los otros dispositivos llegan al instante' : null,
+  ]
+    .filter(Boolean)
+    .join('\n');
   return (
-    <button className={`sync-badge sync-${tone}`} onClick={() => void sync()} title={title}>
+    <button
+      className={`sync-badge sync-${tone} ${live && tone === 'ok' ? 'is-live' : ''}`}
+      onClick={() => void sync()}
+      title={title || undefined}
+    >
       <Icon name={icon} size={16} className={status === 'syncing' ? 'spin' : ''} />
       <span>{label}</span>
     </button>

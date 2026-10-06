@@ -114,6 +114,11 @@ export async function smokeTour(): Promise<string[]> {
   check('formulario de movimiento');
   $<HTMLButtonElement>('.sheet-foot .btn-primary')?.click();
   await sleep(300);
+  // Si el recorrido ya cargó este gasto antes, avisa "¿Ya lo cargaste?": es otro.
+  if ($('.sheet .dup-note')) {
+    $<HTMLButtonElement>('.sheet-foot .btn-primary')?.click();
+    await sleep(300);
+  }
   if ($('.sheet')) {
     problems.push('inicio: el movimiento no se guardó');
     await closeSheet();
@@ -130,12 +135,44 @@ export async function smokeTour(): Promise<string[]> {
   const saveSheet = async (what: string) => {
     $<HTMLButtonElement>('.sheet-foot .btn-primary')?.click();
     await sleep(300);
+    // "¿Ya lo cargaste?" (el recorrido corre dos veces con los mismos datos): es otro, guardar igual.
+    if ($('.sheet .dup-note')) {
+      $<HTMLButtonElement>('.sheet-foot .btn-primary')?.click();
+      await sleep(300);
+    }
     if ($('.sheet')) {
       problems.push(`${what}: no se guardó (${$('.sheet .field-error')?.textContent ?? 'sin mensaje'})`);
       await closeSheet();
     }
     check(what);
   };
+
+  // Categoría sugerida por la descripción y aviso de gasto repetido.
+  await go('/');
+  const dupAmount = String(1000 + (Date.now() % 9000));
+  for (let i = 0; i < 2; i++) {
+    if (!(await openNew())) {
+      problems.push('sugerencia: no se abrió el formulario');
+      break;
+    }
+    type($('.sheet .amount-input input'), dupAmount);
+    type($('.sheet input[list="tx-desc-suggestions"]'), 'Uber al centro');
+    // La primera vez la sugiere por la palabra; después la completa "lo de siempre".
+    if (!(await until(() => !!$('.sheet .chip.on')?.textContent?.includes('Transporte'))))
+      problems.push(`sugerencia: no propuso Transporte (${$('.sheet .chip.on')?.textContent ?? 'ninguna'})`);
+    $<HTMLButtonElement>('.sheet-foot .btn-primary')?.click();
+    await sleep(300);
+    if (i === 1) {
+      if (!$('.sheet .dup-note')) problems.push('repetido: no avisó que ya estaba cargado');
+      $<HTMLButtonElement>('.sheet-foot .btn-primary')?.click();
+      await sleep(300);
+    }
+    if ($('.sheet')) {
+      problems.push(`sugerencia: no se guardó (${$('.sheet .field-error')?.textContent ?? 'sin mensaje'})`);
+      await closeSheet();
+    }
+  }
+  check('sugerencia y repetido');
 
   // Transferencia (cajero): no es gasto.
   await go('/');

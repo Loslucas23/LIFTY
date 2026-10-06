@@ -1,6 +1,9 @@
 import { useState } from 'react';
 import {
   addDays,
+  detectRecurring,
+  fixedSchema,
+  monthLabel,
   monthOf,
   newId,
   nextReminderDate,
@@ -12,6 +15,7 @@ import {
   YEAR_GOAL_KINDS,
   yearGoalSchema,
   yearGoalStatus,
+  type RecurringCandidate,
   type Reminder,
   type YearGoal,
   type YearGoalStatus,
@@ -20,6 +24,7 @@ import { openExplain, openFixedForm, openMenu, openPrompt } from '../components/
 import { Icon } from '../components/Icon';
 import { Chips, Empty, Field, PageHeader, Section, Sheet, toast } from '../components/ui';
 import { dayLabel, money, parseAmount } from '../lib/format';
+import { local } from '../lib/local';
 import { useData, useLookups, useToday } from '../lib/store';
 import { mutate } from '../lib/sync';
 
@@ -190,6 +195,7 @@ export function Recurring() {
           <strong>{money(Math.round(r.subscriptions.monthly))}/mes</strong>
         </div>
       </div>
+      <RecurringSuggestions month={month} />
       {r.items.length === 0 ? (
         <Empty icon="repeat" title="No tenés gastos fijos cargados">
           Cargá Netflix, Spotify, el celular, el gimnasio… en Presupuesto → Gasto fijo (las suscripciones con la categoría
@@ -259,6 +265,94 @@ export function Recurring() {
         </Section>
       )}
     </div>
+  );
+}
+
+/**
+ * "Parecen gastos fijos": lo que cargás a mano todos los meses con un monto parecido. Pasarlo a
+ * fijos hace que el presupuesto lo cuente desde el principio del mes (y no te sorprenda).
+ */
+function RecurringSuggestions({ month }: { month: string }) {
+  const data = useData();
+  const today = useToday();
+  const [dismissed, setDismissed] = useState<string[]>(() => {
+    try {
+      return JSON.parse(local.get('lifty-not-fixed') ?? '[]') as string[];
+    } catch {
+      return [];
+    }
+  });
+  const list = detectRecurring(data, today).filter((c) => !dismissed.includes(c.key));
+  if (!list.length) return null;
+  const dismiss = (c: RecurringCandidate) => {
+    const next = [...dismissed, c.key];
+    local.set('lifty-not-fixed', JSON.stringify(next));
+    setDismissed(next);
+  };
+  const add = (c: RecurringCandidate) => {
+    const fixed = fixedSchema.parse({
+      id: newId(),
+      updatedAt: '',
+      name: c.name,
+      amount: c.amount,
+      categoryId: c.categoryId,
+      accountId: c.accountId,
+      dayOfMonth: c.dayOfMonth,
+      startMonth: month,
+    });
+    mutate('fixed', 'upsert', fixed);
+    // Si ya lo pagaste este mes, ese gasto pasa a ser el pago del fijo (para no contarlo dos veces).
+    const paid = data.transactions.filter((t) => c.months.find((m) => m.month === month)?.txIds.includes(t.id));
+    for (const t of paid) mutate('transaction', 'upsert', { ...t, linkKind: 'fixed', linkId: fixed.id, linkMonth: month });
+    toast(`${c.name} pasó a gastos fijos${paid.length ? ' (el pago de este mes ya cuenta)' : ''}`, {
+      action: {
+        label: 'Deshacer',
+        run: () => {
+          mutate('fixed', 'delete', fixed.id);
+          for (const t of paid) mutate('transaction', 'upsert', t);
+        },
+      },
+    });
+  };
+  return (
+    <Section title="Parecen gastos fijos">
+      <p className="muted small">
+        Los cargás a mano todos los meses con un monto parecido. Como gastos fijos, el presupuesto los aparta desde el día 1 y te
+        avisa cuando vencen.
+      </p>
+      <div className="card list">
+        {list.map((c) => (
+          <div key={c.key} className="tx-row static">
+            <span className="tx-icon">🔁</span>
+            <button
+              className="tx-main link-plain"
+              onClick={() =>
+                openExplain({
+                  title: c.name,
+                  intro: `Lo cargaste en ${c.months.length} de los últimos 4 meses, una vez por mes, alrededor del día ${c.dayOfMonth}. Se toma la mediana de lo que pagaste.`,
+                  rows: c.months.map((m) => ({ label: monthLabel(m.month, false), value: m.amount })),
+                  result: { label: 'Por mes (mediana)', value: c.amount },
+                  footnote: `Varió entre ${money(c.min)} y ${money(c.max)}.`,
+                })
+              }
+            >
+              <span className="tx-title">{c.name}</span>
+              <span className="tx-meta">
+                {money(Math.round(c.amount))} por mes · día ~{c.dayOfMonth} · {c.months.length} meses
+              </span>
+            </button>
+            <div className="btn-row">
+              <button className="btn btn-primary" onClick={() => add(c)}>
+                Pasar a fijos
+              </button>
+              <button className="btn btn-ghost" onClick={() => dismiss(c)} aria-label={`${c.name} no es un gasto fijo`}>
+                No es fijo
+              </button>
+            </div>
+          </div>
+        ))}
+      </div>
+    </Section>
   );
 }
 

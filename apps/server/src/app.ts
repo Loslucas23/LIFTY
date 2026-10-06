@@ -1,4 +1,5 @@
 import fs from 'node:fs';
+import type { ServerResponse } from 'node:http';
 import path from 'node:path';
 import Fastify, { type FastifyInstance, type FastifyReply, type FastifyRequest } from 'fastify';
 import fastifyStatic from '@fastify/static';
@@ -91,6 +92,24 @@ export async function buildApp(opts: AppOptions): Promise<FastifyInstance> {
     }
   });
 
+  // ---- En vivo: cada dispositivo abre /api/live y se entera al instante cuando otro cambia algo ----
+  const live = new Set<{ deviceId: string; res: ServerResponse }>();
+  const broadcast = (payload: object) => {
+    const line = `data: ${JSON.stringify(payload)}\n\n`;
+    for (const c of live) c.res.write(line);
+  };
+  // Un "latido" cada 25 s para que el Wi-Fi o un proxy no corten la conexión por inactividad.
+  const heartbeat = setInterval(() => {
+    for (const c of live) c.res.write(': ping\n\n');
+  }, 25_000);
+  heartbeat.unref();
+  app.addHook('preClose', async () => {
+    clearInterval(heartbeat);
+    for (const c of live) c.res.end();
+    live.clear();
+  });
+  const deviceIdOf = (req: FastifyRequest) => (req.device === 'local' ? 'local' : (req.device?.id ?? '?'));
+
   const baseUrl = () => {
     if (opts.publicUrl) return [opts.publicUrl.replace(/\/$/, '')];
     const port = opts.port ?? 4321;
@@ -130,6 +149,21 @@ export async function buildApp(opts: AppOptions): Promise<FastifyInstance> {
     local: req.device === 'local',
   }));
 
+  app.get('/api/live', async (req, reply) => {
+    reply.hijack();
+    const res = reply.raw;
+    res.writeHead(200, {
+      'Content-Type': 'text/event-stream; charset=utf-8',
+      'Cache-Control': 'no-cache, no-transform',
+      Connection: 'keep-alive',
+      'X-Accel-Buffering': 'no',
+    });
+    res.write(`data: ${JSON.stringify({ rev: db.rev })}\n\n`);
+    const client = { deviceId: deviceIdOf(req), res };
+    live.add(client);
+    req.raw.on('close', () => live.delete(client));
+  });
+
   app.get<{ Querystring: { after?: string } }>('/api/changes', async (req) => {
     const after = Math.max(0, Number(req.query.after ?? 0) || 0);
     const rev = db.rev;
@@ -163,7 +197,9 @@ export async function buildApp(opts: AppOptions): Promise<FastifyInstance> {
       }
       valid.push({ ...m, record: record.data });
     }
+    const before = db.rev;
     const { results, rev } = db.applyMutations(valid);
+    if (rev !== before) broadcast({ rev, from: deviceIdOf(req) });
     return { rev, results, rejected };
   });
 
@@ -174,10 +210,23 @@ export async function buildApp(opts: AppOptions): Promise<FastifyInstance> {
     return { code, expiresAt, urls, qr };
   });
 
-  app.get('/api/devices', async () => ({ devices: db.listDevices() }));
+  app.get('/api/devices', async () => {
+    const online = new Set([...live].map((c) => c.deviceId));
+    return {
+      devices: db.listDevices().map((d) => ({ ...d, online: online.has(d.id) })),
+      localOnline: online.has('local'),
+    };
+  });
+
+  app.patch<{ Params: { id: string }; Body: { name?: string } }>('/api/devices/:id', async (req, reply) => {
+    if (!db.renameDevice(req.params.id, cleanName(req.body?.name))) return reply.code(404).send({ error: 'not_found' });
+    return { ok: true };
+  });
 
   app.delete<{ Params: { id: string } }>('/api/devices/:id', async (req, reply) => {
     if (!db.deleteDevice(req.params.id)) return reply.code(404).send({ error: 'not_found' });
+    // Si estaba conectado en vivo, se corta: la próxima vez le va a pedir vincularse de nuevo.
+    for (const c of live) if (c.deviceId === req.params.id) c.res.end();
     return { ok: true };
   });
 
@@ -215,7 +264,7 @@ export async function buildApp(opts: AppOptions): Promise<FastifyInstance> {
       root: opts.webDir,
       setHeaders(res, file) {
         const name = path.basename(file);
-        if (name === 'index.html' || name === 'sw.js' || name.endsWith('.webmanifest')) {
+        if (name === 'index.html' || name === 'sw.js' || name === 'version.json' || name.endsWith('.webmanifest')) {
           res.header('Cache-Control', 'no-cache');
         } else if (file.includes(`${path.sep}assets${path.sep}`)) {
           res.header('Cache-Control', 'public, max-age=31536000, immutable');

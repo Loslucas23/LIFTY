@@ -2,7 +2,7 @@ import type { MonthBudget } from './budget';
 import { reminderStatus } from './extras';
 import { habitsToday } from './habits';
 import { upcomingEvents } from './insights';
-import { round2 } from './money';
+import { fold, round2 } from './money';
 import type { LiftyData } from './schema';
 import { stockOverview } from './stock';
 import { subjectStatus } from './study';
@@ -197,9 +197,6 @@ export interface SearchResult {
   amount?: number;
   currency?: 'UYU' | 'USD';
 }
-
-/** Saca tildes y pasa a minúsculas para comparar ("azucar" encuentra "Azúcar"). */
-export const fold = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim();
 
 /** Busca en todos los módulos. Los movimientos más nuevos primero; también por monto ("1500"). */
 export function searchAll(data: LiftyData, query: string, limit = 40): SearchResult[] {

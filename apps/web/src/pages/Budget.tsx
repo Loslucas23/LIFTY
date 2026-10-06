@@ -2,6 +2,7 @@ import { useState } from 'react';
 import {
   accountBalances,
   addMonths,
+  budgetReview,
   daysInMonth,
   moneyCheck,
   monthLabel,
@@ -15,7 +16,7 @@ import { PlannedList } from '../components/Planned';
 import { openTxForm } from '../components/TxForm';
 import { Empty, Field, MonthPicker, PageHeader, Progress, Section, Sheet, toast } from '../components/ui';
 import { money, parseAmount } from '../lib/format';
-import { confirmAll } from '../lib/actions';
+import { confirmAll, setCategoryBudget } from '../lib/actions';
 import { navigate } from '../lib/router';
 import { useData, useLookups, useMonth, useMonths, useToday } from '../lib/store';
 import { mutate } from '../lib/sync';
@@ -116,6 +117,7 @@ export function Budget({ month: monthParam }: { month?: string }) {
           </Section>
 
           <CategoryBudgets b={b} month={month} />
+          {month === monthOf(today) && <BudgetReview month={month} />}
 
           {b.card.items.length > 0 && (
             <Section title="Tarjeta de crédito" action={<span className="muted small">{money(b.card.total)}</span>}>
@@ -567,5 +569,71 @@ function LineRow({ line, sign }: { line: TxLine; sign: string }) {
         {money(Math.abs(line.amount))}
       </span>
     </button>
+  );
+}
+
+/**
+ * Revisión del presupuesto: mira los últimos 3 meses. Si en una categoría te pasás siempre, el
+ * número no es realista; si siempre sobra mucho, esa plata podría ir al ahorro.
+ */
+function BudgetReview({ month }: { month: string }) {
+  const data = useData();
+  const months = useMonths(addMonths(month, -3), month);
+  const { category } = useLookups();
+  const advice = budgetReview(data, months);
+  if (!advice.length) return null;
+  const freed = advice.filter((a) => a.kind === 'lower').reduce((s, a) => s + a.current - a.suggested, 0);
+  return (
+    <Section title="Revisión del presupuesto">
+      <p className="muted small">
+        Según los últimos 3 meses.
+        {freed > 0 && ` Ajustando lo que sobra liberás ${money(freed)} por mes para ahorrar.`}
+      </p>
+      <ul className="insights">
+        {advice.map((a) => {
+          const cat = category.get(a.categoryId);
+          const name = cat?.name ?? 'Categoría';
+          return (
+            <li key={a.categoryId}>
+              <div className={`insight insight-${a.kind === 'raise' ? 'warn' : 'good'}`}>
+                <span aria-hidden="true">{cat?.icon ?? '📊'}</span>
+                <button
+                  className="grow link-plain"
+                  onClick={() =>
+                    openExplain({
+                      title: `${name}: últimos 3 meses`,
+                      intro:
+                        a.kind === 'raise'
+                          ? 'Te pasaste los 3 meses: se sugiere lo que gastás normalmente (la mediana, redondeada a 100).'
+                          : 'Los 3 meses usaste menos del 70%: se sugiere lo máximo que gastaste + 10%, redondeado a 100.',
+                      rows: a.months.map((m) => ({
+                        label: `${monthLabel(m.month, false)} (presupuesto ${money(m.limit)})`,
+                        value: m.spent,
+                      })),
+                      result: { label: 'Sugerido', value: a.suggested },
+                    })
+                  }
+                >
+                  {a.kind === 'raise'
+                    ? `${name}: te pasás todos los meses. ¿Lo subís de ${money(a.current)} a ${money(a.suggested)}?`
+                    : `${name}: siempre te sobra. ¿Lo bajás de ${money(a.current)} a ${money(a.suggested)}?`}
+                </button>
+                <button
+                  className="btn"
+                  onClick={() => {
+                    setCategoryBudget(data, month, a.categoryId, a.suggested, 'all');
+                    toast(`${name}: ${money(a.suggested)} por mes`, {
+                      action: { label: 'Deshacer', run: () => setCategoryBudget(data, month, a.categoryId, a.current, 'all') },
+                    });
+                  }}
+                >
+                  Aplicar
+                </button>
+              </div>
+            </li>
+          );
+        })}
+      </ul>
+    </Section>
   );
 }

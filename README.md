@@ -36,6 +36,7 @@ claras y reglas simples.
 | **¿Me lo puedo comprar?** | Ponés el precio y las cuotas: mes a mes, lo libre (ingresos − fijos − cuotas − ahorro − tu gasto promedio) menos la cuota, si te alcanza y cuántos meses tardarías en juntarlo. |
 | **Diario** | Cuánto dormiste y cómo estás (1 a 5) en un toque, también desde Inicio. Cruza los días que dormís menos de 6 h o estás bajón con lo que gastás, tus rutinas y tu estudio. |
 | **Peso** | Pesajes con promedio de 7 días, cambio semanal y mensual, IMC y meta. **Ejercicio y peso**: cuánto cambió tu peso las semanas que entrenaste 3+ veces contra las demás. |
+| **Más inteligente (sin IA)** | Todo con cuentas simples que podés ver tocando "¿De dónde sale?". **A este ritmo** mira cómo gastás cada día de la semana (los sábados no son como los martes) y recorta los días con compras fuera de lo común. **Categoría sugerida**: al escribir "Uber" elige Transporte porque así lo cargaste antes (o por palabras comunes, si recién empezás). **¿Ya lo cargaste?**: avisa si cargás dos veces el mismo gasto. **Parecen gastos fijos**: detecta lo que pagás a mano todos los meses (Netflix, el gimnasio…) y lo pasa a fijos con un toque. **Gastos fuera de lo común**: "$ 9.000 en comida afuera, 5 veces lo normal". **Revisión del presupuesto**: si en una categoría te pasás siempre o siempre te sobra, propone un número más realista. |
 | **Buscar en todo** | La lupa (o **/** o **Ctrl+K** en la compu): movimientos por texto, categoría, cuenta, #etiqueta o monto, y también stock, recetas, rutinas, materias, metas, deudas, vencimientos y pantallas. Escribí "500 super" y te ofrece cargar ese gasto. |
 | **Detalles** | Modo privado (el ojo arriba, o la tecla **P**): oculta los montos. En la compu: **N** nuevo movimiento, **/** buscar. Tema claro, oscuro o automático. |
 
@@ -57,7 +58,12 @@ claras y reglas simples.
 4. En el navegador del celular: **Agregar a la pantalla de inicio** para tenerla como una app más.
 
 El celular guarda los datos y lo que cargues sin conexión (en la calle, sin Wi-Fi) y lo manda a la compu
-apenas la vuelve a ver. La primera vez que abras Lifty en Windows puede aparecer el aviso del firewall:
+apenas la vuelve a ver (si falla, reintenta solo cada vez más espaciado). Con los dos conectados, la
+sincronización es **en vivo**: lo que tildás en la lista del súper desde el celular aparece al instante en la
+compu (el puntito verde al lado de "Sincronizado"). En **Conectar dispositivos** ves el estado de la conexión
+(si llega a la compu, en cuántos milisegundos, cambios sin enviar), qué dispositivos están en línea ahora, y
+podés ponerles nombre o desvincularlos. Si actualizás Lifty en la compu, el celular avisa "Hay una versión
+nueva" para recargar. La primera vez que abras Lifty en Windows puede aparecer el aviso del firewall:
 aceptalo para "redes privadas" para que el celular pueda entrar.
 
 **¿Querés sincronizar también fuera de casa?** Dos opciones:

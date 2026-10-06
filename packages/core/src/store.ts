@@ -51,3 +51,21 @@ export function toLiftyData(store: RecordStore): LiftyData {
     weights: list('weight').sort((a, b) => a.date.localeCompare(b.date) || a.updatedAt.localeCompare(b.updatedAt)),
   };
 }
+
+/**
+ * La bandeja de salida guarda solo el último cambio de cada registro: si sin conexión editás
+ * 10 veces el mismo gasto, se manda una sola vez (el servidor se queda igual con el más nuevo).
+ * Los cambios que quedan conservan su identidad (sirve para sacar de la bandeja lo ya enviado).
+ */
+export function compactOutbox(outbox: Mutation[]): Mutation[] {
+  const last = new Map<string, Mutation>();
+  for (const m of outbox) {
+    const key = `${m.entity}:${m.id}`;
+    const prev = last.get(key);
+    if (!prev || prev.updatedAt <= m.updatedAt) {
+      last.delete(key);
+      last.set(key, m);
+    }
+  }
+  return [...last.values()];
+}

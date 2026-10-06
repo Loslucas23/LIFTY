@@ -30,3 +30,11 @@ export function formatMoney(amount: number, currency: Currency = 'UYU', opts: { 
   const sign = amount < 0 ? '-' : '';
   return `${sign}${symbol} ${fmt.format(Math.abs(round2(amount)))}`;
 }
+
+/** Saca tildes y pasa a minúsculas para comparar ("azucar" encuentra "Azúcar"). */
+export const fold = (s: string) =>
+  s
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .trim();

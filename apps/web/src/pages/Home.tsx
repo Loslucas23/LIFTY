@@ -16,6 +16,7 @@ import {
   stockOverview,
   todayAgenda,
   upcomingEvents,
+  weekdayForecast,
   weightStats,
   type AgendaItem,
   type Insight,
@@ -57,6 +58,9 @@ export function Home() {
   const debts = debtTotals(data);
   const foodCards = data.accounts.filter((a) => a.type === 'food' && !a.archived);
   const d = b.daily;
+  // "A este ritmo": si hay historia, según cómo gastás cada día de la semana.
+  const smart = d ? weekdayForecast(data, b, today) : null;
+  const forecastEnd = smart ? smart.forecastEnd : (d?.forecastEnd ?? 0);
   const yearGoals = data.yearGoals
     .filter((g) => !g.archived && g.year === Number(today.slice(0, 4)))
     .map((g) => yearGoalStatus(g, data, today));
@@ -118,6 +122,30 @@ export function Home() {
               type="button"
               onClick={(e) => {
                 e.stopPropagation();
+                if (smart) {
+                  openExplain({
+                    title: 'A este ritmo…',
+                    intro: `Según cómo gastás cada día de la semana (últimas ${Math.round(smart.historyDays / 7)} semanas): los sábados no son como los martes. No cuenta lo que viene del mes anterior: eso queda como colchón.`,
+                    rows: [
+                      { label: 'Para gastar en el mes', value: d.base, note: 'ingresos − fijos − cuotas − ahorro' },
+                      { label: 'Ya gastaste', value: smart.spentSoFar, op: '−' },
+                      ...smart.rest
+                        .filter((r) => r.typical > 0)
+                        .map((r) => ({
+                          label: `${r.days} ${r.weekday}${r.days > 1 && !r.weekday.endsWith('s') ? 's' : ''} × ${money(Math.round(r.typical))}`,
+                          value: round2(r.days * r.typical),
+                          op: '−' as const,
+                          note: 'lo típico de ese día',
+                        })),
+                    ],
+                    result: {
+                      label: smart.forecastEnd < 0 ? 'Te faltarían' : 'Te sobrarían',
+                      value: Math.abs(smart.forecastEnd),
+                    },
+                    footnote: `Hoy cuenta lo que ya gastaste o lo típico del día, lo que sea más. Los días con gastos fuera de lo común cuentan como máximo ${money(Math.round(smart.cap))} (el 10% de días más caros), para que una compra grande no arruine el cálculo.`,
+                  });
+                  return;
+                }
                 openExplain({
                   title: 'A este ritmo…',
                   intro:
@@ -137,8 +165,8 @@ export function Home() {
             >
               <span>A este ritmo</span>
               <strong>
-                {d.forecastEnd < 0 ? 'faltan ' : 'sobran '}
-                {money(Math.round(Math.abs(d.forecastEnd)))}
+                {forecastEnd < 0 ? 'faltan ' : 'sobran '}
+                {money(Math.round(Math.abs(forecastEnd)))}
               </strong>
             </button>
           </div>
@@ -406,6 +434,16 @@ function Tile({ href, icon, title, text, value }: { href: string; icon: IconName
 const TONE_ICON: Record<Insight['tone'], string> = { good: '✅', warn: '⚠️', bad: '🔴', info: '💡' };
 
 function InsightRow({ insight }: { insight: Insight }) {
+  if (insight.href)
+    return (
+      <li>
+        <a className={`insight insight-${insight.tone}`} href={insight.href}>
+          <span aria-hidden="true">{TONE_ICON[insight.tone]}</span>
+          <span className="grow">{insight.text}</span>
+          <Icon name="right" size={16} className="muted" />
+        </a>
+      </li>
+    );
   return (
     <li>
       <button

@@ -238,6 +238,55 @@ describe('importar Excel', () => {
   });
 });
 
+describe('en vivo', () => {
+  it('avisa al instante a los otros dispositivos cuando cambia algo', async () => {
+    await app.listen({ port: 0, host: '127.0.0.1' });
+    const { port } = app.server.address() as { port: number };
+    const ctrl = new AbortController();
+    const res = await fetch(`http://127.0.0.1:${port}/api/live`, { signal: ctrl.signal });
+    expect(res.headers.get('content-type')).toContain('text/event-stream');
+    const reader = res.body!.getReader();
+    const decoder = new TextDecoder();
+    const next = async () => decoder.decode((await reader.read()).value);
+    const first = await next();
+    const startRev = JSON.parse(first.replace(/^data: /, '')).rev;
+    expect(startRev).toBeGreaterThan(0);
+
+    const devices = await (await fetch(`http://127.0.0.1:${port}/api/devices`)).json();
+    expect(devices.localOnline).toBe(true);
+
+    await fetch(`http://127.0.0.1:${port}/api/mutations`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        mutations: [
+          {
+            entity: 'transaction',
+            op: 'upsert',
+            id: 'live1',
+            updatedAt: '2026-02-02T10:00:00Z',
+            record: { date: '2026-02-02', kind: 'expense', amount: 100 },
+          },
+        ],
+      }),
+    });
+    const msg = JSON.parse((await next()).replace(/^data: /, ''));
+    expect(msg).toEqual({ rev: startRev + 1, from: 'local' });
+    ctrl.abort();
+  });
+
+  it('se puede renombrar un dispositivo', async () => {
+    const { code } = (await app.inject({ method: 'POST', url: '/api/pairing' })).json();
+    const { device } = (
+      await app.inject({ method: 'POST', url: '/api/auth/pair', payload: { code, name: 'Celular' }, ...remote })
+    ).json();
+    const r = await app.inject({ method: 'PATCH', url: `/api/devices/${device.id}`, payload: { name: 'Celu nuevo' } });
+    expect(r.statusCode).toBe(200);
+    const list = (await app.inject({ url: '/api/devices' })).json();
+    expect(list.devices[0]).toMatchObject({ name: 'Celu nuevo', online: false });
+  });
+});
+
 describe('exportar Excel', () => {
   it('genera una planilla con resumen y movimientos', async () => {
     const tx = { date: '2026-02-02', kind: 'expense', amount: 633.2, categoryId: 'cat-transporte', description: 'Cabify' };

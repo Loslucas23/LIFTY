@@ -2946,3 +2946,78 @@ button.tx-main {
 .agenda-done {
   margin: 10px 0 0;
 }
+
+/* ---------- Conexión ---------- */
+.sync-badge.is-live::after {
+  content: '';
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+.update-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 14px;
+  padding: 10px 14px;
+  border-radius: 14px;
+  background: var(--accent-soft);
+  border: 1px solid var(--accent);
+  font-weight: 600;
+}
+.conn-rows {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 8px 16px;
+  margin: 0;
+}
+.conn-rows dt {
+  color: var(--muted);
+}
+.conn-rows dd {
+  margin: 0;
+  font-weight: 600;
+  text-align: right;
+}
+.dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  margin-right: 6px;
+  background: var(--muted);
+}
+.dot-on {
+  background: var(--accent);
+}
+.dot-warn {
+  background: var(--warn);
+}
+.dot-bad {
+  background: var(--bad);
+}
+.link-plain {
+  text-align: left;
+  padding: 0;
+  color: inherit;
+}
+.link-plain:hover {
+  color: var(--accent);
+}
+.conn-help {
+  margin-top: 12px;
+}
+.conn-help ul {
+  margin: 6px 0 0;
+  padding-left: 18px;
+  display: grid;
+  gap: 4px;
+}
+.suggest-hint {
+  color: var(--muted);
+  font-weight: 500;
+}

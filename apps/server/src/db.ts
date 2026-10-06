@@ -217,6 +217,14 @@ export class LiftyDb {
     return this.all(`SELECT * FROM devices ORDER BY created_at`).map(toDevice);
   }
 
+  renameDevice(id: string, name: string): boolean {
+    const exists = this.get(`SELECT id FROM devices WHERE id = ?`, [id]);
+    if (!exists) return false;
+    this.run(`UPDATE devices SET name = ? WHERE id = ?`, [name, id]);
+    this.save();
+    return true;
+  }
+
   deleteDevice(id: string): boolean {
     const exists = this.get(`SELECT id FROM devices WHERE id = ?`, [id]);
     if (!exists) return false;

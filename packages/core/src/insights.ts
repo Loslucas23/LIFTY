@@ -2,6 +2,7 @@ import { convert } from './accounts';
 import { countsInBudget, goalBalances, offBudgetAccounts, ownAmount, type MonthBudget } from './budget';
 import { addMonths, daysInMonth, monthDiff, monthLabel, monthOf, occursIn } from './months';
 import { round2 } from './money';
+import { detectRecurring, unusualExpenses, weekdayForecast } from './smart';
 import { netSalary } from './salary';
 import type { Goal, LiftyData, Transaction } from './schema';
 
@@ -114,6 +115,8 @@ export interface Insight {
   /** Cómo se calculó (para "¿de dónde sale?"). */
   detail: string;
   categoryId?: string | null;
+  /** Si tocarlo lleva a una pantalla (en vez de mostrar la cuenta). */
+  href?: string;
 }
 
 /** Gastado (propio, en pesos) por categoría entre dos fechas inclusive: día a día y compras nuevas. */
@@ -144,9 +147,23 @@ export function monthInsights(data: LiftyData, b: MonthBudget, today: string): I
   const names = new Map(data.categories.map((c) => [c.id, c.name]));
   const fmt = (v: number) => `$ ${Math.round(v).toLocaleString('es-UY')}`;
 
-  // 1) A este ritmo…
+  // 1) A este ritmo… (si hay historia, según cómo gastás cada día de la semana).
   const d = b.daily;
-  if (d.spentBefore + d.spentToday > 0) {
+  const smart = weekdayForecast(data, b, today);
+  if (smart) {
+    out.push({
+      id: 'pace',
+      tone: smart.forecastEnd >= 0 ? 'good' : 'bad',
+      text:
+        smart.forecastEnd >= 0
+          ? `A este ritmo terminás el mes con ${fmt(smart.forecastEnd)} de margen.`
+          : `A este ritmo te faltan ${fmt(-smart.forecastEnd)} para llegar a fin de mes.`,
+      detail: `Según cómo gastás cada día de la semana (últimas ${Math.round(smart.historyDays / 7)} semanas): ${fmt(d.base)} disponibles − ${fmt(smart.spentSoFar)} gastados − ${fmt(smart.expectedRest)} que se espera gastar hasta fin de mes (${smart.rest
+        .filter((r) => r.typical > 0)
+        .map((r) => `${r.days} ${r.weekday}${r.days > 1 && !r.weekday.endsWith('s') ? 's' : ''} × ${fmt(r.typical)}`)
+        .join(', ')}) = ${fmt(smart.forecastEnd)}. Los días con gastos fuera de lo común cuentan como máximo ${fmt(smart.cap)}.`,
+    });
+  } else if (d.spentBefore + d.spentToday > 0) {
     out.push({
       id: 'pace',
       tone: d.forecastEnd >= 0 ? 'good' : 'bad',
@@ -228,6 +245,29 @@ export function monthInsights(data: LiftyData, b: MonthBudget, today: string): I
           },
     );
   }
+  // 5) Gastos fuera de lo común (de la última semana).
+  for (const u of unusualExpenses(data, today).slice(0, 2)) {
+    const name = names.get(u.tx.categoryId ?? '') ?? 'esa categoría';
+    out.push({
+      id: `unusual-${u.tx.id}`,
+      tone: 'info',
+      categoryId: u.tx.categoryId,
+      text: `${u.tx.description || 'Un gasto'}: ${fmt(u.amount)} en ${name.toLowerCase()}, ${Math.round(u.amount / u.median)} veces lo normal.`,
+      detail: `En los últimos 6 meses, tus gastos en ${name.toLowerCase()} fueron de ${fmt(u.median)} normalmente (la mediana de ${u.samples} gastos) y 9 de cada 10 quedaron por debajo de ${fmt(u.high)}. No está mal: es para que no se te pase.`,
+    });
+  }
+
+  // 6) Algo que pagás todos los meses y no está en los fijos.
+  const rec = detectRecurring(data, today)[0];
+  if (rec)
+    out.push({
+      id: `recurring-${rec.key}`,
+      tone: 'info',
+      text: `Pagás ${rec.name} (${fmt(rec.amount)}) todos los meses: ¿lo pasás a gastos fijos?`,
+      detail: '',
+      href: '#/suscripciones',
+    });
+
   const free = noSpendDays(data, month, today);
   if (free.streak >= 2 && data.transactions.length > 0) {
     out.push({

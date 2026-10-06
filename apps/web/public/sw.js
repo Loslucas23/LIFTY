@@ -1,6 +1,6 @@
 // Service worker de Lifty: guarda la app para abrirla sin conexión.
 // Los datos no pasan por acá: viven en IndexedDB y se sincronizan por la API.
-const CACHE = 'lifty-shell-v1';
+const CACHE = 'lifty-shell-v2';
 
 self.addEventListener('install', (event) => {
   event.waitUntil(caches.open(CACHE).then((c) => c.addAll(['./', './index.html', './manifest.webmanifest', './icon.svg'])));
@@ -19,6 +19,8 @@ self.addEventListener('activate', (event) => {
 self.addEventListener('fetch', (event) => {
   const url = new URL(event.request.url);
   if (event.request.method !== 'GET' || url.origin !== self.location.origin || url.pathname.includes('/api/')) return;
+  // La versión siempre se pregunta a la compu (si no hay conexión, no hay nada que actualizar).
+  if (url.pathname.endsWith('/version.json')) return;
   // Red primero (para tener siempre la última versión), caché si no hay conexión.
   event.respondWith(
     fetch(event.request)

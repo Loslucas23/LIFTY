@@ -271,3 +271,16 @@ describe('sincronización', () => {
     ).toThrow();
   });
 });
+
+describe('bandeja de salida', () => {
+  it('se queda con el último cambio de cada registro y conserva el orden', async () => {
+    const { compactOutbox } = await import('../src/store');
+    const a1 = { entity: 'transaction', op: 'upsert', id: 'a', updatedAt: '2026-01-01T10:00:00Z', record: {} } as const;
+    const b1 = { entity: 'transaction', op: 'upsert', id: 'b', updatedAt: '2026-01-01T10:01:00Z', record: {} } as const;
+    const a2 = { entity: 'transaction', op: 'delete', id: 'a', updatedAt: '2026-01-01T10:02:00Z' } as const;
+    const old = { entity: 'transaction', op: 'upsert', id: 'b', updatedAt: '2026-01-01T09:00:00Z', record: {} } as const;
+    const out = compactOutbox([a1, b1, a2, old]);
+    expect(out).toEqual([b1, a2]);
+    expect(out[0]).toBe(b1);
+  });
+});
