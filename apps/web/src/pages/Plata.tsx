@@ -28,7 +28,7 @@ import { Chips, Field, PageHeader, Progress, Section, Sheet, toast } from '../co
 import { money, parseAmount } from '../lib/format';
 import { assignToGoal, doPayday, registerInterest, renewInvestment, setGoalAccount } from '../lib/plata';
 import { navigate } from '../lib/router';
-import { useData, useMonth, useMonths, useToday } from '../lib/store';
+import { cached, useData, useMonth, useMonths, useToday } from '../lib/store';
 import { mutate } from '../lib/sync';
 
 /** Tu plata calculada para hoy. */
@@ -36,7 +36,7 @@ export function usePlata(): PlataT {
   const data = useData();
   const today = useToday();
   const b = useMonth(monthOf(today));
-  return useMemo(() => plata(data, b, today), [data, b, today]);
+  return cached(data, `plata:${today}`, () => plata(data, b, today));
 }
 
 const fmtDate = (d: string) => d.split('-').reverse().slice(0, 2).join('/');
@@ -72,7 +72,7 @@ export function Plata() {
   const today = useToday();
   const b = useMonth(monthOf(today));
   const p = usePlata();
-  const check = useMemo(() => moneyCheck(data, today, b), [data, today, b]);
+  const check = cached(data, `check:${today}`, () => moneyCheck(data, today, b));
   const history = useMemo(() => netWorthHistory(data, today, 4), [data, today]);
   const [payday, setPayday] = useState(false);
   const [assigning, setAssigning] = useState<Place | null>(null);

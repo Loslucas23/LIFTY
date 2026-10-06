@@ -3,7 +3,7 @@ import { openExplain } from '../components/Editors';
 import { Empty, PageHeader, Section, toast } from '../components/ui';
 import { money } from '../lib/format';
 import { navigate } from '../lib/router';
-import { useData, useMonths, useToday } from '../lib/store';
+import { cached, useData, useMonths, useToday } from '../lib/store';
 import { mutate } from '../lib/sync';
 
 const tone = (s: number) => (s >= 75 ? 'good' : s >= 45 ? 'warn' : 'bad');
@@ -15,7 +15,7 @@ export function useHealth() {
   const today = useToday();
   const month = monthOf(today);
   const months = useMonths(addMonths(month, -3), month);
-  return { money: financialHealth(data, months, today), life: lifeBalance(data, today) };
+  return cached(data, `health:${today}`, () => ({ money: financialHealth(data, months, today), life: lifeBalance(data, today) }));
 }
 
 /** Tu salud: financiera (ahorro, colchón, presupuesto, deudas, orden) y de vida (rutinas, sueño, ánimo, movimiento). */

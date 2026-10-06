@@ -8,7 +8,7 @@ import {
   savingFromTransfer,
   txRate,
 } from './budget';
-import { exerciseVsWeight, habitsToday } from './habits';
+import { exerciseVsWeight, habitDay, habitsToday } from './habits';
 import { addMonths, daysInMonth, isActiveIn, monthOf } from './months';
 import { round2 } from './money';
 import type { FixedExpense, LiftyData, Reminder, Settings, StockItem, StockMove, YearGoal } from './schema';
@@ -156,9 +156,9 @@ export function weekSummary(data: LiftyData, from: string, today: string): WeekS
     let done = 0;
     let due = 0;
     for (let d = from; d <= last; d = addDays(d, 1)) {
-      const day = habitsToday(data.habits, data.habitLogs, d);
+      const day = habitDay(data.habits, data.habitLogs, d);
       due += day.due.length;
-      done += day.doneCount;
+      done += day.done.length;
     }
     const best = habitsToday(data.habits, data.habitLogs, last).statuses.sort((a, b) => b.streak - a.streak)[0];
     habits = { done, due, bestStreak: best && best.streak > 0 ? { name: best.habit.name, days: best.streak } : null };

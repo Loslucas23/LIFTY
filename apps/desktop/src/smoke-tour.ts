@@ -31,7 +31,8 @@ export async function smokeTour(): Promise<string[]> {
   const go = async (route: string) => {
     window.location.hash = route;
     await sleep(250);
-    await waitFor('.page');
+    // Las pantallas se bajan cuando hacen falta: esperar la de verdad, no el esqueleto.
+    await waitFor('.page:not(.page-loading)');
     check(route);
   };
   /** Escribe en un input controlado por React. */

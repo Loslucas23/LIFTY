@@ -1,6 +1,6 @@
 import { countsInBudget, offBudgetAccounts, ownAmount, txRate } from './budget';
 import { convert } from './accounts';
-import { habitsToday } from './habits';
+import { habitDay } from './habits';
 import { round2 } from './money';
 import type { LiftyData } from './schema';
 import { stockStatus } from './stock';
@@ -43,8 +43,8 @@ export function journalInsights(data: LiftyData, today: string, days = 60): Jour
   const studyBy = new Map<string, number>();
   for (const s of data.studySessions) studyBy.set(s.date, (studyBy.get(s.date) ?? 0) + s.minutes);
   const habitPct = (date: string) => {
-    const h = habitsToday(data.habits, data.habitLogs, date);
-    return h.due.length ? (h.doneCount / h.due.length) * 100 : null;
+    const h = habitDay(data.habits, data.habitLogs, date);
+    return h.due.length ? (h.done.length / h.due.length) * 100 : null;
   };
   const metrics: { name: string; value: (date: string) => number | null }[] = [
     { name: 'gasto del día', value: (d) => spentBy.get(d) ?? 0 },

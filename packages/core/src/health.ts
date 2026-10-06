@@ -1,5 +1,5 @@
 import type { MonthBudget } from './budget';
-import { habitsToday } from './habits';
+import { habitDay } from './habits';
 import { monthSurplus } from './insights';
 import { round2 } from './money';
 import { moneyCheck } from './reconcile';
@@ -147,11 +147,11 @@ export function lifeBalance(data: LiftyData, today: string, days = 30): LifeBala
   const exercise = new Set(data.habits.filter((h) => h.area === 'ejercicio' && !h.archived).map((h) => h.id));
   if (data.habits.some((h) => !h.archived)) {
     for (let d = from; d <= today; d = addDays(d, 1)) {
-      const h = habitsToday(data.habits, data.habitLogs, d);
+      const h = habitDay(data.habits, data.habitLogs, d);
       // Hoy todavía no terminó: solo cuenta lo que ya hiciste.
-      due += d === today ? h.doneCount : h.due.length;
-      done += h.doneCount;
-      if (h.due.some((s) => exercise.has(s.habit.id) && s.done)) workouts++;
+      due += d === today ? h.done.length : h.due.length;
+      done += h.done.length;
+      if (h.done.some((x) => exercise.has(x.id))) workouts++;
     }
     if (due > 0)
       parts.push({

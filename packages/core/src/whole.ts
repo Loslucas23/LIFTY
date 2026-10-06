@@ -1,7 +1,7 @@
 import { accountBalances, convert } from './accounts';
 import { categoryRootFn, countsInBudget, offBudgetAccounts, type MonthBudget } from './budget';
 import { cardAutoPayments } from './card';
-import { habitsToday, isDue } from './habits';
+import { habitDay, habitsToday, isDue } from './habits';
 import { noSpendDays, topExpenses } from './insights';
 import { addMonths, daysInMonth, monthLabel, monthOf } from './months';
 import { round2 } from './money';
@@ -251,10 +251,10 @@ export function monthReview(data: LiftyData, b: MonthBudget, prev: MonthBudget |
   let workouts = 0;
   const exercise = data.habits.filter((h) => h.area === 'ejercicio');
   for (let x = first; x <= last; x = addDays(x, 1)) {
-    const h = habitsToday(data.habits, data.habitLogs, x);
+    const h = habitDay(data.habits, data.habitLogs, x);
     habitsDue += h.due.length;
-    habitsDone += h.doneCount;
-    if (exercise.some((e) => h.due.find((s) => s.habit.id === e.id)?.done)) workouts++;
+    habitsDone += h.done.length;
+    if (exercise.some((e) => h.done.some((d) => d.id === e.id))) workouts++;
   }
   const best = data.habits.length
     ? habitsToday(data.habits, data.habitLogs, last).statuses.sort((a, c) => c.streak - a.streak)[0]

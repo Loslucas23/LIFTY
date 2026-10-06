@@ -1,3 +1,4 @@
+import { remember } from './memo';
 import { round2 } from './money';
 import type { Habit, HabitLog } from './schema';
 import { addDays } from './weight';
@@ -6,7 +7,16 @@ import { addDays } from './weight';
 
 export const habitLogId = (habitId: string, date: string) => `${habitId}:${date}`;
 
-const weekday = (date: string) => new Date(`${date}T12:00:00Z`).getUTCDay();
+const weekdays = new Map<string, number>();
+const weekday = (date: string) => {
+  let w = weekdays.get(date);
+  if (w === undefined) {
+    w = new Date(`${date}T12:00:00Z`).getUTCDay();
+    if (weekdays.size > 20_000) weekdays.clear();
+    weekdays.set(date, w);
+  }
+  return w;
+};
 
 /** ¿Este hábito toca ese día? */
 export const isDue = (h: Habit, date: string) => h.days.includes(weekday(date));
@@ -28,8 +38,33 @@ export interface HabitStatus {
   last7: { date: string; value: number; done: boolean | null }[];
 }
 
+/** Lo anotado de cada hábito, agrupado una sola vez por lista de registros (se reusa entre llamadas). */
+const byHabitCache = new WeakMap<HabitLog[], { size: number; map: Map<string, Map<string, number>> }>();
+function logsByHabit(logs: HabitLog[]): Map<string, Map<string, number>> {
+  const hit = byHabitCache.get(logs);
+  if (hit && hit.size === logs.length) return hit.map;
+  const map = new Map<string, Map<string, number>>();
+  for (const l of logs) {
+    let dates = map.get(l.habitId);
+    if (!dates) map.set(l.habitId, (dates = new Map()));
+    dates.set(l.date, l.value);
+  }
+  byHabitCache.set(logs, { size: logs.length, map });
+  return map;
+}
+
+/**
+ * Qué rutinas tocaban un día y cuáles se cumplieron (sin rachas): para las cuentas de muchos
+ * días (semana, mes, balance de vida), que no necesitan recalcular todo el historial.
+ */
+export function habitDay(habits: Habit[], logs: HabitLog[], date: string): { due: Habit[]; done: Habit[] } {
+  const m = logsByHabit(logs);
+  const due = habits.filter((h) => !h.archived && isDue(h, date));
+  return { due, done: due.filter((h) => (m.get(h.id)?.get(date) ?? 0) >= h.target) };
+}
+
 export function habitStatus(h: Habit, logs: HabitLog[], today: string): HabitStatus {
-  const byDate = new Map(logs.filter((l) => l.habitId === h.id).map((l) => [l.date, l.value]));
+  const byDate = logsByHabit(logs).get(h.id) ?? new Map<string, number>();
   const value = (d: string) => byDate.get(d) ?? 0;
   const ok = (d: string) => value(d) >= h.target;
   // Racha actual: hacia atrás desde hoy (si hoy no está hecho, se empieza desde ayer).
@@ -83,6 +118,12 @@ export interface HabitsDay {
 }
 
 export function habitsToday(habits: Habit[], logs: HabitLog[], today: string): HabitsDay {
+  const r = remember(logs, `today:${today}`, [habits, habits.length, logs.length], () => computeDay(habits, logs, today));
+  // Copias de las listas: hay quien las ordena (la mejor racha) y no debe tocar la recordada.
+  return { ...r, statuses: r.statuses.slice(), due: r.due.slice() };
+}
+
+function computeDay(habits: Habit[], logs: HabitLog[], today: string): HabitsDay {
   const statuses = habits.filter((h) => !h.archived).map((h) => habitStatus(h, logs, today));
   const due = statuses.filter((s) => s.dueToday);
   return { statuses, due, doneCount: due.filter((s) => s.done).length };

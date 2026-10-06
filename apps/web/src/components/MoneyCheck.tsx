@@ -1,7 +1,7 @@
 import { adjustBalance, moneyCheck, monthLabel, newId, type LiftyData, type MoneyCheck as Check } from '@lifty/core';
 import { money } from '../lib/format';
 import { navigate } from '../lib/router';
-import { useData, useMonth, useToday } from '../lib/store';
+import { cached, useData, useMonth, useToday } from '../lib/store';
 import { mutate } from '../lib/sync';
 import { openExplain, openMenu, openPrompt } from './Editors';
 import { openSetup } from './Setup';
@@ -11,7 +11,7 @@ export function useMoneyCheck(): Check {
   const data = useData();
   const today = useToday();
   const b = useMonth(today.slice(0, 7));
-  return moneyCheck(data, today, b);
+  return cached(data, `check:${today}`, () => moneyCheck(data, today, b));
 }
 
 const SOURCE: Record<Check['budget']['carryoverSource'], string> = {

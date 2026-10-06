@@ -1,6 +1,7 @@
 import { offBudgetAccounts } from './budget';
 import { cardAutoPayments } from './card';
 import { addMonths, daysInMonth, monthOf } from './months';
+import { dataDeps, remember } from './memo';
 import { round2 } from './money';
 import type { Account, Currency, Debt, LiftyData, Transaction } from './schema';
 
@@ -28,6 +29,11 @@ export interface AccountBalance {
  * ± transferencias ± préstamos. Es tan preciso como lo que cargues: se puede ajustar.
  */
 export function accountBalances(data: LiftyData, upTo: string): AccountBalance[] {
+  // Copia de la lista: quien la ordena o filtra no toca la recordada.
+  return remember(data, `balances:${upTo}`, dataDeps(data), () => computeBalances(data, upTo)).slice();
+}
+
+function computeBalances(data: LiftyData, upTo: string): AccountBalance[] {
   const rate = data.settings.usdRate;
   const flows = new Map<string, number>(data.accounts.map((a) => [a.id, 0]));
   const byId = new Map(data.accounts.map((a) => [a.id, a]));

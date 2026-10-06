@@ -24,5 +24,9 @@ await build({ ...common, entryPoints: ['src/index.ts'], outfile: 'dist/lifty-lib
 
 fs.copyFileSync(path.join(path.dirname(require.resolve('sql.js')), 'sql-wasm.wasm'), 'dist/sql-wasm.wasm');
 const web = path.resolve('../web/dist');
-if (fs.existsSync(web)) fs.cpSync(web, 'dist/web', { recursive: true });
+if (fs.existsSync(web)) {
+  // Se reemplaza entera: si no, quedan acumulados los archivos de compilaciones viejas.
+  fs.rmSync('dist/web', { recursive: true, force: true });
+  fs.cpSync(web, 'dist/web', { recursive: true });
+}
 console.log('Servidor empaquetado en apps/server/dist');

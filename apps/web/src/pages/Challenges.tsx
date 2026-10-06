@@ -14,7 +14,7 @@ import {
 import { Icon } from '../components/Icon';
 import { Chips, Empty, Field, PageHeader, Section, Sheet, toast } from '../components/ui';
 import { parseAmount } from '../lib/format';
-import { useData, useMonth, useMonths, useToday } from '../lib/store';
+import { cached, useData, useMonth, useMonths, useToday } from '../lib/store';
 import { mutate } from '../lib/sync';
 
 const STATUS_TAG: Record<ChallengeStatus['status'], [string, string]> = {
@@ -28,10 +28,12 @@ const STATUS_TAG: Record<ChallengeStatus['status'], [string, string]> = {
 export function useActiveChallenges(): ChallengeStatus[] {
   const data = useData();
   const today = useToday();
-  return data.challenges
-    .filter((c) => !c.archived && c.to >= addDays(today, -1))
-    .map((c) => challengeStatus(c, data, today))
-    .filter((s) => s.status === 'active' || s.status === 'upcoming');
+  return cached(data, `challenges:${today}`, () =>
+    data.challenges
+      .filter((c) => !c.archived && c.to >= addDays(today, -1))
+      .map((c) => challengeStatus(c, data, today))
+      .filter((s) => s.status === 'active' || s.status === 'upcoming'),
+  );
 }
 
 /** Desafíos: metas cortas que se siguen solas, con sugerencias que salen de tus números. */

@@ -6,7 +6,6 @@ import {
   monthLabel,
   monthOf,
   newId,
-  nextReminderDate,
   recurringSummary,
   reminderSchema,
   reminderStatus,
@@ -27,6 +26,7 @@ import { Chips, Empty, Field, PageHeader, Section, Sheet, toast } from '../compo
 import { dayLabel, money, parseAmount } from '../lib/format';
 import { local } from '../lib/local';
 import { useData, useLookups, useMonth, useToday } from '../lib/store';
+import { renewReminder } from '../lib/life';
 import { mutate } from '../lib/sync';
 
 const fmtDate = (d: string) => d.split('-').reverse().join('/');
@@ -441,20 +441,6 @@ const REMINDER_PRESETS: Partial<Reminder>[] = [
   { name: 'Garantía', icon: '📄', repeatMonths: null, notifyDays: 30 },
   { name: 'Matafuegos', icon: '🧯', repeatMonths: 12, notifyDays: 15 },
 ];
-
-/** "Renové": pasa al próximo vencimiento (o lo da por terminado si no se repite). */
-export function renewReminder(r: Reminder) {
-  const next = nextReminderDate(r);
-  if (!next) {
-    mutate('reminder', 'upsert', { ...r, archived: true });
-    toast(`${r.name}: listo`, { action: { label: 'Deshacer', run: () => mutate('reminder', 'upsert', r) } });
-    return;
-  }
-  mutate('reminder', 'upsert', { ...r, date: next });
-  toast(`${r.name}: próximo vencimiento ${fmtDate(next)}`, {
-    action: { label: 'Deshacer', run: () => mutate('reminder', 'upsert', r) },
-  });
-}
 
 export function Reminders() {
   const data = useData();

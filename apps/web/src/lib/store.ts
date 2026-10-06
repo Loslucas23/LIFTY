@@ -19,11 +19,23 @@ export function useToday(): string {
   return todayISO();
 }
 
+/**
+ * Cuentas compartidas entre pantallas y tarjetas: se hacen una vez por versión de los datos
+ * (Inicio, el formulario y Tu plata piden el mismo mes y no lo recalculan cada uno).
+ */
+const shared = new WeakMap<LiftyData, Map<string, unknown>>();
+export function cached<T>(data: LiftyData, key: string, make: () => T): T {
+  let m = shared.get(data);
+  if (!m) shared.set(data, (m = new Map()));
+  if (!m.has(key)) m.set(key, make());
+  return m.get(key) as T;
+}
+
 /** Presupuestos de un rango de meses. */
 export function useMonths(from: string, to: string): MonthBudget[] {
   const data = useData();
   const today = useToday();
-  return useMemo(() => computeMonths(data, from, to, today), [data, from, to, today]);
+  return cached(data, `months:${from}:${to}:${today}`, () => computeMonths(data, from, to, today));
 }
 
 export function useMonth(month: string): MonthBudget {

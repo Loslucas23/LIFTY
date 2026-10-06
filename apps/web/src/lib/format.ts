@@ -1,4 +1,4 @@
-import { formatMoney, monthLabel, type Currency } from '@lifty/core';
+import { formatMoney, formatNumber, monthLabel, type Currency } from '@lifty/core';
 
 import { isPrivate } from './privacy';
 
@@ -10,8 +10,8 @@ export function compact(amount: number): string {
   if (isPrivate()) return '•••';
   const abs = Math.abs(amount);
   const sign = amount < 0 ? '-' : '';
-  if (abs >= 1_000_000) return `${sign}$ ${(abs / 1_000_000).toLocaleString('es-UY', { maximumFractionDigits: 1 })} M`;
-  if (abs >= 1_000) return `${sign}$ ${(abs / 1_000).toLocaleString('es-UY', { maximumFractionDigits: 1 })} mil`;
+  if (abs >= 1_000_000) return `${sign}$ ${formatNumber(abs / 1_000_000, 1, 0)} M`;
+  if (abs >= 1_000) return `${sign}$ ${formatNumber(abs / 1_000, 1, 0)} mil`;
   return `${sign}$ ${Math.round(abs)}`;
 }
 

@@ -5,6 +5,7 @@ import {
   daysInMonth,
   debtTotals,
   foodCardMonth,
+  formatNumber,
   habitsToday,
   weekStart,
   weekSummary,
@@ -40,8 +41,7 @@ import { PeriodLine, useActivePeriods } from './Periods';
 import { PaydaySheet, usePlata } from './Plata';
 import { payInstallment } from '../lib/plata';
 import { reviewMonth } from './Review';
-import { renewReminder } from './Extras';
-import { tapHabit } from './Routines';
+import { renewReminder, tapHabit } from '../lib/life';
 import { openTxForm } from '../components/TxForm';
 import { TxRow } from '../components/TxRow';
 import { Empty, Progress, Section, toast } from '../components/ui';
@@ -50,7 +50,7 @@ import { dayLabel, money } from '../lib/format';
 import { navigate } from '../lib/router';
 import { local } from '../lib/local';
 import { addToShoppingList } from '../lib/stock';
-import { useData, useLookups, useMonth, useMonths, useSync, useToday } from '../lib/store';
+import { cached, useData, useLookups, useMonth, useMonths, useSync, useToday } from '../lib/store';
 import { mutate } from '../lib/sync';
 
 export function Home() {
@@ -66,7 +66,7 @@ export function Home() {
   const empty = data.transactions.length === 0 && data.incomes.length === 0 && data.fixed.length === 0;
   const past = useMonths(addMonths(month, -3), addMonths(month, -1));
   // ¿Las cuentas quedan en rojo antes de fin de mes? Va primero en los avisos.
-  const low = empty ? null : cashFlowWarning(data, b, today);
+  const low = empty ? null : cached(data, `cashflow:${today}`, () => cashFlowWarning(data, b, today));
   const insights: Insight[] = [
     ...(low
       ? [
@@ -79,7 +79,7 @@ export function Home() {
           },
         ]
       : []),
-    ...(empty ? [] : monthInsights(data, b, today)),
+    ...(empty ? [] : cached(data, `insights:${today}`, () => monthInsights(data, b, today))),
     // Categorías en las que vas mucho más rápido que de costumbre.
     ...(empty ? [] : paceAlerts(data, past, b, today)).slice(0, 2).map(
       (a): Insight => ({
@@ -109,13 +109,15 @@ export function Home() {
   const foodCards = data.accounts.filter((a) => a.type === 'food' && !a.archived);
   const d = b.daily;
   // "A este ritmo": si hay historia, según cómo gastás cada día de la semana.
-  const smart = d ? weekdayForecast(data, b, today) : null;
+  const smart = d ? cached(data, `weekday:${today}`, () => weekdayForecast(data, b, today)) : null;
   const forecastEnd = smart ? smart.forecastEnd : (d?.forecastEnd ?? 0);
   const yearGoals = data.yearGoals
     .filter((g) => !g.archived && g.year === Number(today.slice(0, 4)))
     .map((g) => yearGoalStatus(g, data, today));
-  const week = weekSummary(data, weekStart(today), today);
-  const stock = data.stockItems.length ? stockOverview(data.stockItems, data.stockMoves, today, data.settings) : null;
+  const week = cached(data, `week:${today}`, () => weekSummary(data, weekStart(today), today));
+  const stock = data.stockItems.length
+    ? cached(data, `stock:${today}`, () => stockOverview(data.stockItems, data.stockMoves, today, data.settings))
+    : null;
   // Lo de hoy (y lo vencido) va en "Para hoy"; en "Lo que viene", lo de los próximos días.
   const nextEvents = events.filter((e) => !e.overdue && e.date > today);
 
@@ -445,10 +447,10 @@ export function Home() {
             title="Peso"
             text={
               weight.change7 !== null
-                ? `${weight.change7 > 0 ? '+' : weight.change7 < 0 ? '−' : ''}${Math.abs(weight.change7).toLocaleString('es-UY')} kg en la semana`
+                ? `${weight.change7 > 0 ? '+' : weight.change7 < 0 ? '−' : ''}${formatNumber(Math.abs(weight.change7), 3, 0)} kg en la semana`
                 : 'Último pesaje'
             }
-            value={`${weight.latest.kg.toLocaleString('es-UY', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} kg`}
+            value={`${formatNumber(weight.latest.kg, 1)} kg`}
           />
         )}
       </div>
@@ -570,7 +572,7 @@ function PeriodNotes() {
 function ChallengesTile() {
   const active = useActiveChallenges();
   if (!active.length) return null;
-  const s = active.sort((a, b) => a.daysLeft - b.daysLeft)[0];
+  const s = [...active].sort((a, b) => a.daysLeft - b.daysLeft)[0];
   return (
     <Tile
       href="#/desafios"
@@ -598,7 +600,8 @@ function HealthTile() {
 }
 
 function weekday(date: string): string {
-  const name = new Date(`${date}T12:00:00`).toLocaleDateString('es-UY', { weekday: 'long' });
+  // Sin Intl: la primera fecha con nombre de día carga todo el idioma y demora el arranque.
+  const name = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'][new Date(`${date}T12:00:00`).getDay()];
   return name.charAt(0).toUpperCase() + name.slice(1);
 }
 
@@ -655,7 +658,8 @@ function TodayList({ b, events, stock }: { b: MonthBudget; events: UpcomingEvent
   const data = useData();
   const today = useToday();
   const [showDone, setShowDone] = useState(false);
-  const agenda = todayAgenda(data, b, today, new Date().getHours());
+  const hour = new Date().getHours();
+  const agenda = cached(data, `agenda:${today}:${hour}`, () => todayAgenda(data, b, today, hour));
   if (!agenda.items.length) return null;
   const done = agenda.items.filter((i) => i.done).length;
   const shown = showDone ? agenda.items : agenda.items.filter((i) => !i.done);

@@ -77,6 +77,12 @@ podés ponerles nombre o desvincularlos. Si actualizás Lifty en la compu, el ce
 nueva" para recargar. La primera vez que abras Lifty en Windows puede aparecer el aviso del firewall:
 aceptalo para "redes privadas" para que el celular pueda entrar.
 
+**Rápida en el celular.** Al abrir, Lifty baja solo lo que necesita Inicio; el resto de las pantallas se
+traen de a una cuando la app queda quieta (así después abren al instante y quedan guardadas para usar sin
+conexión). Las cuentas que comparten varias pantallas (saldos, el presupuesto del mes, rutinas) se hacen una
+sola vez por cada cambio en los datos. Si una pantalla no se pudo bajar porque se cortó la conexión, aparece un
+aviso con **Reintentar** en vez de una pantalla rota.
+
 **¿Querés sincronizar también fuera de casa?** Dos opciones:
 
 - **Tailscale** (gratis, lo más simple): instalalo en la compu y en el celular, y en la compu corré

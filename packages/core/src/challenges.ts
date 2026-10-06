@@ -1,7 +1,7 @@
 import { convert } from './accounts';
 import { categoryFamily, countsInBudget, offBudgetAccounts, ownAmount, type MonthBudget } from './budget';
 import { paceAlerts } from './coach';
-import { habitsToday, isDue } from './habits';
+import { habitDay, habitsToday, isDue } from './habits';
 import { daysInMonth } from './months';
 import { round2 } from './money';
 import type { Challenge, LiftyData } from './schema';
@@ -88,7 +88,7 @@ export function challengeStatus(c: Challenge, data: LiftyData, today: string): C
       let done = 0;
       let ahead = 0;
       for (let d = c.from; h && d <= c.to; d = addDays(d, 1)) {
-        const ok = d <= today && habitsToday([h], data.habitLogs, d).doneCount > 0;
+        const ok = d <= today && habitDay([h], data.habitLogs, d).done.length > 0;
         if (ok) done++;
         else if (d >= today && isDue(h, d)) ahead++;
       }

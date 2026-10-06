@@ -13,22 +13,27 @@ export function fromUYU(amountUYU: number, currency: Currency, rate: number): nu
   return currency === 'UYU' ? amountUYU : amountUYU / rate;
 }
 
-const formatters = new Map<string, Intl.NumberFormat>();
+/**
+ * Número como se escribe en Uruguay: punto de miles y coma decimal ("1.234,5"). Redondea como
+ * Intl (la mitad hacia arriba, sobre el número tal como se escribe). Se hace a mano porque la
+ * primera vez que se usa Intl carga los datos del idioma y demora el arranque en el celular.
+ */
+export function formatNumber(value: number, maxDecimals: number, minDecimals = maxDecimals): string {
+  const abs = Math.abs(value);
+  let r = Number(`${Math.round(Number(`${abs}e${maxDecimals}`))}e-${maxDecimals}`);
+  if (!Number.isFinite(r)) r = Number(abs.toFixed(maxDecimals));
+  const [int, rawFrac = ''] = r.toFixed(maxDecimals).split('.');
+  let frac = rawFrac.replace(/0+$/, '');
+  if (frac.length < minDecimals) frac = frac.padEnd(minDecimals, '0');
+  const grouped = int.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+  return `${value < 0 && r !== 0 ? '-' : ''}${grouped}${frac ? `,${frac}` : ''}`;
+}
 
 export function formatMoney(amount: number, currency: Currency = 'UYU', opts: { decimals?: boolean } = {}): string {
   const decimals = opts.decimals ?? (currency === 'USD' || !Number.isInteger(round2(amount)));
-  const key = `${currency}:${decimals}`;
-  let fmt = formatters.get(key);
-  if (!fmt) {
-    fmt = new Intl.NumberFormat('es-UY', {
-      minimumFractionDigits: decimals ? 2 : 0,
-      maximumFractionDigits: decimals ? 2 : 0,
-    });
-    formatters.set(key, fmt);
-  }
   const symbol = currency === 'USD' ? 'US$' : '$';
   const sign = amount < 0 ? '-' : '';
-  return `${sign}${symbol} ${fmt.format(Math.abs(round2(amount)))}`;
+  return `${sign}${symbol} ${formatNumber(Math.abs(round2(amount)), decimals ? 2 : 0)}`;
 }
 
 /** Saca tildes y pasa a minúsculas para comparar ("azucar" encuentra "Azúcar"). */

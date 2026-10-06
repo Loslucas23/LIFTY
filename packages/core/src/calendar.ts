@@ -1,7 +1,7 @@
 import { convert, debtStatus } from './accounts';
 import { countsInBudget, offBudgetAccounts, ownAmount, type MonthBudget } from './budget';
 import { cardAutoPayments } from './card';
-import { habitsToday } from './habits';
+import { habitDay } from './habits';
 import { daysInMonth } from './months';
 import { round2 } from './money';
 import type { LiftyData, Period } from './schema';
@@ -139,8 +139,8 @@ export function monthCalendar(data: LiftyData, b: MonthBudget, today: string): C
   const habits = data.habits.filter((h) => !h.archived);
   for (const day of days) {
     if (habits.length && day.date <= today) {
-      const h = habitsToday(habits, data.habitLogs, day.date);
-      day.habits = { done: h.doneCount, due: h.due.length };
+      const h = habitDay(habits, data.habitLogs, day.date);
+      day.habits = { done: h.done.length, due: h.due.length };
     }
     day.spent = round2(day.spent);
     day.earned = round2(day.earned);

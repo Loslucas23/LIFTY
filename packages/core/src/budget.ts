@@ -1,4 +1,5 @@
 import { addMonths, daysInMonth, isActiveIn, monthOf, monthRange, occursIn, parseMonth } from './months';
+import { dataDeps, remember } from './memo';
 import { round2, toUYU } from './money';
 import { aguinaldoFor, netSalary } from './salary';
 import type { Account, BudgetEntry, Category, Currency, LiftyData, LinkKind, MonthClosing, Transaction } from './schema';
@@ -255,6 +256,10 @@ export function savingFromTransfer(
 }
 
 function buildIndex(data: LiftyData): Index {
+  return remember(data, 'budget-index', dataDeps(data), () => makeIndex(data));
+}
+
+function makeIndex(data: LiftyData): Index {
   const byMonth: Index['byMonth'] = new Map();
   const linked: Index['linked'] = new Map();
   const offBudget = offBudgetAccounts(data);

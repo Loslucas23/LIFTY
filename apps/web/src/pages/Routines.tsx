@@ -1,10 +1,11 @@
 import { useState } from 'react';
-import { HABIT_AREAS, HABIT_TIMES, habitLogId, habitSchema, habitsToday, newId, type Habit, type HabitStatus } from '@lifty/core';
-import { openExplain, openPrompt } from '../components/Editors';
+import { HABIT_AREAS, HABIT_TIMES, habitSchema, habitsToday, newId, type Habit, type HabitStatus } from '@lifty/core';
+import { openExplain } from '../components/Editors';
 import { Icon } from '../components/Icon';
 import { Chips, Empty, Field, PageHeader, Section, Sheet, toast } from '../components/ui';
 import { dayLabel } from '../lib/format';
 import { useData, useToday } from '../lib/store';
+import { setHabitValue as setValue, tapHabit } from '../lib/life';
 import { mutate } from '../lib/sync';
 
 const AREA_LABEL: Record<Habit['area'], string> = {
@@ -133,28 +134,6 @@ export function Routines() {
       {editing && <HabitForm habit={editing} onClose={() => setEditing(null)} />}
     </div>
   );
-}
-
-/** Tocar una rutina: si es "sí/no" la marca o desmarca; si tiene cantidad, pregunta cuánto. */
-export function tapHabit(s: HabitStatus, date: string) {
-  const h = s.habit;
-  if (h.target === 1 && !h.unit) return setValue(h.id, date, s.done ? 0 : 1);
-  openPrompt({
-    title: `${h.icon} ${h.name}`,
-    label: `¿Cuánto hoy? (${h.unit || 'veces'})`,
-    initial: String(s.today || ''),
-    hint: `Meta: ${h.target} ${h.unit}. Podés sumar de a poco con el +.`,
-    onSubmit: (v) => {
-      if (v < 0) return 'Escribí un número';
-      setValue(h.id, date, v);
-    },
-  });
-}
-
-function setValue(habitId: string, date: string, value: number) {
-  const id = habitLogId(habitId, date);
-  if (value <= 0) mutate('habitLog', 'delete', id);
-  else mutate('habitLog', 'upsert', { id, updatedAt: '', habitId, date, value });
 }
 
 function HabitRow({ s, onEdit }: { s: HabitStatus; onEdit: () => void }) {
