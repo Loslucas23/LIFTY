@@ -135,6 +135,22 @@ export function Routines() {
   );
 }
 
+/** Tocar una rutina: si es "sí/no" la marca o desmarca; si tiene cantidad, pregunta cuánto. */
+export function tapHabit(s: HabitStatus, date: string) {
+  const h = s.habit;
+  if (h.target === 1 && !h.unit) return setValue(h.id, date, s.done ? 0 : 1);
+  openPrompt({
+    title: `${h.icon} ${h.name}`,
+    label: `¿Cuánto hoy? (${h.unit || 'veces'})`,
+    initial: String(s.today || ''),
+    hint: `Meta: ${h.target} ${h.unit}. Podés sumar de a poco con el +.`,
+    onSubmit: (v) => {
+      if (v < 0) return 'Escribí un número';
+      setValue(h.id, date, v);
+    },
+  });
+}
+
 function setValue(habitId: string, date: string, value: number) {
   const id = habitLogId(habitId, date);
   if (value <= 0) mutate('habitLog', 'delete', id);
@@ -146,20 +162,7 @@ function HabitRow({ s, onEdit }: { s: HabitStatus; onEdit: () => void }) {
   const h = s.habit;
   const simple = h.target === 1 && !h.unit;
   const step = h.unit === 'min' ? Math.min(15, h.target) : h.target >= 1000 ? 1000 : 1;
-  const tap = () => {
-    if (simple) setValue(h.id, today, s.done ? 0 : 1);
-    else
-      openPrompt({
-        title: `${h.icon} ${h.name}`,
-        label: `¿Cuánto hoy? (${h.unit || 'veces'})`,
-        initial: String(s.today || ''),
-        hint: `Meta: ${h.target} ${h.unit}. Podés sumar de a poco con el +.`,
-        onSubmit: (v) => {
-          if (v < 0) return 'Escribí un número';
-          setValue(h.id, today, v);
-        },
-      });
-  };
+  const tap = () => tapHabit(s, today);
   const explain = () =>
     openExplain({
       title: `${h.icon} ${h.name}`,

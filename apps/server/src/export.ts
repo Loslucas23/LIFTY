@@ -282,5 +282,64 @@ export async function exportWorkbook(data: LiftyData, today = todayISO()): Promi
     finish(peso);
   }
 
+  const byDateDesc = <T extends { date: string }>(xs: T[]) => [...xs].sort((a, b) => b.date.localeCompare(a.date));
+  const asDate = (d: string) => new Date(`${d}T12:00:00Z`);
+
+  // ---- Rutinas ----
+  if (data.habitLogs.length) {
+    const habit = new Map(data.habits.map((h) => [h.id, h]));
+    const rutinas = sheet(wb, 'Rutinas', [
+      { header: 'Fecha', key: 'fecha', width: 12 },
+      { header: 'Rutina', key: 'rutina', width: 24 },
+      { header: 'Hiciste', key: 'valor', width: 10 },
+      { header: 'Meta', key: 'meta', width: 10 },
+      { header: 'Unidad', key: 'unidad', width: 10 },
+      { header: 'Cumplida', key: 'ok', width: 10 },
+    ]);
+    for (const l of byDateDesc(data.habitLogs)) {
+      const h = habit.get(l.habitId);
+      if (!h) continue;
+      rutinas.addRow({
+        fecha: asDate(l.date),
+        rutina: h.name,
+        valor: l.value,
+        meta: h.target,
+        unidad: h.unit,
+        ok: l.value >= h.target ? 'Sí' : 'No',
+      });
+    }
+    rutinas.getColumn('fecha').numFmt = 'dd/mm/yyyy';
+    finish(rutinas);
+  }
+
+  // ---- Estudio ----
+  if (data.studySessions.length) {
+    const subject = new Map(data.subjects.map((x) => [x.id, x.name]));
+    const estudio = sheet(wb, 'Estudio', [
+      { header: 'Fecha', key: 'fecha', width: 12 },
+      { header: 'Materia', key: 'materia', width: 24 },
+      { header: 'Minutos', key: 'minutos', width: 10 },
+      { header: 'Nota', key: 'nota', width: 30 },
+    ]);
+    for (const x of byDateDesc(data.studySessions))
+      estudio.addRow({ fecha: asDate(x.date), materia: subject.get(x.subjectId) ?? '', minutos: x.minutes, nota: x.note });
+    estudio.getColumn('fecha').numFmt = 'dd/mm/yyyy';
+    finish(estudio);
+  }
+
+  // ---- Diario ----
+  if (data.journal.length) {
+    const diario = sheet(wb, 'Diario', [
+      { header: 'Fecha', key: 'fecha', width: 12 },
+      { header: 'Horas de sueño', key: 'sueno', width: 14 },
+      { header: 'Ánimo (1 a 5)', key: 'animo', width: 13 },
+      { header: 'Nota', key: 'nota', width: 40 },
+    ]);
+    for (const j of byDateDesc(data.journal))
+      diario.addRow({ fecha: asDate(j.date), sueno: j.sleepHours, animo: j.mood, nota: j.note });
+    diario.getColumn('fecha').numFmt = 'dd/mm/yyyy';
+    finish(diario);
+  }
+
   return Buffer.from(await wb.xlsx.writeBuffer());
 }

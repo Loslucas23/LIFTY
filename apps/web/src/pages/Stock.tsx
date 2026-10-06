@@ -24,8 +24,8 @@ import { Icon } from '../components/Icon';
 import { Chips, Empty, Field, PageHeader, Section, Segmented, Sheet, Toggle, toast } from '../components/ui';
 import { dayLabel, money, parseAmount } from '../lib/format';
 import { local } from '../lib/local';
-import { addStockMove, recordPurchase, type PurchaseLine } from '../lib/stock';
-import { useData, useToday } from '../lib/store';
+import { addStockMove, addToShoppingList, recordPurchase, type PurchaseLine } from '../lib/stock';
+import { useData, useMonth, useToday } from '../lib/store';
 import { mutate } from '../lib/sync';
 
 export const PLACE_LABEL: Record<StockPlace, string> = {
@@ -82,6 +82,12 @@ export function Stock() {
   const [buying, setBuying] = useState<PurchaseLine[] | null>(null);
   const [query, setQuery] = useState('');
   const viewed = o.statuses.find((s) => s.item.id === viewing) ?? null;
+  const b = useMonth(monthOf(today));
+  const superLimit = (() => {
+    const line = b.categories.find((c) => c.categoryId === 'cat-super' && c.limit !== null);
+    const cat = data.categories.find((c) => c.id === 'cat-super');
+    return line && cat ? { name: cat.name, limit: line.limit! } : null;
+  })();
   const archived = data.stockItems.filter((i) => i.archived);
   const expiringSoon = o.expiring.filter((e) => e.daysLeft <= 3).length;
 
@@ -153,6 +159,9 @@ export function Stock() {
                       note: `${fmtQty(s.usage!.perDay * 30, s.item.unit)} × ${money(s.prices.average!)}`,
                     })),
                   result: { label: 'Por mes', value: o.monthlyCost },
+                  footnote: superLimit
+                    ? `Tu presupuesto de ${superLimit.name} es ${money(superLimit.limit)} por mes${o.monthlyCost > superLimit.limit ? ': según tu consumo no te alcanza. Podés cambiarlo en Presupuesto.' : '.'} Si comprás con la tarjeta de alimentación, eso va aparte.`
+                    : 'Podés usar este número como presupuesto del súper (en Presupuesto, tocá Supermercado).',
                 })
               }
             >
@@ -769,16 +778,7 @@ function ShoppingList({ onBuy, onOpen }: { onBuy: (lines: PurchaseLine[]) => voi
   const food = data.accounts.find((a) => a.type === 'food' && !a.archived);
   const foodLeft = food ? (foodCardMonth(data, food.id, monthOf(today), today)?.available ?? null) : null;
 
-  const add = (s: StockStatus) =>
-    mutate('shopEntry', 'upsert', {
-      id: newId(),
-      updatedAt: '',
-      itemId: s.item.id,
-      name: s.item.name,
-      quantity: s.toBuy || s.item.packSize || 1,
-      unit: UNIT_LABEL[s.item.unit],
-      checked: false,
-    });
+  const add = (s: StockStatus) => addToShoppingList(s);
   const addText = () => {
     const name = text.trim();
     if (!name) return;

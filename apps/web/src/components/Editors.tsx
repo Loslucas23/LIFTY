@@ -1,8 +1,8 @@
 import { useState, useSyncExternalStore } from 'react';
-import { addMonths, monthLabel, type Category } from '@lifty/core';
+import { addMonths, monthLabel, stockOverview, type Category } from '@lifty/core';
 import { setCategoryBudget } from '../lib/actions';
 import { money, parseAmount } from '../lib/format';
-import { useData, useMonth, useMonths } from '../lib/store';
+import { useData, useMonth, useMonths, useToday } from '../lib/store';
 import { BudgetWizard } from './BudgetWizard';
 import { FixedForm, IncomeForm } from './PlanForms';
 import { Field, Segmented, Sheet, toast } from './ui';
@@ -212,6 +212,13 @@ function BudgetEditor({ category, month, onClose }: { category: Category; month:
   const history = useMonthsSpent(prev, category.id);
   const suggestion = history.length ? Math.ceil(history.reduce((s, x) => s + x, 0) / history.length / 100) * 100 : null;
   const monthName = monthLabel(month, false).toLowerCase();
+  // Súper: lo que consume la casa según el stock (consumo por día × precio promedio).
+  const today = useToday();
+  const isSuper = category.id === 'cat-super' || /super/i.test(category.name);
+  const stockMonthly =
+    isSuper && data.stockItems.length
+      ? Math.ceil(stockOverview(data.stockItems, data.stockMoves, today, data.settings).monthlyCost / 100) * 100
+      : 0;
 
   const save = (value: number | null) => {
     setCategoryBudget(data, month, category.id, value, scope);
@@ -274,6 +281,11 @@ function BudgetEditor({ category, month, onClose }: { category: Category; month:
         {suggestion !== null && suggestion > 0 && (
           <button type="button" className="link small left" onClick={() => setText(String(suggestion))}>
             Usar {money(suggestion)} (lo que gastaste en promedio los últimos meses)
+          </button>
+        )}
+        {stockMonthly > 0 && (
+          <button type="button" className="link small left" onClick={() => setText(String(stockMonthly))}>
+            Usar {money(stockMonthly)} (lo que consume tu casa según el stock)
           </button>
         )}
         <Field label="¿Para qué meses?">

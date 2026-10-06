@@ -1,6 +1,7 @@
 import { useEffect, type ReactNode } from 'react';
 import { EditorsHost } from './components/Editors';
 import { Layout } from './components/Layout';
+import { SearchHost } from './components/Search';
 import { TxFormHost } from './components/TxForm';
 import { Toasts, toast } from './components/ui';
 import { match, useRoute } from './lib/router';
@@ -119,6 +120,7 @@ export function App() {
       </Layout>
       <TxFormHost />
       <EditorsHost />
+      <SearchHost />
       <Toasts />
     </>
   );

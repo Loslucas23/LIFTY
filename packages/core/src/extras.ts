@@ -110,6 +110,12 @@ export interface WeekSummary {
   studyMinutes: number;
   workouts: number;
   weight: { avg: number; change: number | null } | null;
+  /** Diario de la semana: horas de sueño y ánimo promedio. */
+  sleep: { hours: number | null; mood: number | null; days: number } | null;
+  /** Lo que pagaste en compras registradas en el stock. */
+  groceries: number;
+  /** Lo que vence en los 7 días siguientes a la semana (vencimientos de la casa). */
+  nextWeek: { name: string; date: string }[];
 }
 
 export function weekSummary(data: LiftyData, from: string, today: string): WeekSummary {
@@ -175,6 +181,21 @@ export function weekSummary(data: LiftyData, from: string, today: string): WeekS
     studyMinutes,
     workouts: ex.weeks[0]?.workouts ?? 0,
     weight: now !== null ? { avg: round2(now), change: before !== null ? round2(now - before) : null } : null,
+    sleep: (() => {
+      const js = data.journal.filter((j) => inRange(j.date, from, last));
+      if (!js.length) return null;
+      const hs = js.filter((j) => j.sleepHours !== null).map((j) => j.sleepHours!);
+      const ms = js.filter((j) => j.mood !== null).map((j) => j.mood!);
+      const mean = (xs: number[]) => (xs.length ? round2(xs.reduce((s, x) => s + x, 0) / xs.length) : null);
+      return { hours: mean(hs), mood: mean(ms), days: js.length };
+    })(),
+    groceries: round2(
+      data.stockMoves.filter((m) => m.kind === 'buy' && m.price && inRange(m.date, from, last)).reduce((s, m) => s + m.price!, 0),
+    ),
+    nextWeek: data.reminders
+      .filter((r) => !r.archived && inRange(r.date, addDays(last, 1), addDays(last, 7)))
+      .map((r) => ({ name: r.name, date: r.date }))
+      .sort((a, b) => a.date.localeCompare(b.date)),
   };
 }
 

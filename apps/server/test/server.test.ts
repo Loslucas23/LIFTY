@@ -254,6 +254,27 @@ describe('exportar Excel', () => {
             updatedAt: '2026-02-02T10:00:00Z',
             record: { date: '2026-02-02', kg: 80.5 },
           },
+          {
+            entity: 'habit',
+            op: 'upsert',
+            id: 'h1',
+            updatedAt: '2026-02-02T10:00:00Z',
+            record: { name: 'Agua', target: 2, unit: 'L' },
+          },
+          {
+            entity: 'habitLog',
+            op: 'upsert',
+            id: 'h1:2026-02-02',
+            updatedAt: '2026-02-02T10:00:00Z',
+            record: { habitId: 'h1', date: '2026-02-02', value: 2 },
+          },
+          {
+            entity: 'journal',
+            op: 'upsert',
+            id: '2026-02-02',
+            updatedAt: '2026-02-02T10:00:00Z',
+            record: { date: '2026-02-02', sleepHours: 7, mood: 4 },
+          },
         ],
       },
     });
@@ -270,7 +291,12 @@ describe('exportar Excel', () => {
       'Cuentas',
       'Metas',
       'Peso',
+      'Rutinas',
+      'Diario',
     ]);
+    const rutinas = wb.getWorksheet('Rutinas')!;
+    expect([rutinas.getRow(2).getCell(2).value, rutinas.getRow(2).getCell(6).value]).toEqual(['Agua', 'Sí']);
+    expect(wb.getWorksheet('Diario')!.getRow(2).getCell(2).value).toBe(7);
     const movs = wb.getWorksheet('Movimientos')!;
     expect(movs.getRow(2).getCell(9).value).toBe('Cabify');
     expect(movs.getRow(2).getCell(11).value).toBe('Sí');

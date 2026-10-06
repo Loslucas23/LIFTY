@@ -171,22 +171,3 @@ export function Journal() {
     </div>
   );
 }
-
-/** Para Inicio: si todavía no anotaste hoy. */
-export function JournalPrompt() {
-  const data = useData();
-  const today = useToday();
-  const entry = data.journal.find((j) => j.date === today);
-  if (entry?.sleepHours != null && entry?.mood != null) return null;
-  return (
-    <section className="card pad">
-      <div className="limit-head">
-        <strong>¿Cómo dormiste y cómo estás?</strong>
-        <a className="link small" href="#/diario">
-          Diario
-        </a>
-      </div>
-      <QuickJournal date={today} compact />
-    </section>
-  );
-}

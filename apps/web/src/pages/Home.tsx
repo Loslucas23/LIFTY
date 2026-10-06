@@ -5,7 +5,6 @@ import {
   debtTotals,
   foodCardMonth,
   habitsToday,
-  reminderStatus,
   weekStart,
   weekSummary,
   yearGoalStatus,
@@ -15,16 +14,22 @@ import {
   newId,
   round2,
   stockOverview,
+  todayAgenda,
   upcomingEvents,
   weightStats,
+  type AgendaItem,
   type Insight,
+  type MonthBudget,
+  type StockOverview,
   type UpcomingEvent,
 } from '@lifty/core';
 import { confirmPlanned } from '../lib/actions';
 import { openBudgetEditor, openBudgetWizard, openExplain, openFixedForm, openIncomeForm, openMenu } from '../components/Editors';
 import { Icon, type IconName } from '../components/Icon';
 import { useMoneyCheck } from '../components/MoneyCheck';
-import { JournalPrompt } from './Journal';
+import { QuickJournal } from './Journal';
+import { renewReminder } from './Extras';
+import { tapHabit } from './Routines';
 import { openTxForm } from '../components/TxForm';
 import { TxRow } from '../components/TxRow';
 import { Empty, Progress, Section, toast } from '../components/ui';
@@ -32,6 +37,7 @@ import { explainDaily } from '../lib/explain';
 import { dayLabel, money } from '../lib/format';
 import { navigate } from '../lib/router';
 import { local } from '../lib/local';
+import { addToShoppingList } from '../lib/stock';
 import { useData, useLookups, useMonth, useSync, useToday } from '../lib/store';
 import { mutate } from '../lib/sync';
 
@@ -55,12 +61,9 @@ export function Home() {
     .filter((g) => !g.archived && g.year === Number(today.slice(0, 4)))
     .map((g) => yearGoalStatus(g, data, today));
   const week = weekSummary(data, weekStart(today), today);
-  const dueReminders = data.reminders
-    .filter((r) => !r.archived)
-    .map((r) => reminderStatus(r, today))
-    .filter((r) => r.status !== 'ok');
-  const routines = habitsToday(data.habits, data.habitLogs, today);
   const stock = data.stockItems.length ? stockOverview(data.stockItems, data.stockMoves, today, data.settings) : null;
+  // Lo de hoy (y lo vencido) va en "Para hoy"; en "Lo que viene", lo de los próximos días.
+  const nextEvents = events.filter((e) => !e.overdue && e.date > today);
 
   return (
     <div className="page">
@@ -165,8 +168,6 @@ export function Home() {
 
       <CloseReminder month={month} />
 
-      {!empty && (data.journal.length > 0 || data.habits.length > 0) && <JournalPrompt />}
-
       {!empty && <MoneyMismatch />}
 
       {empty && (
@@ -198,7 +199,9 @@ export function Home() {
         </Section>
       )}
 
-      {events.length > 0 && (
+      <TodayList b={b} events={events} stock={stock} />
+
+      {nextEvents.length > 0 && (
         <Section
           title="Lo que viene"
           action={
@@ -208,7 +211,7 @@ export function Home() {
           }
         >
           <ul className="planned">
-            {events.map((e) => (
+            {nextEvents.map((e) => (
               <EventRow key={`${e.kind}-${e.refId}-${e.date}`} event={e} />
             ))}
           </ul>
@@ -216,31 +219,6 @@ export function Home() {
       )}
 
       {!empty && <FirstSteps month={month} />}
-
-      {dueReminders.length > 0 && (
-        <Section
-          title="Vence pronto"
-          action={
-            <a className="link" href="#/vencimientos">
-              Ver todo
-            </a>
-          }
-        >
-          <ul className="insights">
-            {dueReminders.map(({ reminder: r, daysLeft, status }) => (
-              <li key={r.id}>
-                <a className={`insight insight-${status === 'overdue' ? 'bad' : 'warn'}`} href="#/vencimientos">
-                  <span aria-hidden="true">{r.icon}</span>
-                  <span className="grow">
-                    {r.name}:{' '}
-                    {daysLeft < 0 ? `venció hace ${-daysLeft} días` : daysLeft === 0 ? 'vence hoy' : `vence en ${daysLeft} días`}
-                  </span>
-                </a>
-              </li>
-            ))}
-          </ul>
-        </Section>
-      )}
 
       {limits.length > 0 ? (
         <Section
@@ -352,17 +330,6 @@ export function Home() {
           text={`Gastaste ${money(Math.round(week.spent))}${week.prevSpent > 0 ? ` (${week.spent <= week.prevSpent ? 'menos' : 'más'} que la anterior)` : ''}`}
           value="Ver"
         />
-        {routines.due.length > 0 && (
-          <Tile
-            href="#/rutinas"
-            icon="check"
-            title="Rutinas de hoy"
-            text={
-              routines.doneCount === routines.due.length ? '¡Todo hecho!' : `Faltan ${routines.due.length - routines.doneCount}`
-            }
-            value={`${routines.doneCount}/${routines.due.length}`}
-          />
-        )}
         {stock && (
           <Tile
             href="#/stock"
@@ -459,6 +426,132 @@ function whenLabel(date: string, today: string, overdue: boolean): string {
   const diff = Math.round((Date.parse(`${date}T00:00:00Z`) - Date.parse(`${today}T00:00:00Z`)) / 86_400_000);
   if (diff === 1) return 'mañana';
   return `el ${dayLabel(date, today).toLowerCase()}`;
+}
+
+/** "Para hoy": todo lo del día junto, venga de donde venga (plata, rutinas, estudio, stock, vencimientos, diario). */
+function TodayList({ b, events, stock }: { b: MonthBudget; events: UpcomingEvent[]; stock: StockOverview | null }) {
+  const data = useData();
+  const today = useToday();
+  const [showDone, setShowDone] = useState(false);
+  const agenda = todayAgenda(data, b, today);
+  if (!agenda.items.length) return null;
+  const done = agenda.items.filter((i) => i.done).length;
+  const shown = showDone ? agenda.items : agenda.items.filter((i) => !i.done);
+  return (
+    <Section
+      title={agenda.total ? `Para hoy · ${agenda.done} de ${agenda.total}` : 'Para hoy'}
+      action={
+        done > 0 ? (
+          <button className="link" onClick={() => setShowDone(!showDone)}>
+            {showDone ? 'Ocultar lo hecho' : `Ver lo hecho (${done})`}
+          </button>
+        ) : undefined
+      }
+    >
+      {agenda.total > 0 && <Progress value={agenda.done} max={agenda.total} label="Lo de hoy hecho" />}
+      {shown.length === 0 ? (
+        <p className="muted small agenda-done">✅ Listo todo lo de hoy.</p>
+      ) : (
+        <ul className="planned agenda">
+          {shown.map((item) => {
+            if (item.kind === 'fixed' || item.kind === 'income' || item.kind === 'load') {
+              const e = events.find((x) => `${x.kind}:${x.refId}:${x.date}` === item.key);
+              return e ? <EventRow key={item.key} event={e} /> : null;
+            }
+            return <AgendaRow key={item.key} item={item} stock={stock} />;
+          })}
+        </ul>
+      )}
+    </Section>
+  );
+}
+
+function AgendaRow({ item, stock }: { item: AgendaItem; stock: StockOverview | null }) {
+  const data = useData();
+  const today = useToday();
+  const meta = <span className={`planned-meta ${item.urgency === 2 && !item.done ? 'due-bad' : ''}`}>{item.detail}</span>;
+  if (item.kind === 'journal' && !item.done)
+    return (
+      <li className="agenda-journal">
+        <span className="check" aria-hidden="true">
+          <Icon name="check" size={16} />
+        </span>
+        <div className="planned-main">
+          <a className="planned-name" href="#/diario">
+            {item.title}
+          </a>
+          <QuickJournal date={today} compact />
+        </div>
+      </li>
+    );
+  let check: (() => void) | null = null;
+  let checkLabel = '';
+  let open: () => void = () => undefined;
+  switch (item.kind) {
+    case 'habit': {
+      const s = habitsToday(data.habits, data.habitLogs, today).due.find((x) => x.habit.id === item.refId);
+      if (s) {
+        check = () => tapHabit(s, today);
+        checkLabel = item.done ? `Desmarcar ${s.habit.name}` : `Marcar ${s.habit.name} como hecha`;
+      }
+      open = () => navigate('/rutinas');
+      break;
+    }
+    case 'study':
+      open = () => navigate('/estudio');
+      break;
+    case 'stock': {
+      const st = stock?.statuses.find((x) => x.item.id === item.refId);
+      const expiring = item.key.startsWith('expiry:');
+      if (st && !expiring) {
+        check = () => addToShoppingList(st, `${st.item.name}: a la lista de compras`);
+        checkLabel = `Agregar ${st.item.name} a la lista de compras`;
+      }
+      open = () => {
+        if (expiring) local.set('lifty-stock-tab', 'vence');
+        navigate('/stock');
+      };
+      break;
+    }
+    case 'reminder': {
+      const r = data.reminders.find((x) => x.id === item.refId);
+      if (r) {
+        check = () =>
+          openMenu(r.name, [
+            { label: r.repeatMonths ? 'Lo renové' : 'Listo, ya está', run: () => renewReminder(r) },
+            { label: 'Ver vencimientos', run: () => navigate('/vencimientos') },
+          ]);
+        checkLabel = `Marcar ${r.name} como resuelto`;
+      }
+      open = () => navigate('/vencimientos');
+      break;
+    }
+    case 'journal':
+      open = () => navigate('/diario');
+      break;
+  }
+  return (
+    <li className={item.done ? 'done' : ''}>
+      {check ? (
+        <button className="check" aria-label={checkLabel} aria-pressed={item.done} onClick={check}>
+          <Icon name={item.kind === 'stock' ? 'plus' : 'check'} size={16} />
+        </button>
+      ) : (
+        <span className="check" aria-hidden="true">
+          <Icon name="check" size={16} />
+        </span>
+      )}
+      <button className="planned-main" onClick={open}>
+        <span className="planned-name">{item.title}</span>
+        {meta}
+      </button>
+      {item.progress && !item.done ? (
+        <span className="planned-amount muted">{Math.round((item.progress.value / item.progress.target) * 100)}%</span>
+      ) : item.amount ? (
+        <span className="planned-amount muted">~{money(Math.round(item.amount))}</span>
+      ) : null}
+    </li>
+  );
 }
 
 function EventRow({ event: e }: { event: UpcomingEvent }) {

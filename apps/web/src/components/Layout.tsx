@@ -1,9 +1,9 @@
 import { useEffect, type ReactNode } from 'react';
 import { togglePrivacy } from '../lib/privacy';
-import { navigate } from '../lib/router';
 import { useSync } from '../lib/store';
 import { sync } from '../lib/sync';
 import { Icon, type IconName } from './Icon';
+import { openSearch } from './Search';
 import { openTxForm } from './TxForm';
 
 const NAV: { href: string; label: string; icon: IconName; match: RegExp }[] = [
@@ -30,10 +30,15 @@ const NAV: { href: string; label: string; icon: IconName; match: RegExp }[] = [
 /** En el celular entran 4 + el botón de agregar. */
 const MOBILE = ['/', '/movimientos', '/presupuesto', '/mas'];
 
-/** Atajos en la compu: N = nuevo movimiento, / = buscar, P = modo privado. */
+/** Atajos en la compu: N = nuevo movimiento, / o Ctrl+K = buscar en todo, P = modo privado. */
 function useShortcuts() {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault();
+        if (!document.querySelector('.sheet')) openSearch();
+        return;
+      }
       if (e.ctrlKey || e.metaKey || e.altKey || e.defaultPrevented) return;
       const t = e.target as HTMLElement | null;
       if (t && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName))) return;
@@ -44,8 +49,7 @@ function useShortcuts() {
         openTxForm();
       } else if (key === '/') {
         e.preventDefault();
-        navigate('/movimientos');
-        setTimeout(() => document.querySelector<HTMLInputElement>('input[aria-label="Buscar movimientos"]')?.focus(), 150);
+        openSearch();
       } else if (key === 'p') {
         togglePrivacy();
       }
@@ -83,6 +87,11 @@ export function Layout({ route, privacy, children }: { route: string; privacy: b
         <button className="btn btn-primary sidebar-add" onClick={() => openTxForm()}>
           <Icon name="plus" /> Nuevo movimiento
         </button>
+        <button className="sidebar-search" onClick={openSearch}>
+          <Icon name="search" size={16} />
+          <span className="grow">Buscar en todo</span>
+          <kbd>/</kbd>
+        </button>
         <nav aria-label="Secciones">
           {NAV.map((n) => (
             <a key={n.href} href={`#${n.href}`} className={`side-link ${n.match.test(route) ? 'on' : ''}`}>
@@ -107,6 +116,9 @@ export function Layout({ route, privacy, children }: { route: string; privacy: b
             <span>Lifty</span>
           </a>
           <div className="mobile-top-actions">
+            <button className="icon-btn" onClick={openSearch} aria-label="Buscar en todo">
+              <Icon name="search" size={18} />
+            </button>
             <PrivacyButton on={privacy} />
             <SyncBadge />
           </div>

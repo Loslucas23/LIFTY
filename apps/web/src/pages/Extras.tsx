@@ -93,12 +93,37 @@ export function Week() {
           ? 'Sin pesajes la semana anterior para comparar.'
           : `${w.weight.change < 0 ? 'Bajaste' : w.weight.change > 0 ? 'Subiste' : 'Igual que'} ${w.weight.change !== 0 ? `${Math.abs(w.weight.change).toLocaleString('es-UY')} kg ` : ''}contra la semana anterior.`,
     });
+  if (w.groceries > 0)
+    items.push({
+      icon: '🛒',
+      title: `Compraste ${money(Math.round(w.groceries))} para el stock`,
+      text: 'Lo que pagaste en las compras que cargaste en Stock (con la tarjeta que sea).',
+    });
+  if (w.sleep)
+    items.push({
+      icon: '😴',
+      title: [
+        w.sleep.hours !== null ? `Dormiste ${w.sleep.hours.toLocaleString('es-UY')} h por noche` : null,
+        w.sleep.mood !== null ? `ánimo ${w.sleep.mood.toLocaleString('es-UY')} de 5` : null,
+      ]
+        .filter(Boolean)
+        .join(' · '),
+      text: `Promedio de ${w.sleep.days} día${w.sleep.days === 1 ? '' : 's'} anotados en el diario.`,
+      tone: w.sleep.hours !== null && w.sleep.hours < 6 ? 'bad' : undefined,
+    });
+  if (w.nextWeek.length)
+    items.push({
+      icon: '📅',
+      title: `La semana que viene vence${w.nextWeek.length === 1 ? '' : 'n'} ${w.nextWeek.length}`,
+      text: w.nextWeek.map((n) => `${n.name} (${dayLabel(n.date, today, true).toLowerCase()})`).join(' · '),
+      tone: 'bad',
+    });
 
   return (
     <div className="page narrow">
       <PageHeader
         title="Tu semana"
-        subtitle={`Del ${dayLabel(w.from, today, true).toLowerCase()} al ${dayLabel(w.to, today, true).toLowerCase()}`}
+        subtitle={`Del lunes ${fmtDate(w.from).slice(0, 5)} al domingo ${fmtDate(w.to).slice(0, 5)}`}
       />
       <div className="month-picker">
         <button className="icon-btn" onClick={() => setFrom(addDays(from, -7))} aria-label="Semana anterior">
@@ -250,23 +275,26 @@ const REMINDER_PRESETS: Partial<Reminder>[] = [
   { name: 'Matafuegos', icon: '🧯', repeatMonths: 12, notifyDays: 15 },
 ];
 
+/** "Renové": pasa al próximo vencimiento (o lo da por terminado si no se repite). */
+export function renewReminder(r: Reminder) {
+  const next = nextReminderDate(r);
+  if (!next) {
+    mutate('reminder', 'upsert', { ...r, archived: true });
+    toast(`${r.name}: listo`, { action: { label: 'Deshacer', run: () => mutate('reminder', 'upsert', r) } });
+    return;
+  }
+  mutate('reminder', 'upsert', { ...r, date: next });
+  toast(`${r.name}: próximo vencimiento ${fmtDate(next)}`, {
+    action: { label: 'Deshacer', run: () => mutate('reminder', 'upsert', r) },
+  });
+}
+
 export function Reminders() {
   const data = useData();
   const today = useToday();
   const [editing, setEditing] = useState<Partial<Reminder> | null>(null);
   const list = data.reminders.filter((r) => !r.archived).map((r) => reminderStatus(r, today));
-  const renew = (r: Reminder) => {
-    const next = nextReminderDate(r);
-    if (!next) {
-      mutate('reminder', 'upsert', { ...r, archived: true });
-      toast(`${r.name}: listo`, { action: { label: 'Deshacer', run: () => mutate('reminder', 'upsert', r) } });
-      return;
-    }
-    mutate('reminder', 'upsert', { ...r, date: next });
-    toast(`${r.name}: próximo vencimiento ${fmtDate(next)}`, {
-      action: { label: 'Deshacer', run: () => mutate('reminder', 'upsert', r) },
-    });
-  };
+  const renew = renewReminder;
   return (
     <div className="page">
       <PageHeader

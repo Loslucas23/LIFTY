@@ -2864,3 +2864,85 @@ button.tx-main {
 .journal-day small {
   font-size: 10px;
 }
+
+/* ---------- Buscar en todo ---------- */
+.sidebar-search {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  margin-top: 8px;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  color: var(--muted);
+  background: var(--surface);
+  font-size: 14px;
+  text-align: left;
+}
+.sidebar-search:hover {
+  border-color: var(--accent);
+  color: var(--text);
+}
+.search-box {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 12px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface);
+  color: var(--muted);
+}
+.search-box input {
+  flex: 1;
+  border: 0;
+  background: transparent;
+  padding: 12px 0;
+  min-width: 0;
+  box-shadow: none !important;
+}
+.search-box input:focus-visible {
+  outline: none;
+}
+.search-box:focus-within {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+.search-results {
+  list-style: none;
+  margin: 10px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.search-result {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 10px 12px;
+  border-radius: 10px;
+  text-align: left;
+}
+.search-result.on {
+  background: color-mix(in srgb, var(--accent) 12%, var(--surface));
+}
+.search-empty {
+  margin: 12px 4px;
+}
+
+/* ---------- Para hoy ---------- */
+.agenda {
+  margin-top: 10px;
+}
+.agenda-journal .planned-main {
+  gap: 2px;
+}
+.agenda-journal .journal-quick {
+  margin-top: 6px;
+}
+.agenda-done {
+  margin: 10px 0 0;
+}

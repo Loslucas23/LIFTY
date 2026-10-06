@@ -493,9 +493,40 @@ export async function smokeTour(): Promise<string[]> {
       await saveSheet('nuevo vencimiento');
     } else problems.push('vencimientos: no se abrió el formulario');
   }
+  // "Para hoy" en Inicio: junta el vencimiento y la rutina (que se tilda desde ahí).
   await go('/');
-  if (!(await until(() => !!document.body.textContent?.includes('Vence pronto'))))
-    problems.push('vencimientos: no aparece el aviso en Inicio');
+  const agendaRow = (text: string) =>
+    [...document.querySelectorAll<HTMLElement>('.agenda li')].find((r) => r.textContent?.includes(text));
+  if (!(await until(() => !!agendaRow('Seguro del auto')))) problems.push('para hoy: no aparece el vencimiento');
+  if (!agendaRow('Tender la cama')) clickText('.section-head button', 'Ver lo hecho');
+  const bed = () => agendaRow('Tender la cama')?.querySelector<HTMLButtonElement>('.check');
+  if (!(await until(() => !!bed()))) problems.push('para hoy: no aparece la rutina');
+  else {
+    const was = bed()!.getAttribute('aria-pressed');
+    bed()!.click();
+    if (!(await until(() => !bed() || bed()!.getAttribute('aria-pressed') !== was)))
+      problems.push('para hoy: no se pudo tildar la rutina');
+  }
+  check('para hoy');
+
+  // Buscar en todo (tecla /): encuentra el producto del stock y lleva a su pantalla.
+  window.dispatchEvent(new KeyboardEvent('keydown', { key: '/', bubbles: true }));
+  const search = await waitFor('.sheet input[aria-label="Buscar en todo"]');
+  if (!search) problems.push('buscar: no se abrió con /');
+  else {
+    type(search as HTMLInputElement, '500 super');
+    if (!(await until(() => !!$('.search-result')?.textContent?.includes('Cargar gasto'))))
+      problems.push('buscar: no ofrece cargar el gasto');
+    type(search as HTMLInputElement, stockName);
+    if (!(await until(() => [...document.querySelectorAll('.search-result')].some((r) => r.textContent?.includes(stockName)))))
+      problems.push('buscar: no encontró el producto del stock');
+    else {
+      clickText('.search-result', stockName);
+      if (!(await until(() => location.hash === '#/stock'))) problems.push(`buscar: no llevó al stock (${location.hash})`);
+    }
+    if ($('.sheet')) await closeSheet();
+  }
+  check('buscar');
   for (const route of ['/semana', '/suscripciones']) {
     await go(route);
     if (!$('.page-head')) problems.push(`${route}: no se dibujó`);

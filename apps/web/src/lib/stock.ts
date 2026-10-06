@@ -1,4 +1,14 @@
-import { newId, round2, type Mutation, type StockMove, type StockMoveKind, type Transaction } from '@lifty/core';
+import {
+  newId,
+  round2,
+  UNIT_LABEL,
+  type Mutation,
+  type ShopEntry,
+  type StockMove,
+  type StockMoveKind,
+  type StockStatus,
+  type Transaction,
+} from '@lifty/core';
 import { toast } from '../components/ui';
 import { money } from './format';
 import { mutate, mutateMany } from './sync';
@@ -27,6 +37,22 @@ export function addStockMove(
   mutate('stockMove', 'upsert', move);
   if (message) toast(message, { action: { label: 'Deshacer', run: () => mutate('stockMove', 'delete', move.id) } });
   return move;
+}
+
+/** Suma un producto del stock a la lista de compras (con lo que conviene comprar). */
+export function addToShoppingList(s: StockStatus, message?: string) {
+  const entry: ShopEntry = {
+    id: newId(),
+    updatedAt: '',
+    itemId: s.item.id,
+    name: s.item.name,
+    quantity: s.toBuy || s.item.packSize || 1,
+    unit: UNIT_LABEL[s.item.unit],
+    checked: false,
+  };
+  mutate('shopEntry', 'upsert', entry);
+  if (message) toast(message, { action: { label: 'Deshacer', run: () => mutate('shopEntry', 'delete', entry.id) } });
+  return entry;
 }
 
 export interface PurchaseLine {
