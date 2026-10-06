@@ -31,6 +31,7 @@ export function defaultSettings(): Settings {
     shoppingDays: 7,
     autoSave: false,
     autoSaveGoalId: null,
+    autoSaveGoals: false,
     autoShop: false,
   };
 }

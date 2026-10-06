@@ -1,4 +1,6 @@
+import { convert } from './accounts';
 import type { MonthBudget, PlannedLine } from './budget';
+import { goalMonths } from './coach';
 import { addMonths, daysInMonth, monthLabel, monthOf } from './months';
 import { fold, round2 } from './money';
 import type { AutoLog, CategoryRule, LiftyData, Mutation, ShopEntry, Transaction } from './schema';
@@ -70,6 +72,15 @@ function confirmLine(data: LiftyData, line: PlannedLine, month: string, date: st
     linkMonth: month,
     tags: ['automático'],
   });
+}
+
+/** Tu cuenta principal en pesos (de donde sale lo que el piloto pasa al ahorro). */
+function mainAccount(data: LiftyData) {
+  return (
+    data.accounts.find((a) => a.type === 'bank' && a.currency === 'UYU' && !a.archived && !a.reserved) ??
+    data.accounts.find((a) => (a.type === 'bank' || a.type === 'cash') && !a.archived && !a.reserved) ??
+    null
+  );
 }
 
 /** La regla que corresponde a una descripción (la más específica: el texto más largo). */
@@ -153,9 +164,48 @@ export function autopilot(data: LiftyData, b: MonthBudget, today: string): AutoA
     });
   }
 
-  // Ahorro automático: cuando ya cobraste (todo lo planificado del mes), lo que falta de la meta.
   const st = data.settings;
-  if (st.autoSave && b.savingsGoal.pending > 0 && b.income.planned.length > 0 && b.income.pending <= 0) {
+  const paid = b.income.planned.length > 0 && b.income.pending <= 0;
+  const main = mainAccount(data);
+
+  // Metas con fecha: cuando ya cobraste, lo que le toca a cada una este mes (se recalcula solo:
+  // si un mes pusiste menos, el resto se reparte en los meses que quedan).
+  let toGoals = 0;
+  if (st.autoSaveGoals && paid) {
+    for (const gm of goalMonths(data, today)) {
+      if (gm.pendingThisMonth <= 0) continue;
+      const g = gm.goal;
+      const key = `goal:${g.id}:${month}`;
+      if (done.has(key)) continue;
+      toGoals += convert(gm.pendingThisMonth, g.currency, 'UYU', st.usdRate);
+      add({
+        key,
+        kind: 'saving',
+        title: `${g.name}: ${g.currency === 'USD' ? 'US$ ' : ''}${gm.pendingThisMonth.toLocaleString('es-UY')} de este mes`,
+        records: [
+          {
+            entity: 'transaction',
+            record: tx({
+              id: autoId(key),
+              date: today,
+              kind: 'saving',
+              amount: gm.pendingThisMonth,
+              currency: g.currency,
+              accountId: main?.id ?? null,
+              goalId: g.id,
+              description: `Ahorro para ${g.name}`,
+              tags: ['automático'],
+            }),
+          },
+        ],
+      });
+    }
+  }
+
+  // Ahorro automático: cuando ya cobraste (todo lo planificado del mes), lo que falta de la meta
+  // del mes (sin contar lo que recién se separó para las metas con fecha).
+  const savePending = round2(b.savingsGoal.pending - toGoals);
+  if (st.autoSave && savePending > 0 && paid) {
     const goal =
       data.goals.find((g) => g.id === st.autoSaveGoalId && !g.archived) ??
       data.goals.find((g) => !g.archived && g.currency === 'UYU') ??
@@ -164,7 +214,7 @@ export function autopilot(data: LiftyData, b: MonthBudget, today: string): AutoA
     add({
       key,
       kind: 'saving',
-      title: `${round2(b.savingsGoal.pending).toLocaleString('es-UY')} al ahorro${goal ? ` (${goal.name})` : ''}`,
+      title: `${savePending.toLocaleString('es-UY')} al ahorro${goal ? ` (${goal.name})` : ''}`,
       records: [
         {
           entity: 'transaction',
@@ -172,7 +222,8 @@ export function autopilot(data: LiftyData, b: MonthBudget, today: string): AutoA
             id: autoId(key),
             date: today,
             kind: 'saving',
-            amount: round2(b.savingsGoal.pending),
+            amount: savePending,
+            accountId: main?.id ?? null,
             goalId: goal?.id ?? null,
             description: 'Ahorro automático del mes',
             tags: ['automático'],

@@ -1,10 +1,10 @@
 import { useState } from 'react';
-import { affordability, monthLabel } from '@lifty/core';
+import { affordability, monthLabel, monthOf, workTime } from '@lifty/core';
 import { openExplain } from '../components/Editors';
 import { openTxForm } from '../components/TxForm';
 import { Field, PageHeader, Section } from '../components/ui';
 import { money, parseAmount } from '../lib/format';
-import { useData, useToday } from '../lib/store';
+import { useData, useMonth, useToday } from '../lib/store';
 
 /** "¿Me lo puedo comprar?": cómo queda cada mes si lo comprás (al contado o en cuotas). */
 export function Simulator() {
@@ -17,6 +17,7 @@ export function Simulator() {
   const raw = parseAmount(amountText) ?? 0;
   const amount = usd ? raw * data.settings.usdRate : raw;
   const r = amount > 0 ? affordability(data, today, { amount, installments }) : null;
+  const b = useMonth(monthOf(today));
   const card = data.accounts.find((a) => a.type === 'credit' && !a.archived);
   const max = r ? Math.max(1, ...r.months.map((m) => Math.max(Math.abs(m.before), Math.abs(m.after)))) : 1;
 
@@ -74,6 +75,12 @@ export function Simulator() {
               <>
                 ⚠️ <strong>No te alcanza:</strong> en {monthLabel(r.firstShort!.month, false).toLowerCase()} te faltarían{' '}
                 {money(Math.round(-r.firstShort!.after))}.{installments < 12 ? ' Probá con más cuotas o esperá a juntarlo.' : ''}
+              </>
+            )}
+            {workTime(amount, b) && (
+              <>
+                <br />
+                ⏱️ Son {workTime(amount, b)}.
               </>
             )}
             {r.monthsToSave !== null && (

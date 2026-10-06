@@ -244,6 +244,8 @@ export const settingsSchema = z.object({
   /** Piloto automático: cuando cobrás, lo que falta para la meta de ahorro del mes pasa solo al ahorro. */
   autoSave: z.boolean().default(false),
   autoSaveGoalId: id.nullable().default(null),
+  /** Piloto automático: cuando cobrás, separa lo que le toca este mes a cada meta con fecha. */
+  autoSaveGoals: z.boolean().default(false),
   /** Piloto automático: lo que se termina en el stock va solo a la lista de compras. */
   autoShop: z.boolean().default(false),
 });
@@ -483,6 +485,27 @@ export const ruleSchema = z.object({
 });
 export type CategoryRule = z.infer<typeof ruleSchema>;
 
+export const CHALLENGE_KINDS = ['no-spend-category', 'spend-under', 'no-spend-days', 'habit-days', 'save'] as const;
+
+/**
+ * Desafío: algo concreto para un período ("7 días sin pedir comida", "ahorrar $5.000 este mes").
+ * El avance sale solo de lo que cargás.
+ */
+export const challengeSchema = z.object({
+  ...base,
+  name: z.string().trim().min(1).max(80),
+  icon: z.string().max(8).default('🏆'),
+  kind: z.enum(CHALLENGE_KINDS),
+  categoryId: id.nullable().default(null),
+  habitId: id.nullable().default(null),
+  /** Días (sin gastar, de la rutina) o pesos (tope de gasto, ahorro). */
+  target: z.number().min(0).max(100_000_000),
+  from: date,
+  to: date,
+  archived: z.boolean().default(false),
+});
+export type Challenge = z.infer<typeof challengeSchema>;
+
 export const AUTO_KINDS = ['fixed', 'income', 'load', 'saving', 'shop', 'category'] as const;
 
 /**
@@ -530,6 +553,7 @@ export const ENTITY_SCHEMAS = {
   journal: journalSchema,
   rule: ruleSchema,
   autoLog: autoLogSchema,
+  challenge: challengeSchema,
 } as const;
 
 export type EntityName = keyof typeof ENTITY_SCHEMAS;
@@ -560,6 +584,7 @@ export interface EntityTypes {
   journal: JournalEntry;
   rule: CategoryRule;
   autoLog: AutoLog;
+  challenge: Challenge;
 }
 
 export function isEntityName(value: string): value is EntityName {
@@ -605,4 +630,5 @@ export interface LiftyData {
   journal: JournalEntry[];
   rules: CategoryRule[];
   autoLogs: AutoLog[];
+  challenges: Challenge[];
 }

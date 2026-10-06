@@ -24,6 +24,8 @@ import {
   type MonthBudget,
   type StockOverview,
   type UpcomingEvent,
+  goalMonths,
+  paceAlerts,
 } from '@lifty/core';
 import { confirmPlanned } from '../lib/actions';
 import { openBudgetEditor, openBudgetWizard, openExplain, openFixedForm, openIncomeForm, openMenu } from '../components/Editors';
@@ -32,6 +34,7 @@ import { useMoneyCheck } from '../components/MoneyCheck';
 import { openSetup } from '../components/Setup';
 import { QuickJournal, saveJournal } from './Journal';
 import { useHealth } from './Health';
+import { useActiveChallenges } from './Challenges';
 import { reviewMonth } from './Review';
 import { renewReminder } from './Extras';
 import { tapHabit } from './Routines';
@@ -43,7 +46,7 @@ import { dayLabel, money } from '../lib/format';
 import { navigate } from '../lib/router';
 import { local } from '../lib/local';
 import { addToShoppingList } from '../lib/stock';
-import { useData, useLookups, useMonth, useSync, useToday } from '../lib/store';
+import { useData, useLookups, useMonth, useMonths, useSync, useToday } from '../lib/store';
 import { mutate } from '../lib/sync';
 
 export function Home() {
@@ -57,6 +60,7 @@ export function Home() {
   const name = data.settings.ownerName;
   const weight = weightStats(data.weights, { heightCm: data.settings.heightCm, goalKg: data.settings.goalWeightKg });
   const empty = data.transactions.length === 0 && data.incomes.length === 0 && data.fixed.length === 0;
+  const past = useMonths(addMonths(month, -3), addMonths(month, -1));
   // ¿Las cuentas quedan en rojo antes de fin de mes? Va primero en los avisos.
   const low = empty ? null : cashFlowWarning(data, b, today);
   const insights: Insight[] = [
@@ -72,6 +76,29 @@ export function Home() {
         ]
       : []),
     ...(empty ? [] : monthInsights(data, b, today)),
+    // Categorías en las que vas mucho más rápido que de costumbre.
+    ...(empty ? [] : paceAlerts(data, past, b, today)).slice(0, 2).map(
+      (a): Insight => ({
+        id: `pace-${a.categoryId}`,
+        tone: 'warn',
+        categoryId: a.categoryId,
+        text: `En ${(category.get(a.categoryId)?.name ?? 'una categoría').toLowerCase()} vas ${Math.round(a.faster * 100)}% más rápido que de costumbre: a este ritmo terminás en ${money(Math.round(a.projected))}.`,
+        detail: `Llevás ${money(Math.round(a.spent))} en ${a.day} días. Normalmente gastás ${money(Math.round(a.usual))} en todo el mes (la mediana de los últimos 3). A este ritmo: ${money(Math.round(a.spent))} ÷ ${a.day} días × los días del mes = ${money(Math.round(a.projected))}.`,
+      }),
+    ),
+    // Metas con fecha que se ajustaron (un mes se puso menos).
+    ...goalMonths(data, today)
+      .filter((g) => g.adjusted === 'up' && g.pendingThisMonth > 0)
+      .slice(0, 2)
+      .map(
+        (g): Insight => ({
+          id: `goal-${g.goal.id}`,
+          tone: 'info',
+          text: `Para llegar a "${g.goal.name}" a tiempo, ahora son ${money(Math.ceil(g.perMonth), g.goal.currency)} por mes (era ${money(Math.ceil(g.original), g.goal.currency)}).`,
+          detail: '',
+          href: '#/ahorro',
+        }),
+      ),
   ];
   const events = upcomingEvents(data, b, today);
   const debts = debtTotals(data);
@@ -382,6 +409,7 @@ export function Home() {
           />
         )}
         <HealthTile />
+        <ChallengesTile />
         <Tile
           href="#/semana"
           icon="calendar"
@@ -441,6 +469,22 @@ export function Home() {
         )}
       </Section>
     </div>
+  );
+}
+
+/** Los desafíos en curso (el más cercano a terminar). */
+function ChallengesTile() {
+  const active = useActiveChallenges();
+  if (!active.length) return null;
+  const s = active.sort((a, b) => a.daysLeft - b.daysLeft)[0];
+  return (
+    <Tile
+      href="#/desafios"
+      icon="check"
+      title={active.length === 1 ? s.challenge.name : `${active.length} desafíos en curso`}
+      text={`${s.text}${s.status === 'active' ? ` · quedan ${s.daysLeft} días` : ''}`}
+      value={`${Math.round(s.progress * 100)}%`}
+    />
   );
 }
 

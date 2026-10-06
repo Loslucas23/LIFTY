@@ -91,6 +91,7 @@ export async function smokeTour(): Promise<string[]> {
     '/resumen',
     '/piloto',
     '/salud',
+    '/desafios',
     '/',
   ];
   for (const r of routes) await go(r);
@@ -643,6 +644,24 @@ export async function smokeTour(): Promise<string[]> {
     if (!(await until(() => !ruleRow()))) problems.push('piloto: no se borró la regla');
   }
   check('piloto automático');
+
+  // Desafíos: uno de días sin gastar (se crea y se quita).
+  await go('/desafios');
+  clickText('.page-head button', 'Desafío');
+  if (await waitFor('.sheet')) {
+    clickText('.sheet .chip', 'Días sin gastar');
+    await sleep(100);
+    type($<HTMLInputElement>('.sheet input[placeholder="Ej: 3"]'), '2');
+    await saveSheet('nuevo desafío');
+    const card = () =>
+      [...document.querySelectorAll<HTMLElement>('.challenge')].find((c) => c.textContent?.includes('2 días sin gastar en 7'));
+    if (!(await until(() => !!card()))) problems.push('desafíos: no aparece el desafío');
+    else {
+      [...card()!.querySelectorAll<HTMLButtonElement>('button')].find((b) => b.textContent?.includes('Quitar'))?.click();
+      if (!(await until(() => !card()))) problems.push('desafíos: no se pudo quitar');
+    }
+  } else problems.push('desafíos: no se abrió el formulario');
+  check('desafíos');
 
   // Modo privado (tecla P): oculta los montos y se vuelve a mostrar.
   await go('/');

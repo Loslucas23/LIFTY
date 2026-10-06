@@ -32,6 +32,7 @@ import { Simulator } from './pages/Simulator';
 import { Review } from './pages/Review';
 import { Autopilot, AutopilotRunner } from './pages/Autopilot';
 import { Health } from './pages/Health';
+import { Challenges } from './pages/Challenges';
 import { Recurring, Reminders, Week, YearGoals } from './pages/Extras';
 import { usePrivacy } from './lib/privacy';
 import { Year } from './pages/Year';
@@ -72,6 +73,7 @@ const ROUTES: [string, (p: Record<string, string>) => ReactNode][] = [
   ['/resumen', () => <Review />],
   ['/piloto', () => <Autopilot />],
   ['/salud', () => <Health />],
+  ['/desafios', () => <Challenges />],
   ['/resumen/:month', (p) => <Review month={p.month} />],
 ];
 

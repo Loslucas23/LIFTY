@@ -21,3 +21,5 @@ export * from './smart';
 export * from './whole';
 export * from './autopilot';
 export * from './health';
+export * from './coach';
+export * from './challenges';

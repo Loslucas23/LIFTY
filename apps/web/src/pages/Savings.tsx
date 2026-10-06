@@ -3,6 +3,7 @@ import {
   accountBalances,
   addMonths,
   goalBalances,
+  goalMonths,
   goalPlans,
   monthDiff,
   monthLabel,
@@ -239,6 +240,10 @@ export function Savings() {
 }
 
 function PlanLine({ plan }: { plan: GoalPlan }) {
+  const data = useData();
+  const today = useToday();
+  // Lo de este mes, recalculado con lo que tenías al empezar el mes (se ajusta solo).
+  const gm = goalMonths(data, today).find((x) => x.goal.id === plan.goal.id);
   const cur = plan.goal.currency;
   const s = STATUS[plan.status];
   const explain = () =>
@@ -270,6 +275,18 @@ function PlanLine({ plan }: { plan: GoalPlan }) {
             {plan.status === 'ahead' || plan.status === 'behind'
               ? ` (${plan.diff > 0 ? '+' : '−'}${money(Math.abs(Math.round(plan.diff)), cur)})`
               : ''}
+            {gm && (
+              <span className="goal-month muted">
+                {gm.pendingThisMonth > 0
+                  ? `Este mes: te faltan ${money(Math.ceil(gm.pendingThisMonth), cur)}${gm.savedThisMonth > 0 ? ` (ya pusiste ${money(gm.savedThisMonth, cur)})` : ''}`
+                  : '✅ Este mes ya está'}
+                {gm.adjusted === 'up'
+                  ? ` · se ajustó: era ${money(Math.ceil(gm.original), cur)} por mes`
+                  : gm.adjusted === 'down'
+                    ? ` · vas adelantado: era ${money(Math.ceil(gm.original), cur)}`
+                    : ''}
+              </span>
+            )}
           </>
         )}
       </span>

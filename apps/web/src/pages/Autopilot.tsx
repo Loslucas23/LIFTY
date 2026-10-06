@@ -41,6 +41,7 @@ export function Autopilot() {
     food.filter((a) => a.autoLoad).length +
     cards.filter((a) => a.autopay !== false).length +
     Number(st.autoSave) +
+    Number(st.autoSaveGoals) +
     Number(st.autoShop) +
     data.rules.length;
 
@@ -154,6 +155,12 @@ export function Autopilot() {
             onChange={(v) => mutate('settings', 'upsert', { ...st, autoSave: v })}
             label="Cuando cobro, pasar al ahorro lo que falta para la meta del mes"
             disabled={st.savingsMode === 'none'}
+          />
+          <Toggle
+            checked={st.autoSaveGoals}
+            onChange={(v) => mutate('settings', 'upsert', { ...st, autoSaveGoals: v })}
+            label="Cuando cobro, separar lo que le toca este mes a cada meta con fecha (se recalcula solo)"
+            disabled={!data.goals.some((g) => !g.archived && g.target && g.targetMonth)}
           />
           {st.savingsMode === 'none' ? (
             <p className="muted small">

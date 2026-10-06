@@ -12,6 +12,12 @@ const GROUPS: { title: string; items: { href: string; icon: IconName; label: str
       { href: '/ahorro', icon: 'piggy', label: 'Ahorro', hint: 'Meta del mes y metas con fecha' },
       { href: '/deudas', icon: 'people', label: 'Deudas y préstamos', hint: 'Lo que te deben y lo que debés' },
       {
+        href: '/desafios',
+        icon: 'check',
+        label: 'Desafíos',
+        hint: 'Metas cortas que se siguen solas: 7 días sin pedir comida, ahorrar $X…',
+      },
+      {
         href: '/salud',
         icon: 'chart',
         label: 'Tu salud',

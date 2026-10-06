@@ -10,6 +10,7 @@ import {
   recurringSummary,
   reminderSchema,
   reminderStatus,
+  weekPlan,
   weekStart,
   weekSummary,
   YEAR_GOAL_KINDS,
@@ -25,7 +26,7 @@ import { Icon } from '../components/Icon';
 import { Chips, Empty, Field, PageHeader, Section, Sheet, toast } from '../components/ui';
 import { dayLabel, money, parseAmount } from '../lib/format';
 import { local } from '../lib/local';
-import { useData, useLookups, useToday } from '../lib/store';
+import { useData, useLookups, useMonth, useToday } from '../lib/store';
 import { mutate } from '../lib/sync';
 
 const fmtDate = (d: string) => d.split('-').reverse().join('/');
@@ -130,6 +131,8 @@ export function Week() {
         title="Tu semana"
         subtitle={`Del lunes ${fmtDate(w.from).slice(0, 5)} al domingo ${fmtDate(w.to).slice(0, 5)}`}
       />
+      <WeekAhead />
+      <h2 className="small-title">Cómo te fue</h2>
       <div className="month-picker">
         <button className="icon-btn" onClick={() => setFrom(addDays(from, -7))} aria-label="Semana anterior">
           <Icon name="left" />
@@ -156,6 +159,76 @@ export function Week() {
         ))}
       </ul>
     </div>
+  );
+}
+
+/** Los próximos 7 días: lo que pagás, cobrás y vence, exámenes, rutinas y lo que podés gastar. */
+function WeekAhead() {
+  const data = useData();
+  const today = useToday();
+  const b = useMonth(monthOf(today));
+  const w = weekPlan(data, b, today);
+  const busy = w.days.filter((d) => d.items.length);
+  return (
+    <Section title="Los próximos 7 días">
+      <div className="card pad week-ahead">
+        <div className="week-stats">
+          {w.perDay !== null && (
+            <span>
+              Podés gastar <strong>{money(Math.round(w.perDay))}</strong> por día
+              {w.weekBudget ? ` (${money(Math.round(w.weekBudget))} en la semana)` : ''}
+            </span>
+          )}
+          {w.payments > 0 && (
+            <span>
+              Pagás <strong>{money(Math.round(w.payments))}</strong>
+            </span>
+          )}
+          {w.incomes > 0 && (
+            <span>
+              Cobrás <strong>{money(Math.round(w.incomes))}</strong>
+            </span>
+          )}
+          {w.shopping.items > 0 && (
+            <span>
+              Súper: {w.shopping.items} cosa{w.shopping.items === 1 ? '' : 's'}
+              {w.shopping.cost > 0 ? ` (~${money(Math.round(w.shopping.cost))})` : ''}
+            </span>
+          )}
+          {w.studyPerDay > 0 && <span>Estudio: {w.studyPerDay} min por día</span>}
+        </div>
+        {busy.length === 0 ? (
+          <p className="muted small">Una semana tranquila: no hay pagos, cobros ni vencimientos.</p>
+        ) : (
+          <ul className="week-days">
+            {busy.map((d) => (
+              <li key={d.date}>
+                <span className="week-day">{dayLabel(d.date, today, true)}</span>
+                <span className="grow">
+                  {d.items.map((i) => (
+                    <span key={i.text} className="week-item">
+                      {i.icon} {i.text}
+                      {i.amount ? (
+                        <strong className={i.amount > 0 ? 'text-income' : ''}>
+                          {' '}
+                          {i.amount > 0 ? '+' : '−'}
+                          {money(Math.abs(Math.round(i.amount)))}
+                        </strong>
+                      ) : null}
+                    </span>
+                  ))}
+                </span>
+              </li>
+            ))}
+          </ul>
+        )}
+        {w.days.some((d) => d.habits) && (
+          <p className="muted small">
+            Rutinas: {w.days.map((d) => `${dayLabel(d.date, today, true).slice(0, 3)} ${d.habits}`).join(' · ')}
+          </p>
+        )}
+      </div>
+    </Section>
   );
 }
 

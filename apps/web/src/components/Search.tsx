@@ -32,6 +32,7 @@ const PAGES: { label: string; path: string; words: string }[] = [
   { label: 'Estudio', path: '/estudio', words: 'examen materias facultad' },
   { label: 'Diario', path: '/diario', words: 'sueño dormir animo' },
   { label: 'Peso', path: '/peso', words: 'kilos balanza' },
+  { label: 'Desafíos', path: '/desafios', words: 'reto desafio juego meta corta' },
   { label: 'Tu salud (puntaje)', path: '/salud', words: 'salud financiera puntaje fondo emergencia colchon balance vida' },
   { label: 'Piloto automático', path: '/piloto', words: 'automatico reglas debito solo automatizar' },
   { label: 'Resumen del mes', path: '/resumen', words: 'mes balance como me fue animo sueño' },

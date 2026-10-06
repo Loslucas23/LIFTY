@@ -2,7 +2,9 @@ import { useState } from 'react';
 import {
   accountBalances,
   addMonths,
+  budgetId,
   budgetReview,
+  monthPlanProposal,
   daysInMonth,
   moneyCheck,
   monthLabel,
@@ -21,6 +23,7 @@ import { confirmAll, setCategoryBudget } from '../lib/actions';
 import { navigate } from '../lib/router';
 import { useData, useLookups, useMonth, useMonths, useToday } from '../lib/store';
 import { mutate } from '../lib/sync';
+import { local } from '../lib/local';
 
 export function Budget({ month: monthParam }: { month?: string }) {
   const today = useToday();
@@ -117,6 +120,7 @@ export function Budget({ month: monthParam }: { month?: string }) {
             <div className="chips">{add('Gasto fijo', () => openFixedForm(null, month))}</div>
           </Section>
 
+          <PlanProposalCard month={month} />
           <CategoryBudgets b={b} month={month} />
           {month === monthOf(today) && <BudgetReview month={month} />}
 
@@ -648,5 +652,108 @@ function BudgetReview({ month }: { month: string }) {
         })}
       </ul>
     </Section>
+  );
+}
+
+/**
+ * Plan del mes con un toque: propone el presupuesto de cada categoría según lo que gastás
+ * normalmente. Aparece al empezar el mes (o si todavía no tenés presupuesto), para este mes o el
+ * que viene.
+ */
+function PlanProposalCard({ month }: { month: string }) {
+  const data = useData();
+  const today = useToday();
+  const { category } = useLookups();
+  const months = useMonths(addMonths(month, -3), month);
+  const key = `lifty-plan-${month}`;
+  const [dismissed, setDismissed] = useState(local.get(key) === '1');
+  const current = monthOf(today);
+  const day = Number(today.slice(8));
+  const relevant = (month === current && day <= 10) || (month === addMonths(current, 1) && day >= 20);
+  const p = monthPlanProposal(data, months.slice(0, -1), months[months.length - 1]);
+  const noBudget = !data.categories.some((c) => c.monthlyLimit) && !data.budgets.some((x) => x.month === month);
+  if (dismissed || !p || !(relevant || noBudget)) return null;
+  // Si ya es lo que tenés, no hace falta proponerlo.
+  if (p.lines.every((l) => l.current === l.suggested)) return null;
+  const name = monthLabel(month, false).toLowerCase();
+  const apply = () => {
+    const before = p.lines.map((l) => ({
+      id: l.categoryId,
+      budget: data.budgets.find((x) => x.month === month && x.categoryId === l.categoryId),
+    }));
+    for (const l of p.lines) setCategoryBudget(data, month, l.categoryId, l.suggested, 'month');
+    local.set(key, '1');
+    setDismissed(true);
+    toast(`Plan de ${name} aplicado`, {
+      action: {
+        label: 'Deshacer',
+        run: () =>
+          before.forEach((x) =>
+            x.budget ? mutate('budget', 'upsert', x.budget) : mutate('budget', 'delete', budgetId(month, x.id)),
+          ),
+      },
+    });
+  };
+  return (
+    <section className="card pad plan-proposal">
+      <div className="limit-head">
+        <strong>✨ Plan de {name}, listo para aplicar</strong>
+        <button
+          className="link small"
+          onClick={() => {
+            local.set(key, '1');
+            setDismissed(true);
+          }}
+        >
+          Ahora no
+        </button>
+      </div>
+      <p className="muted small">
+        Lo que gastás normalmente en cada categoría (la mediana de los últimos 3 meses)
+        {p.scaled ? ', achicado para que entre con tus ingresos, fijos y ahorro' : ''}.
+      </p>
+      <ul className="review-list">
+        {p.lines.map((l) => {
+          const c = category.get(l.categoryId);
+          return (
+            <li key={l.categoryId}>
+              <span>
+                {c?.icon} {c?.name}
+                {l.current !== null && l.current !== l.suggested && <small className="muted"> (hoy {money(l.current)})</small>}
+              </span>
+              <strong>{money(l.suggested)}</strong>
+            </li>
+          );
+        })}
+      </ul>
+      <p className={`small ${p.free < 0 ? 'text-bad' : 'muted'}`}>
+        {p.free >= 0
+          ? `Te quedan ${money(Math.round(p.free))} sin asignar (después de fijos, cuotas y ahorro).`
+          : `Ojo: no alcanza por ${money(Math.round(-p.free))}.`}
+      </p>
+      <div className="btn-row">
+        <button className="btn btn-primary" onClick={apply}>
+          Aplicar el plan
+        </button>
+        <button
+          className="btn btn-ghost"
+          onClick={() =>
+            openExplain({
+              title: `Plan de ${name}: de dónde sale`,
+              intro:
+                'Para cada categoría, lo que gastaste en cada uno de los últimos 3 meses; se toma la mediana (el del medio), redondeada a 100.',
+              rows: p.lines.map((l) => ({
+                label: `${category.get(l.categoryId)?.name ?? ''}: ${l.history.map((h) => money(Math.round(h))).join(' · ')}`,
+                value: l.suggested,
+              })),
+              result: { label: 'Total asignado', value: p.assigned },
+              footnote: `Ingresos ${money(p.income)} − fijos ${money(p.fixed)} − cuotas ${money(p.committed)} − ahorro ${money(p.savings)} − asignado ${money(p.assigned)} = ${money(p.free)}.`,
+            })
+          }
+        >
+          ¿De dónde sale?
+        </button>
+      </div>
+    </section>
   );
 }

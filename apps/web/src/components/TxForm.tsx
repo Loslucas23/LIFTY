@@ -3,6 +3,7 @@ import {
   buildWordIndex,
   installmentsOf,
   matchRule,
+  workTime,
   monthLabel,
   monthOf,
   newId,
@@ -660,6 +661,9 @@ function TxForm({
         )}
 
         {dailyHint && <p className={`note ${dailyHint.bad ? 'note-bad' : 'note-good'}`}>{dailyHint.text}</p>}
+        {kind === 'expense' && !linked && own !== null && own * rate >= 300 && workTime(own * rate, mb) && (
+          <p className="muted small work-time">⏱️ Son {workTime(own * rate, mb)}.</p>
+        )}
 
         {lookAlike && (
           <p className="note note-bad dup-note" role="alert">
