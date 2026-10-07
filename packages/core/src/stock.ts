@@ -1,4 +1,4 @@
-import { round2 } from './money';
+import { formatNumber, round2 } from './money';
 import type { Settings, StockItem, StockMove, StockUnit } from './schema';
 import { addDays, daysBetween } from './weight';
 
@@ -167,7 +167,9 @@ export function stockStatus(
     if (m.kind !== 'buy') continue;
     const q = Math.min(left, m.quantity);
     left -= q;
-    if (m.expiry) batches.push({ date: m.date, expiry: m.expiry, quantity: round2(q) });
+    // Sin fecha anotada, la que se espera según cuánto dura el producto.
+    const expiry = m.expiry ?? (item.shelfDays ? addDays(m.date, item.shelfDays) : null);
+    if (expiry) batches.push({ date: m.date, expiry, quantity: round2(q) });
   }
   batches.sort((a, b) => a.expiry.localeCompare(b.expiry));
 
@@ -197,7 +199,7 @@ export function stockStatus(
 }
 
 export function fmtQty(q: number, unit: StockUnit): string {
-  return `${round2(q).toLocaleString('es-UY', { maximumFractionDigits: 2 })} ${UNIT_LABEL[unit]}`;
+  return `${formatNumber(q, 2, 0)} ${UNIT_LABEL[unit]}`;
 }
 
 export interface StockOverview {

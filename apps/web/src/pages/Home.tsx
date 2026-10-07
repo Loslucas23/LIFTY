@@ -46,6 +46,7 @@ import { PaydaySheet, usePlata } from './Plata';
 import { payInstallment } from '../lib/plata';
 import { reviewMonth } from './Review';
 import { renewReminder, tapHabit } from '../lib/life';
+import { cookMeal } from '../lib/menu';
 import { openTxForm } from '../components/TxForm';
 import { TxRow } from '../components/TxRow';
 import { Empty, Progress, Section, toast } from '../components/ui';
@@ -782,6 +783,15 @@ function AgendaRow({ item, stock }: { item: AgendaItem; stock: StockOverview | n
         checkLabel = `Marcar la cuota de ${d.description || d.person} como ${d.direction === 'borrowed' ? 'pagada' : 'cobrada'}`;
       }
       open = () => navigate('/deudas');
+      break;
+    }
+    case 'meal': {
+      const meal = data.meals.find((m) => m.id === item.refId);
+      if (meal) {
+        check = () => cookMeal(data, meal, today);
+        checkLabel = `Cociné ${item.title}: descontar del stock`;
+      }
+      open = () => navigate('/menu');
       break;
     }
     case 'remind':

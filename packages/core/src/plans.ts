@@ -2,6 +2,7 @@ import { computeMonths } from './budget';
 import { addMonths, monthOf } from './months';
 import { round2 } from './money';
 import type { LiftyData, Recipe } from './schema';
+import { ingredientInItemUnit } from './menu';
 import type { StockStatus } from './stock';
 
 // ---------------- Recetas ----------------
@@ -28,11 +29,15 @@ export function recipeStatus(recipe: Recipe, statuses: StockStatus[]): RecipeSta
   for (const ing of recipe.ingredients) {
     const s = byId.get(ing.itemId);
     const have = s?.quantity ?? 0;
-    times = Math.min(times, Math.floor(have / ing.quantity + 1e-9));
-    if (have < ing.quantity) missing.push({ status: s, itemId: ing.itemId, need: round2(ing.quantity - have), have });
+    // "2 cebollas" con el stock en kilos: se pasa a la unidad del producto.
+    const qty = ingredientInItemUnit(ing, s?.item);
+    // Los básicos (sal, aceite) alcanzan mientras haya algo.
+    const enough = s?.item.staple ? have > 0 : have >= qty - 1e-9;
+    times = Math.min(times, s?.item.staple && have > 0 ? Infinity : Math.floor(have / qty + 1e-9));
+    if (!enough) missing.push({ status: s, itemId: ing.itemId, need: round2(qty - have), have });
     const price = s?.prices.average ?? s?.prices.last ?? null;
     if (price === null) withoutPrice++;
-    else cost += price * ing.quantity;
+    else cost += price * qty;
   }
   if (!recipe.ingredients.length) times = 0;
   const total = withoutPrice ? null : round2(cost);

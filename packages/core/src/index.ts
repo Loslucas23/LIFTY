@@ -31,3 +31,4 @@ export * from './plata';
 export * from './daytoday';
 export * from './statement';
 export * from './groups';
+export * from './menu';

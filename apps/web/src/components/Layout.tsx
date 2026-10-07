@@ -15,7 +15,7 @@ const NAV: { href: string; label: string; icon: IconName; match: RegExp }[] = [
   { href: '/cuentas', label: 'Cuentas', icon: 'bank', match: /^\/(cuentas|deudas|conciliar|grupos)/ },
   { href: '/alimentacion', label: 'Alimentación', icon: 'food', match: /^\/alimentacion/ },
   { href: '/tarjeta', label: 'Tarjeta', icon: 'card', match: /^\/tarjeta/ },
-  { href: '/stock', label: 'Stock', icon: 'box', match: /^\/(stock|lista)/ },
+  { href: '/stock', label: 'Stock', icon: 'box', match: /^\/(stock|lista|menu|recetas)/ },
   { href: '/rutinas', label: 'Rutinas', icon: 'check', match: /^\/rutinas/ },
   { href: '/estudio', label: 'Estudio', icon: 'calendar', match: /^\/estudio/ },
   { href: '/informes', label: 'Informes', icon: 'chart', match: /^\/(anio|informes|resumen)/ },

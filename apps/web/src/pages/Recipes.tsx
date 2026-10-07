@@ -1,6 +1,10 @@
 import { useMemo, useState } from 'react';
 import {
   fmtQty,
+  ingredientInItemUnit,
+  ingredientLabel,
+  ingredientUnits,
+  mealUses,
   newId,
   recipeSchema,
   recipeStatus,
@@ -8,6 +12,7 @@ import {
   UNIT_LABEL,
   type Recipe,
   type RecipeStatus,
+  type StockUnit,
 } from '@lifty/core';
 import { openExplain, openMenu } from '../components/Editors';
 import { Icon } from '../components/Icon';
@@ -34,7 +39,10 @@ export function Recipes() {
   const itemName = (id: string) => data.stockItems.find((i) => i.id === id);
 
   const cook = (s: RecipeStatus) => {
-    const moves = s.recipe.ingredients.map((ing) => addStockMove(ing.itemId, 'use', ing.quantity, today));
+    // En la unidad de cada producto ("2 cebollas" descuenta 0,3 kg).
+    const moves = mealUses(s.recipe, data.stockItems, s.recipe.servings).map((u) =>
+      addStockMove(u.itemId, 'use', u.quantity, today),
+    );
     toast(`${s.recipe.name}: ingredientes descontados del stock`, {
       action: { label: 'Deshacer', run: () => moves.forEach((m) => mutate('stockMove', 'delete', m.id)) },
     });
@@ -65,9 +73,14 @@ export function Recipes() {
         title="Recetas"
         subtitle={ready.length ? `Con lo que tenés podés hacer ${ready.length}` : 'Qué podés cocinar con lo que tenés'}
         actions={
-          <button className="btn btn-primary" onClick={() => setEditing('new')} disabled={!data.stockItems.length}>
-            <Icon name="plus" /> Receta
-          </button>
+          <>
+            <a className="btn" href="#/menu">
+              <Icon name="calendar" /> Menú de la semana
+            </a>
+            <button className="btn btn-primary" onClick={() => setEditing('new')} disabled={!data.stockItems.length}>
+              <Icon name="plus" /> Receta
+            </button>
+          </>
         }
       />
       {!data.stockItems.length ? (
@@ -109,10 +122,12 @@ export function Recipes() {
                         rows: s.recipe.ingredients.map((ing) => {
                           const st = statuses.find((x) => x.item.id === ing.itemId);
                           const price = st?.prices.average ?? st?.prices.last ?? 0;
+                          const qty = ingredientInItemUnit(ing, st?.item);
                           return {
-                            label: `${st?.item.name ?? '?'} · ${fmtQty(ing.quantity, st?.item.unit ?? 'u')}`,
-                            value: Math.round(price * ing.quantity * 100) / 100,
+                            label: `${st?.item.name ?? '?'} · ${ingredientLabel(ing, st?.item)}`,
+                            value: Math.round(price * qty * 100) / 100,
                             op: '+' as const,
+                            note: ing.unit && st && ing.unit !== st.item.unit ? `= ${fmtQty(qty, st.item.unit)}` : undefined,
                           };
                         }),
                         result: { label: 'Total', value: s.cost! },
@@ -168,10 +183,11 @@ function RecipeForm({ recipe, onClose }: { recipe: Recipe | null; onClose: () =>
   const [icon, setIcon] = useState(recipe?.icon ?? '🍲');
   const [servings, setServings] = useState(String(recipe?.servings ?? 2));
   const [rows, setRows] = useState(
-    (recipe?.ingredients.length ? recipe.ingredients : [{ itemId: '', quantity: 1 }]).map((i) => ({
+    (recipe?.ingredients.length ? recipe.ingredients : [{ itemId: '', quantity: 1, unit: null }]).map((i) => ({
       key: newId(),
       itemId: i.itemId,
       qty: String(i.quantity).replace('.', ','),
+      unit: (i.unit ?? null) as StockUnit | null,
     })),
   );
   const [note, setNote] = useState(recipe?.note ?? '');
@@ -179,7 +195,10 @@ function RecipeForm({ recipe, onClose }: { recipe: Recipe | null; onClose: () =>
   const save = () => {
     const ingredients = rows
       .filter((r) => r.itemId)
-      .map((r) => ({ itemId: r.itemId, quantity: parseAmount(r.qty) ?? 0 }))
+      .map((r) => {
+        const it = items.find((i) => i.id === r.itemId);
+        return { itemId: r.itemId, quantity: parseAmount(r.qty) ?? 0, unit: r.unit && it && r.unit !== it.unit ? r.unit : null };
+      })
       .filter((i) => i.quantity > 0);
     const r = recipeSchema.safeParse({
       ...(recipe ?? {}),
@@ -246,7 +265,7 @@ function RecipeForm({ recipe, onClose }: { recipe: Recipe | null; onClose: () =>
             <div key={r.key} className="purchase-line">
               <select
                 value={r.itemId}
-                onChange={(e) => setRows(rows.map((x) => (x.key === r.key ? { ...x, itemId: e.target.value } : x)))}
+                onChange={(e) => setRows(rows.map((x) => (x.key === r.key ? { ...x, itemId: e.target.value, unit: null } : x)))}
                 aria-label="Ingrediente"
               >
                 <option value="">Elegí…</option>
@@ -263,7 +282,23 @@ function RecipeForm({ recipe, onClose }: { recipe: Recipe | null; onClose: () =>
                   onChange={(e) => setRows(rows.map((x) => (x.key === r.key ? { ...x, qty: e.target.value } : x)))}
                   aria-label="Cantidad"
                 />
-                <span>{it ? UNIT_LABEL[it.unit] : ''}</span>
+                {it && ingredientUnits(it).length > 1 ? (
+                  <select
+                    value={r.unit ?? it.unit}
+                    onChange={(e) =>
+                      setRows(rows.map((x) => (x.key === r.key ? { ...x, unit: e.target.value as StockUnit } : x)))
+                    }
+                    aria-label="Unidad"
+                  >
+                    {ingredientUnits(it).map((u) => (
+                      <option key={u} value={u}>
+                        {u === 'u' && it.unitWeight && it.unit !== 'u' ? `u. (≈${it.unitWeight} g)` : UNIT_LABEL[u]}
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  <span>{it ? UNIT_LABEL[it.unit] : ''}</span>
+                )}
               </label>
               <span />
               <button className="icon-btn" aria-label="Sacar" onClick={() => setRows(rows.filter((x) => x.key !== r.key))}>
@@ -272,7 +307,7 @@ function RecipeForm({ recipe, onClose }: { recipe: Recipe | null; onClose: () =>
             </div>
           );
         })}
-        <button className="btn btn-ghost" onClick={() => setRows([...rows, { key: newId(), itemId: '', qty: '1' }])}>
+        <button className="btn btn-ghost" onClick={() => setRows([...rows, { key: newId(), itemId: '', qty: '1', unit: null }])}>
           <Icon name="plus" /> Otro ingrediente
         </button>
         <Field label="Cómo se hace (opcional)">

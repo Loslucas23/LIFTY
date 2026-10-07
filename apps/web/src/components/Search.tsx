@@ -38,6 +38,11 @@ const PAGES: { label: string; path: string; words: string }[] = [
   { label: 'Piloto automático', path: '/piloto', words: 'automatico reglas debito solo automatizar' },
   { label: 'Tu plata', path: '/plata', words: 'sobra libre disponible patrimonio cobro repartir sueldo inversiones plazo fijo' },
   {
+    label: 'Menú de la semana',
+    path: '/menu',
+    words: 'menu semana comidas almuerzo cena cocinar planificar recetas lista',
+  },
+  {
     label: 'Gastos en grupo',
     path: '/grupos',
     words: 'grupo amigos viaje casa pareja dividir splitwise saldar deben',

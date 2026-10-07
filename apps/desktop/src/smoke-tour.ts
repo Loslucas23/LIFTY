@@ -98,6 +98,7 @@ export async function smokeTour(): Promise<string[]> {
     '/dia-a-dia',
     '/conciliar',
     '/grupos',
+    '/menu',
     '/calendario',
     '/epocas',
     '/tu-anio',
@@ -147,11 +148,11 @@ export async function smokeTour(): Promise<string[]> {
     [...document.querySelectorAll<HTMLButtonElement>(`${scope} .chip`)].find((c) => c.textContent?.trim().endsWith(text));
   const saveSheet = async (what: string) => {
     $<HTMLButtonElement>('.sheet-foot .btn-primary')?.click();
-    await sleep(300);
+    await until(() => !$('.sheet') || !!$('.sheet .dup-note'), 3000);
     // "¿Ya lo cargaste?" (el recorrido corre dos veces con los mismos datos): es otro, guardar igual.
     if ($('.sheet .dup-note')) {
       $<HTMLButtonElement>('.sheet-foot .btn-primary')?.click();
-      await sleep(300);
+      await until(() => !$('.sheet'), 3000);
     }
     if ($('.sheet')) {
       problems.push(`${what}: no se guardó (${$('.sheet .field-error')?.textContent ?? 'sin mensaje'})`);
@@ -174,11 +175,12 @@ export async function smokeTour(): Promise<string[]> {
     if (!(await until(() => !!$('.sheet .chip.on')?.textContent?.includes('Transporte'))))
       problems.push(`sugerencia: no propuso Transporte (${$('.sheet .chip.on')?.textContent ?? 'ninguna'})`);
     $<HTMLButtonElement>('.sheet-foot .btn-primary')?.click();
-    await sleep(300);
-    if (i === 1) {
-      if (!$('.sheet .dup-note')) problems.push('repetido: no avisó que ya estaba cargado');
+    // Esperar a que se cierre o avise que ya estaba (con la compu ocupada puede tardar).
+    await until(() => !$('.sheet') || !!$('.sheet .dup-note'), 3000);
+    if (i === 1 && !$('.sheet .dup-note')) problems.push('repetido: no avisó que ya estaba cargado');
+    if ($('.sheet .dup-note')) {
       $<HTMLButtonElement>('.sheet-foot .btn-primary')?.click();
-      await sleep(300);
+      await until(() => !$('.sheet'), 3000);
     }
     if ($('.sheet')) {
       problems.push(`sugerencia: no se guardó (${$('.sheet .field-error')?.textContent ?? 'sin mensaje'})`);

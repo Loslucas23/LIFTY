@@ -50,6 +50,7 @@ export function toLiftyData(store: RecordStore): LiftyData {
     challenges: list('challenge').sort((a, b) => b.from.localeCompare(a.from)),
     periods: list('period').sort((a, b) => b.from.localeCompare(a.from)),
     groups: list('group').sort((a, b) => a.name.localeCompare(b.name, 'es')),
+    meals: list('meal').sort((a, b) => a.date.localeCompare(b.date) || a.slot.localeCompare(b.slot)),
     groupExpenses: list('groupExpense').sort((a, b) => b.date.localeCompare(a.date) || b.updatedAt.localeCompare(a.updatedAt)),
     autoLogs: list('autoLog').sort((a, b) => b.date.localeCompare(a.date) || b.updatedAt.localeCompare(a.updatedAt)),
     reminders: list('reminder').sort((a, b) => a.date.localeCompare(b.date)),

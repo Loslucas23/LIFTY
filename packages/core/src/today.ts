@@ -29,7 +29,8 @@ export type AgendaKind =
   | 'checkin'
   | 'loan'
   | 'invest'
-  | 'remind';
+  | 'remind'
+  | 'meal';
 
 export interface AgendaItem {
   key: string;
@@ -164,6 +165,22 @@ export function todayAgenda(data: LiftyData, b: MonthBudget, today: string, hour
       detail:
         e.daysLeft < 0 ? 'Ya venció: usalo o tiralo' : e.daysLeft === 0 ? 'Vence hoy: usalo' : `Vence en ${e.daysLeft} días`,
       urgency: e.daysLeft <= 0 ? 2 : 1,
+      done: false,
+    });
+  }
+
+  // El menú de hoy: lo que toca cocinar (con un toque se descuenta del stock).
+  for (const m of data.meals ?? []) {
+    if (m.date !== today || m.cooked) continue;
+    const r = data.recipes.find((x) => x.id === m.recipeId);
+    if (!r) continue;
+    items.push({
+      key: `meal:${m.id}`,
+      kind: 'meal',
+      refId: m.id,
+      title: `${r.icon} ${r.name}`,
+      detail: `${m.slot === 'almuerzo' ? 'Almuerzo' : 'Cena'} · para ${m.servings}`,
+      urgency: 1,
       done: false,
     });
   }

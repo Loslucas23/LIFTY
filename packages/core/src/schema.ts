@@ -398,6 +398,15 @@ export const stockItemSchema = z.object({
   packSize: z.number().positive().nullable().default(null),
   /** Para cuántos días querés tener (si no, los días entre compras de Ajustes). */
   coverDays: z.number().int().min(1).max(180).nullable().default(null),
+  /**
+   * Cuánto pesa una unidad, en gramos (1 cebolla ≈ 150 g, 1 huevo ≈ 60 g): así una receta
+   * puede pedir "2 cebollas" aunque las compres por kilo, y la lista dice "3 cebollas".
+   */
+  unitWeight: z.number().positive().max(100000).nullable().default(null),
+  /** Cuántos días dura desde que lo comprás (tomate 7, cebolla 30): avisa antes de que se eche a perder. */
+  shelfDays: z.number().int().min(1).max(3650).nullable().default(null),
+  /** Básico que siempre hay (sal, aceite, especias): el menú no lo pide salvo que se termine. */
+  staple: z.boolean().default(false),
   note: z.string().max(200).default(''),
   archived: z.boolean().default(false),
 });
@@ -528,7 +537,14 @@ export const recipeSchema = z.object({
   icon: z.string().max(8).default('🍲'),
   servings: z.number().int().min(1).max(50).default(2),
   ingredients: z
-    .array(z.object({ itemId: id, quantity: z.number().positive().max(100000) }))
+    .array(
+      z.object({
+        itemId: id,
+        quantity: z.number().positive().max(100000),
+        /** En qué unidad está la cantidad ("2 u." de cebolla, "300 g" de carne); null = la del producto. */
+        unit: z.enum(STOCK_UNITS).nullable().optional(),
+      }),
+    )
     .max(40)
     .default([]),
   note: z.string().max(500).default(''),
@@ -599,6 +615,20 @@ export const periodSchema = z.object({
   archived: z.boolean().default(false),
 });
 export type Period = z.infer<typeof periodSchema>;
+
+/** Menú de la semana: una comida planificada (receta, día, almuerzo o cena, para cuántos). */
+export const MEAL_SLOTS = ['almuerzo', 'cena'] as const;
+export type MealSlot = (typeof MEAL_SLOTS)[number];
+export const mealSchema = z.object({
+  ...base,
+  date,
+  slot: z.enum(MEAL_SLOTS).default('cena'),
+  recipeId: id,
+  servings: z.number().int().min(1).max(50).default(2),
+  /** Ya la cocinaste (se descontó del stock). */
+  cooked: z.boolean().default(false),
+});
+export type Meal = z.infer<typeof mealSchema>;
 
 /** Gastos en grupo (la casa, la pareja, un viaje con amigos). Vos sos el integrante `me`. */
 export const ME = 'me';
@@ -691,6 +721,7 @@ export const ENTITY_SCHEMAS = {
   period: periodSchema,
   group: groupSchema,
   groupExpense: groupExpenseSchema,
+  meal: mealSchema,
 } as const;
 
 export type EntityName = keyof typeof ENTITY_SCHEMAS;
@@ -725,6 +756,7 @@ export interface EntityTypes {
   period: Period;
   group: Group;
   groupExpense: GroupExpense;
+  meal: Meal;
 }
 
 export function isEntityName(value: string): value is EntityName {
@@ -774,4 +806,5 @@ export interface LiftyData {
   periods: Period[];
   groups: Group[];
   groupExpenses: GroupExpense[];
+  meals: Meal[];
 }

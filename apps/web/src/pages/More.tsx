@@ -101,6 +101,12 @@ const GROUPS: { title: string; items: { href: string; icon: IconName; label: str
         label: 'Lista del súper',
         hint: 'Ordenada por sector, lo de siempre, dónde sale menos y qué subió',
       },
+      {
+        href: '/menu',
+        icon: 'calendar',
+        label: 'Menú de la semana',
+        hint: 'Qué comer cada día, lo que falta comprar y cuánto sale',
+      },
       { href: '/recetas', icon: 'food', label: 'Recetas', hint: 'Qué podés cocinar con lo que tenés y cuánto sale' },
       { href: '/vencimientos', icon: 'bell', label: 'Vencimientos', hint: 'Cédula, libreta, seguro, service, garantías' },
       { href: '/stock', icon: 'box', label: 'Stock', hint: 'Lo que tenés, cuánto te dura, lista de compras y vencimientos' },

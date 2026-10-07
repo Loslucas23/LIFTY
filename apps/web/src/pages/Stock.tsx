@@ -27,6 +27,7 @@ import {
   type StockPlace,
   type StockStatus,
   type StockUnit,
+  catalogFor,
 } from '@lifty/core';
 import { openExplain, openMenu, openPrompt } from '../components/Editors';
 import { Icon } from '../components/Icon';
@@ -604,7 +605,28 @@ function ItemForm({ item, onClose, preset }: { item: StockItem | null; onClose: 
   const [pack, setPack] = useState(base?.packSize ? String(base.packSize).replace('.', ',') : '');
   const [min, setMin] = useState(item?.minQuantity != null ? String(item.minQuantity).replace('.', ',') : '');
   const [cover, setCover] = useState(item?.coverDays ? String(item.coverDays) : '');
+  // Un producto de los de siempre llega con lo que sabemos de él.
+  const fromPreset = !item && preset ? catalogFor(preset.name) : null;
+  const [weight, setWeight] = useState(
+    item?.unitWeight ? String(item.unitWeight) : fromPreset?.unitWeight ? String(fromPreset.unitWeight) : '',
+  );
+  const [shelf, setShelf] = useState(
+    item?.shelfDays ? String(item.shelfDays) : fromPreset?.shelfDays ? String(fromPreset.shelfDays) : '',
+  );
+  const [staple, setStaple] = useState(item?.staple ?? !!fromPreset?.staple);
   const [note, setNote] = useState(item?.note ?? '');
+  /** Con el nombre, lo que ya sabemos del producto (cuánto pesa una unidad, cuánto dura…). */
+  const known = !item ? catalogFor(name) : null;
+  const fillFromCatalog = () => {
+    if (!known) return;
+    setIcon(icon === '📦' || !icon ? known.icon : icon);
+    setUnit(known.unit);
+    setPlace(known.place);
+    if (known.unitWeight) setWeight(String(known.unitWeight));
+    if (known.shelfDays) setShelf(String(known.shelfDays));
+    if (known.packSize && !pack) setPack(String(known.packSize).replace('.', ','));
+    setStaple(!!known.staple);
+  };
   const [have, setHave] = useState('');
   const [error, setError] = useState<string | null>(null);
   const save = () => {
@@ -619,6 +641,9 @@ function ItemForm({ item, onClose, preset }: { item: StockItem | null; onClose: 
       packSize: parseAmount(pack) || null,
       minQuantity: min.trim() ? parseAmount(min) : null,
       coverDays: cover.trim() ? Math.round(Number(cover)) || null : null,
+      unitWeight: unit === 'l' || unit === 'ml' ? null : parseAmount(weight) || null,
+      shelfDays: shelf.trim() ? Math.round(Number(shelf)) || null : null,
+      staple,
       note,
     });
     if (!result.success) return setError('Poné el nombre (y revisá los números).');
@@ -687,9 +712,28 @@ function ItemForm({ item, onClose, preset }: { item: StockItem | null; onClose: 
             <input className="emoji-input" value={icon} onChange={(e) => setIcon(e.target.value.slice(0, 4))} />
           </Field>
           <Field label="Nombre">
-            <input data-autofocus value={name} onChange={(e) => setName(e.target.value)} placeholder="Ej: Arroz" maxLength={60} />
+            <input
+              data-autofocus
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              onBlur={() => {
+                // Si el producto es conocido y todavía no completaste nada, se completa solo.
+                if (known && !weight && !shelf) fillFromCatalog();
+              }}
+              placeholder="Ej: Arroz"
+              maxLength={60}
+            />
           </Field>
         </div>
+        {known &&
+          (known.unitWeight || known.shelfDays) &&
+          (weight !== String(known.unitWeight ?? '') || shelf !== String(known.shelfDays ?? '')) && (
+            <button type="button" className="link small left" onClick={fillFromCatalog}>
+              Completar como {known.name.toLowerCase()}: {UNIT_LABEL[known.unit]}
+              {known.unitWeight ? `, 1 u. ≈ ${known.unitWeight} g` : ''}
+              {known.shelfDays ? `, dura ${known.shelfDays} días` : ''}
+            </button>
+          )}
         <Field label="¿Dónde va?">
           <Chips
             label="Lugar"
@@ -727,6 +771,25 @@ function ItemForm({ item, onClose, preset }: { item: StockItem | null; onClose: 
             <input inputMode="decimal" value={min} onChange={(e) => setMin(e.target.value)} placeholder={UNIT_LABEL[unit]} />
           </Field>
         </div>
+        <div className="row">
+          {unit !== 'l' && unit !== 'ml' && (
+            <Field
+              label="Una unidad pesa (g)"
+              hint={unit === 'kg' || unit === 'g' ? 'Así una receta puede pedir "2 cebollas"' : 'Para recetas en gramos'}
+            >
+              <input inputMode="decimal" value={weight} onChange={(e) => setWeight(e.target.value)} placeholder="Ej: 150" />
+            </Field>
+          )}
+          <Field label="Dura (días)" hint="Desde que lo comprás: avisa antes de que venza">
+            <input
+              inputMode="numeric"
+              value={shelf}
+              onChange={(e) => setShelf(e.target.value.replace(/\D/g, ''))}
+              placeholder="Ej: 7"
+            />
+          </Field>
+        </div>
+        <Toggle checked={staple} onChange={setStaple} label="Es un básico que siempre hay (sal, aceite): el menú no lo pide" />
         <Field
           label="Quiero tener para (días, opcional)"
           hint={`Si no ponés nada: ${data.settings.shoppingDays} días (cada cuánto hacés las compras)`}
