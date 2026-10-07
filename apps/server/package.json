@@ -1,0 +1,28 @@
+{
+  "name": "@lifty/server",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "src/index.ts",
+  "scripts": {
+    "dev": "tsx watch src/cli.ts",
+    "build": "node build.mjs",
+    "start": "node dist/lifty-server.cjs",
+    "import-excel": "tsx src/import-cli.ts",
+    "typecheck": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "@fastify/static": "^10.1.5",
+    "@lifty/core": "*",
+    "exceljs": "^4.4.0",
+    "fastify": "^5.12.5",
+    "qrcode": "^1.5.4",
+    "sql.js": "^1.14.2"
+  },
+  "devDependencies": {
+    "@types/qrcode": "^1.5.6",
+    "@types/sql.js": "^1.4.11",
+    "esbuild": "^0.28.2",
+    "tsx": "^4.23.15"
+  }
+}

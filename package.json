@@ -1,0 +1,33 @@
+{
+  "name": "lifty",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Lifty: finanzas personales (y más) en el celular y la compu, sincronizados.",
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "scripts": {
+    "dev": "concurrently -n server,web -c blue,magenta \"npm run dev -w @lifty/server\" \"npm run dev -w @lifty/web\"",
+    "build": "npm run build -w @lifty/web && npm run build -w @lifty/server",
+    "start": "npm run start -w @lifty/server",
+    "test": "vitest run",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "desktop": "npm run build && npm run start -w @lifty/desktop",
+    "desktop:dist": "npm run build && npm run dist -w @lifty/desktop",
+    "import-excel": "npm run import-excel -w @lifty/server --"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "concurrently": "^10.0.5",
+    "typescript": "^5.9.0",
+    "vitest": "^5.0.3"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "type": "module",
+  "overrides": {
+    "uuid": "^11.1.1"
+  }
+}

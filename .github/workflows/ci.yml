@@ -1,0 +1,59 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    name: Tipos, tests y build
+    runs-on: ubuntu-latest
+    env:
+      ELECTRON_SKIP_BINARY_DOWNLOAD: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run build
+
+  desktop-smoke:
+    name: Programa de escritorio (prueba de humo)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run build -w @lifty/web
+      - name: Permisos del sandbox de Chromium (requisito de Electron en Linux)
+        run: |
+          node node_modules/electron/install.js
+          sudo chown root node_modules/electron/dist/chrome-sandbox
+          sudo chmod 4755 node_modules/electron/dist/chrome-sandbox
+      - name: Abrir Lifty y verificar que dibuja el inicio
+        run: xvfb-run -a npm run smoke -w @lifty/desktop
+
+  windows:
+    name: Windows (instalar-lifty.bat + abrir el programa)
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Ejecutar instalar-lifty.bat como lo haría el usuario
+        shell: cmd
+        env:
+          LIFTY_NO_PROMPT: '1'
+        run: call instalar-lifty.bat
+      - name: Abrir Lifty y recorrer todas las pantallas
+        shell: cmd
+        run: call node_modules\.bin\electron.cmd apps\desktop --smoke-test

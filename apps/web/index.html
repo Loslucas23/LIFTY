@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#0b7a5a" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-title" content="Lifty" />
+    <meta name="description" content="Lifty: tus finanzas del día a día y tu presupuesto mensual." />
+    <link rel="manifest" href="./manifest.webmanifest" />
+    <link rel="icon" href="./icon.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="./icon-192.png" />
+    <title>Lifty</title>
+    <script>
+      // Aplicar el tema elegido antes de dibujar (evita un parpadeo).
+      try {
+        var t = localStorage.getItem('lifty-theme');
+        if (t === 'light' || t === 'dark') document.documentElement.dataset.theme = t;
+      } catch (e) {}
+    </script>
+  </head>
+  <body>
+    <div id="root">
+      <!-- Se ve solo si la app todavía no cargó (o no pudo cargar). -->
+      <div
+        id="boot"
+        style="
+          min-height: 100vh;
+          display: grid;
+          place-items: center;
+          font-family: system-ui, sans-serif;
+          background: #f4f6f3;
+          color: #33403a;
+          text-align: center;
+          padding: 16px;
+        "
+      >
+        <div>
+          <img src="./icon.svg" alt="" width="56" height="56" />
+          <p id="boot-msg">Cargando Lifty…</p>
+        </div>
+      </div>
+    </div>
+    <noscript>Lifty necesita JavaScript activado.</noscript>
+    <script>
+      // Si la app no arranca (navegador muy viejo, archivo que no bajó...), mostrar por qué.
+      window.__liftyBootError = function (msg) {
+        var el = document.getElementById('boot-msg');
+        if (el)
+          el.innerHTML =
+            'No se pudo abrir Lifty.<br><small>' +
+            String(msg).replace(/</g, '&lt;') +
+            '</small><br><br><a href="" style="color:#0b7a5a">Reintentar</a>';
+      };
+      window.addEventListener(
+        'error',
+        function (e) {
+          if (document.getElementById('boot'))
+            window.__liftyBootError(e.message || (e.target && e.target.src) || 'Error desconocido');
+        },
+        true,
+      );
+      setTimeout(function () {
+        if (document.getElementById('boot'))
+          window.__liftyBootError('Tarda demasiado en cargar. ¿Está abierto el programa Lifty en la compu?');
+      }, 15000);
+    </script>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
