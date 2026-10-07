@@ -289,11 +289,21 @@ function findAccounts(tokens: Token[], accounts: Account[]): { account: Account;
       }
     }
   });
-  // «con la tarjeta» o «con crédito» y tenés una sola de crédito.
+  // «con la visa», «con la tarjeta», «con crédito»: la de crédito con esa marca en el nombre, o la única que tenés.
   const credits = byType('credit');
-  if (credits.length === 1 && !out.some((o) => o.account.type === 'credit') && !/ (debito|alimentacion|terminada) /.test(text)) {
-    const i = words.findIndex((w, k) => (w === 'credito' || (w === 'tarjeta' && words[k + 1] !== 'de')) && !taken.has(k));
-    if (i >= 0) out.push({ account: credits[0], start: i, end: i + 1 });
+  if (credits.length && !out.some((o) => o.account.type === 'credit') && !text.includes(' debito ')) {
+    const i = words.findIndex(
+      (w, k) =>
+        !taken.has(k) &&
+        (/^(credito|visa|master|mastercard|amex|oca|diners|cabal)$/.test(w) ||
+          (w === 'tarjeta' && !['de', 'alimentacion', 'terminada'].includes(words[k + 1] ?? ''))),
+    );
+    const brand = words[i];
+    const acc =
+      i < 0
+        ? null
+        : (credits.find((a) => fold(a.name).split(/\s+/).includes(brand)) ?? (credits.length === 1 ? credits[0] : null));
+    if (acc) out.push({ account: acc, start: i, end: i + 1 });
   }
   return out.sort((x, y) => x.start - y.start);
 }

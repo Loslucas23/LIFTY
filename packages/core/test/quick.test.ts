@@ -79,6 +79,22 @@ describe('cargar con una frase', () => {
     expect(q('2 kilos de tomate 180')).toMatchObject({ amount: 180 });
   });
 
+  it('la tarjeta por su marca aunque se llame «Tarjeta de crédito»', () => {
+    const one = { accounts: [acc('brou', 'BROU', 'bank'), acc('tc', 'Tarjeta de crédito', 'credit')] };
+    expect(parseQuick('ayer 2 lucas de nafta con la visa en 3 cuotas', one, T)).toMatchObject({
+      accountId: 'tc',
+      description: 'Nafta',
+      installments: 3,
+    });
+    expect(parseQuick('900 de ropa con la tarjeta de crédito', one, T)).toMatchObject({ accountId: 'tc', description: 'Ropa' });
+    // Con dos tarjetas, la de la marca nombrada.
+    const two = { accounts: [acc('v', 'Visa BROU', 'credit'), acc('o', 'OCA', 'credit')] };
+    expect(parseQuick('500 de farmacia con la visa', two, T).accountId).toBe('v');
+    expect(parseQuick('500 de farmacia con la tarjeta', two, T).accountId).toBeNull();
+    // «tarjeta débito» no es la de crédito.
+    expect(parseQuick('BROU: compra por $ 300 en DISCO con tarjeta débito', one, T).accountId).toBe('brou');
+  });
+
   it('ingresos, ahorro y movimientos entre cuentas', () => {
     expect(q('cobré el sueldo 45000')).toMatchObject({ kind: 'income', amount: 45000, description: 'Sueldo' });
     expect(q('me pagaron 500 de la deuda')).toMatchObject({ kind: 'income', description: 'Deuda' });
