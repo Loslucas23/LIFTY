@@ -772,22 +772,30 @@ export async function smokeTour(): Promise<string[]> {
   check('conciliar');
 
   // Gastos en grupo: crear un grupo, anotar un gasto que pagaste vos y ver cómo quedar a mano.
+  // Cada paso espera lo suyo (en Windows la máquina de prueba es lenta): el formulario de grupo,
+  // la pantalla del grupo nuevo, el formulario del gasto y que se cierre al guardar.
   await go('/grupos');
   clickText('.page-head button', 'Nuevo grupo');
-  if (await waitFor('.sheet')) {
+  if (await waitFor('.sheet input[placeholder^="Ej: Casa"]')) {
     type($('.sheet input[placeholder^="Ej: Casa"]') as HTMLInputElement | null, 'Prueba');
     type($('.sheet input[placeholder="Nombre"]') as HTMLInputElement | null, 'Juan');
     clickText('.sheet .btn-primary', 'Guardar');
-    if (!(await until(() => location.hash.startsWith('#/grupos/'), 4000))) problems.push('grupos: no se creó el grupo');
+    const addExpense = () =>
+      location.hash.startsWith('#/grupos/') &&
+      [...document.querySelectorAll<HTMLElement>('.page-head button')].some((b) => b.textContent?.includes('Gasto'));
+    if (!(await until(addExpense, 6000))) problems.push(`grupos: no se abrió el grupo nuevo (${location.hash})`);
     else {
-      await waitFor('.page:not(.page-loading) .page-head');
       clickText('.page-head button', 'Gasto');
-      if (await waitFor('.sheet')) {
-        type($('.sheet input[placeholder^="Ej: Cena"]') as HTMLInputElement | null, 'Cena');
+      const desc = await waitFor('.sheet input[placeholder^="Ej: Cena"]', 6000);
+      if (desc) {
+        type(desc as HTMLInputElement, 'Cena');
         type($('.sheet input[inputmode="decimal"]') as HTMLInputElement | null, '3000');
+        await sleep(50);
         clickText('.sheet .btn-primary', 'Guardar');
-        if (!(await until(() => !!document.body.textContent?.includes('Para quedar a mano'), 3000)))
-          problems.push('grupos: no dice cómo quedar a mano');
+        if (!(await until(() => !$('.sheet input[placeholder^="Ej: Cena"]'), 5000)))
+          problems.push(`grupos: el gasto no se guardó (${$('.toast')?.textContent ?? 'sin aviso'})`);
+        else if (!(await until(() => !!document.body.textContent?.includes('Para quedar a mano'), 5000)))
+          problems.push(`grupos: no dice cómo quedar a mano (${$('.page')?.textContent?.slice(0, 200) ?? 'sin pantalla'})`);
       } else problems.push('grupos: no se abrió el gasto');
     }
   } else problems.push('grupos: no se abrió el formulario');
