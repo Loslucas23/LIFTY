@@ -1,3 +1,5 @@
+import { assetsAt } from './assets';
+import { groupTotals } from './groups';
 import { accountBalances, convert, debtStatus } from './accounts';
 import { goalBalances, installmentsOf, offBudgetAccounts, txRate, type GoalBalance, type MonthBudget } from './budget';
 import { cardAutoPayments } from './card';
@@ -107,6 +109,8 @@ export interface Plata {
   overAssigned: Place[];
   netWorth: {
     assets: number;
+    /** Bienes (auto, casa…) a lo que valen hoy: van aparte de la plata. */
+    goods: number;
     debts: number;
     total: number;
     /** El total en dólares (a la cotización de hoy). */
@@ -441,9 +445,14 @@ export function plata(data: LiftyData, b: MonthBudget, today: string): Plata {
     if (d.direction === 'lent') owedToMe += v;
     else iOwe += v;
   }
+  // Gastos en grupo: lo que te deben y lo que debés.
+  const groups = groupTotals({ ...data, groups: data.groups ?? [], groupExpenses: data.groupExpenses ?? [] });
+  owedToMe += groups.UYU.owedToMe + groups.USD.owedToMe * rate;
+  iOwe += groups.UYU.iOwe + groups.USD.iOwe * rate;
   const outside = homeless.reduce((s, h) => s + h.balance.balanceUYU, 0);
   const assets = round2(spend + saved + invested + accrued + owedToMe + outside);
   const debts = round2(cardDebt + iOwe);
+  const goods = assetsAt(data, today).totalUYU;
   const usd = places
     .filter((p) => p.group !== 'credit' && p.account.currency === 'USD')
     .reduce((s, p) => s + Math.max(0, p.balanceUYU), 0);
@@ -470,9 +479,10 @@ export function plata(data: LiftyData, b: MonthBudget, today: string): Plata {
     overAssigned: places.filter((p) => p.unassignedUYU < -0.5),
     netWorth: {
       assets,
+      goods,
       debts,
-      total: round2(assets - debts),
-      totalUSD: round2((assets - debts) / rate),
+      total: round2(assets + goods - debts),
+      totalUSD: round2((assets + goods - debts) / rate),
       owedToMe: round2(owedToMe),
       iOwe: round2(iOwe),
       usdShare: positive > 0 ? round2(usd / positive) : 0,

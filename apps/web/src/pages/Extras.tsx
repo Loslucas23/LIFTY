@@ -19,6 +19,9 @@ import {
   type Reminder,
   type YearGoal,
   type YearGoalStatus,
+  costPerUse,
+  subscriptionReview,
+  type FixedExpense,
 } from '@lifty/core';
 import { openExplain, openFixedForm, openMenu, openPrompt } from '../components/Editors';
 import { Icon } from '../components/Icon';
@@ -268,6 +271,7 @@ export function Recurring() {
           <strong>{money(Math.round(r.subscriptions.monthly))}/mes</strong>
         </div>
       </div>
+      <SubscriptionReviewCard />
       <RecurringSuggestions month={month} />
       {r.items.length === 0 ? (
         <Empty icon="repeat" title="No tenés gastos fijos cargados">
@@ -842,5 +846,74 @@ function YearGoalForm({ goal, year, onClose }: { goal: Partial<YearGoal>; year: 
         )}
       </div>
     </Sheet>
+  );
+}
+
+/** Una vez por mes: "¿usaste esto?". Lo que das de baja deja de contar y se suma a lo que ahorrás. */
+function SubscriptionReviewCard() {
+  const data = useData();
+  const today = useToday();
+  const month = monthOf(today);
+  const r = subscriptionReview(data, today);
+  const uses = new Map(costPerUse(data, today).map((u) => [u.fixed.id, u]));
+  if (!r.active.length && !r.cancelled.length) return null;
+  const keep = (f: FixedExpense) => mutate('fixed', 'upsert', { ...f, reviewedMonth: month });
+  const cancel = (f: FixedExpense) =>
+    openMenu(`Dar de baja ${f.name}`, [
+      {
+        label: 'Ya la cancelé (este mes la pagué)',
+        hint: 'Deja de contar desde el mes que viene',
+        run: () => {
+          const before = f;
+          mutate('fixed', 'upsert', { ...f, endMonth: month, cancelled: true, reviewedMonth: month });
+          toast(
+            `${f.name}: dada de baja. Te ahorrás ${money(Math.round(r.active.find((a) => a.fixed.id === f.id)?.monthly ?? 0))} por mes`,
+            {
+              action: { label: 'Deshacer', run: () => mutate('fixed', 'upsert', before) },
+            },
+          );
+        },
+      },
+    ]);
+  return (
+    <Section title="¿Usaste esto este mes?">
+      {r.active.length > 0 && (
+        <div className="card list">
+          {r.active.map((a) => {
+            const u = uses.get(a.fixed.id);
+            return (
+              <div key={a.fixed.id} className={`tx-row wrap-text ${a.reviewed ? 'muted' : ''}`}>
+                <span className="tx-main">
+                  <span className="tx-title">
+                    {a.fixed.name} {a.reviewed ? '✓' : ''}
+                  </span>
+                  <span className="tx-meta">
+                    {money(Math.round(a.monthly))} por mes · {money(Math.round(a.monthly * 12))} por año
+                    {u ? ` · ${u.uses ? `la usaste ${u.uses} ${u.uses === 1 ? 'vez' : 'veces'}` : 'no la usaste'}` : ''}
+                  </span>
+                </span>
+                {!a.reviewed && (
+                  <span className="btn-row tight">
+                    <button className="btn btn-sm" onClick={() => keep(a.fixed)}>
+                      La uso
+                    </button>
+                    <button className="btn btn-sm btn-danger-ghost" onClick={() => cancel(a.fixed)}>
+                      Cancelar
+                    </button>
+                  </span>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+      {r.cancelled.length > 0 && (
+        <p className="small">
+          💸 Por lo que diste de baja ({r.cancelled.map((c) => c.fixed.name).join(', ')}) te ahorrás{' '}
+          <strong>{money(Math.round(r.savedMonthly))} por mes</strong> ({money(Math.round(r.savedYearly))} por año): ya llevás{' '}
+          <strong>{money(Math.round(r.savedSoFar))}</strong>.
+        </p>
+      )}
+    </Section>
   );
 }

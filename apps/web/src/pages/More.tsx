@@ -19,6 +19,12 @@ const GROUPS: { title: string; items: { href: string; icon: IconName; label: str
         hint: 'Subí el Excel o CSV del banco o la tarjeta: lo que falta anotar y lo repetido',
       },
       {
+        href: '/fechas',
+        icon: 'calendar',
+        label: 'Fechas y regalos',
+        hint: 'Fechas caras del año y cumpleaños: cuánto apartar por mes, ideas y aviso con tiempo',
+      },
+      {
         href: '/dia-a-dia',
         icon: 'tag',
         label: 'Día a día',

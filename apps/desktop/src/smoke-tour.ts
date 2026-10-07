@@ -99,6 +99,7 @@ export async function smokeTour(): Promise<string[]> {
     '/conciliar',
     '/grupos',
     '/menu',
+    '/fechas',
     '/calendario',
     '/epocas',
     '/tu-anio',

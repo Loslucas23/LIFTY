@@ -19,6 +19,13 @@ import {
   type Goal,
   type Place,
   type Plata as PlataT,
+  assetSchema,
+  assetsAt,
+  ASSET_DEPRECIATION,
+  ASSET_KINDS,
+  type Asset,
+  type Currency,
+  type AssetKind,
 } from '@lifty/core';
 import { openExplain, openMenu, openPrompt } from '../components/Editors';
 import { Icon } from '../components/Icon';
@@ -254,6 +261,12 @@ export function Plata() {
               <dt>Cuentas, ahorro e inversiones{p.netWorth.owedToMe > 0 ? ' (y lo que te deben)' : ''}</dt>
               <dd>{money(Math.round(p.netWorth.assets))}</dd>
             </div>
+            {p.netWorth.goods > 0 && (
+              <div className="receipt-row">
+                <dt>Bienes (auto, casa…)</dt>
+                <dd>{money(Math.round(p.netWorth.goods))}</dd>
+              </div>
+            )}
             <div className="receipt-row">
               <dt>Tarjetas y deudas</dt>
               <dd className="text-expense">−{money(Math.round(p.netWorth.debts))}</dd>
@@ -280,6 +293,8 @@ export function Plata() {
           </a>
         </div>
       </Section>
+
+      <Goods />
 
       {payday && <PaydaySheet onClose={() => setPayday(false)} />}
       {assigning && <AssignSheet place={assigning} onClose={() => setAssigning(null)} />}
@@ -770,6 +785,186 @@ export function PaydaySheet({ onClose, amount: initial }: { onClose: () => void;
         <button className="btn btn-ghost" onClick={() => navigate('/ahorro')}>
           Cambiar metas
         </button>
+      </div>
+    </Sheet>
+  );
+}
+
+/** Bienes: auto, casa, moto… lo que valen hoy y cuánto perdieron (o ganaron). */
+function Goods() {
+  const data = useData();
+  const today = useToday();
+  const [editing, setEditing] = useState<Asset | 'new' | null>(null);
+  const { list, totalUYU } = assetsAt(data, today);
+  const sold = (data.assets ?? []).filter((a) => a.soldDate);
+  return (
+    <Section
+      title="Tus bienes"
+      action={
+        <button className="link small" onClick={() => setEditing('new')}>
+          + Agregar
+        </button>
+      }
+    >
+      {list.length === 0 ? (
+        <p className="muted small">
+          Sumá el auto, la casa o la moto: cuentan en tu patrimonio a lo que valen hoy (un auto pierde ~12% por año) y ves cuánto
+          se depreciaron.
+        </p>
+      ) : (
+        <div className="card list">
+          {list.map((v) => (
+            <button key={v.asset.id} className="tx-row wrap-text" onClick={() => setEditing(v.asset)}>
+              <span className="tx-icon">{v.asset.icon}</span>
+              <span className="tx-main">
+                <span className="tx-title">{v.asset.name}</span>
+                <span className="tx-meta">
+                  {v.change > 0
+                    ? `Perdió ${money(Math.round(v.change), v.asset.currency)} desde que lo compraste`
+                    : v.change < 0
+                      ? `Ganó ${money(Math.round(-v.change), v.asset.currency)} desde que lo compraste`
+                      : 'Mantiene su valor'}
+                  {v.from === 'appraisal' ? ' · según tu tasación' : ''}
+                </span>
+              </span>
+              <span className="tx-amount">{money(Math.round(v.value), v.asset.currency)}</span>
+            </button>
+          ))}
+          {list.length > 1 && (
+            <div className="tx-row">
+              <span className="tx-main">
+                <span className="tx-title">Total en pesos</span>
+              </span>
+              <span className="tx-amount">{money(Math.round(totalUYU))}</span>
+            </div>
+          )}
+        </div>
+      )}
+      {sold.length > 0 && <p className="muted small">Vendidos: {sold.map((a) => a.name).join(', ')}.</p>}
+      {editing && <AssetForm asset={editing === 'new' ? null : editing} onClose={() => setEditing(null)} />}
+    </Section>
+  );
+}
+
+const ASSET_ICON: Record<AssetKind, string> = { auto: '🚗', moto: '🏍️', casa: '🏠', terreno: '🌳', otro: '📦' };
+const ASSET_LABEL: Record<AssetKind, string> = {
+  auto: 'Auto',
+  moto: 'Moto',
+  casa: 'Casa o apto.',
+  terreno: 'Terreno',
+  otro: 'Otro',
+};
+
+function AssetForm({ asset, onClose }: { asset: Asset | null; onClose: () => void }) {
+  const today = useToday();
+  const [kind, setKind] = useState<AssetKind>(asset?.kind ?? 'auto');
+  const [name, setName] = useState(asset?.name ?? '');
+  const [currency, setCurrency] = useState<Currency>(asset?.currency ?? 'USD');
+  const [value, setValue] = useState(asset ? String(asset.value).replace('.', ',') : '');
+  const [date, setDate] = useState(asset?.date ?? today);
+  const [dep, setDep] = useState(String(asset?.depreciation ?? ASSET_DEPRECIATION.auto).replace('.', ','));
+  const [appraisal, setAppraisal] = useState(asset?.appraisal ? String(asset.appraisal).replace('.', ',') : '');
+  const save = (soldDate: string | null = asset?.soldDate ?? null) => {
+    const v = parseAmount(value);
+    if (!v || v <= 0) return toast('Poné lo que pagaste', { tone: 'error' });
+    const appr = parseAmount(appraisal);
+    const changedAppraisal = appr !== (asset?.appraisal ?? null);
+    const r = assetSchema.safeParse({
+      ...(asset ?? {}),
+      id: asset?.id ?? newId(),
+      updatedAt: '',
+      name: name.trim() || ASSET_LABEL[kind],
+      kind,
+      icon: ASSET_ICON[kind],
+      currency,
+      value: v,
+      date,
+      depreciation: parseAmount(dep) ?? 0,
+      appraisal: appr && appr > 0 ? appr : null,
+      appraisalDate: appr && appr > 0 ? (changedAppraisal ? today : (asset?.appraisalDate ?? today)) : null,
+      soldDate,
+    });
+    if (!r.success) return toast('Revisá los números', { tone: 'error' });
+    mutate('asset', 'upsert', r.data);
+    toast(soldDate ? `${r.data.name}: vendido` : 'Guardado');
+    onClose();
+  };
+  return (
+    <Sheet
+      title={asset ? asset.name : 'Agregar un bien'}
+      onClose={onClose}
+      footer={
+        <>
+          {asset && !asset.soldDate && (
+            <button className="btn btn-ghost" onClick={() => save(today)}>
+              Lo vendí
+            </button>
+          )}
+          {asset && (
+            <button
+              className="btn btn-danger-ghost"
+              onClick={() => {
+                mutate('asset', 'delete', asset.id);
+                toast('Borrado', { action: { label: 'Deshacer', run: () => mutate('asset', 'upsert', asset) } });
+                onClose();
+              }}
+            >
+              Borrar
+            </button>
+          )}
+          <button className="btn btn-primary grow" onClick={() => save()}>
+            Guardar
+          </button>
+        </>
+      }
+    >
+      <div className="form">
+        <Field label="¿Qué es?">
+          <Chips
+            label="Tipo"
+            value={kind}
+            onChange={(k) => {
+              setKind(k);
+              if (!asset) setDep(String(ASSET_DEPRECIATION[k]));
+            }}
+            options={ASSET_KINDS.map((k) => ({ value: k, label: ASSET_LABEL[k], icon: ASSET_ICON[k] }))}
+          />
+        </Field>
+        <Field label="Nombre">
+          <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Ej: Gol 2019" maxLength={60} />
+        </Field>
+        <div className="row">
+          <Field label="Lo que pagaste">
+            <input inputMode="decimal" value={value} onChange={(e) => setValue(e.target.value)} placeholder="Ej: 12000" />
+          </Field>
+          <Field label="Moneda">
+            <Chips
+              label="Moneda"
+              value={currency}
+              onChange={setCurrency}
+              options={[
+                { value: 'USD' as Currency, label: 'US$' },
+                { value: 'UYU' as Currency, label: '$' },
+              ]}
+            />
+          </Field>
+        </div>
+        <div className="row">
+          <Field label="Cuándo">
+            <input type="date" value={date} onChange={(e) => e.target.value && setDate(e.target.value)} />
+          </Field>
+          <Field label="Pierde por año (%)" hint="Negativo si se valoriza">
+            <input inputMode="decimal" value={dep} onChange={(e) => setDep(e.target.value)} />
+          </Field>
+        </div>
+        <Field label="Lo que vale hoy (opcional)" hint="Si lo tasaste o viste uno igual publicado: se calcula desde ahí">
+          <input
+            inputMode="decimal"
+            value={appraisal}
+            onChange={(e) => setAppraisal(e.target.value)}
+            placeholder="Vacío: se estima solo"
+          />
+        </Field>
       </div>
     </Sheet>
   );

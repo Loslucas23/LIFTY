@@ -246,6 +246,10 @@ export const fixedSchema = z.object({
   autopay: z.boolean().default(false),
   /** Se usa con una rutina (gimnasio, clases, Kindle…): para saber cuánto te sale cada uso. */
   habitId: id.nullable().default(null),
+  /** Revisión de suscripciones: el último mes en que dijiste "la uso". */
+  reviewedMonth: month.nullable().optional(),
+  /** La diste de baja en la revisión (para llevar la cuenta de lo que ahorrás). */
+  cancelled: z.boolean().optional(),
 });
 export type FixedExpense = z.infer<typeof fixedSchema>;
 
@@ -616,6 +620,63 @@ export const periodSchema = z.object({
 });
 export type Period = z.infer<typeof periodSchema>;
 
+/**
+ * Fechas caras del año (Navidad, Día de la Madre, inicio de clases) y cumpleaños: cuándo, cuánto
+ * pensás gastar, ideas de regalo y con cuánta anticipación avisar.
+ */
+export const OCCASION_KINDS = ['fecha', 'cumple'] as const;
+export type OccasionKind = (typeof OCCASION_KINDS)[number];
+export const occasionSchema = z.object({
+  ...base,
+  kind: z.enum(OCCASION_KINDS).default('fecha'),
+  name: z.string().trim().min(1).max(60),
+  icon,
+  /** Fecha fija "MM-DD" (Navidad, un cumpleaños)… */
+  monthDay: z
+    .string()
+    .regex(/^\d{2}-\d{2}$/)
+    .nullable()
+    .default(null),
+  /** … o una que cambia: "MM:n:d" = el n-ésimo día d (0 domingo) del mes ("05:2:0": 2.º domingo de mayo). */
+  rule: z
+    .string()
+    .regex(/^\d{2}:[1-5]:[0-6]$/)
+    .nullable()
+    .default(null),
+  /** Lo que pensás gastar (regalos, la cena, los útiles…). */
+  budget: money.min(0).nullable().default(null),
+  ideas: z.array(z.string().trim().min(1).max(80)).max(20).default([]),
+  /** Días de anticipación para el aviso. */
+  notice: z.number().int().min(0).max(180).default(60),
+  /** Etiqueta de lo que gastás para esa fecha (para saber cuánto llevás). */
+  tag: z.string().trim().max(30).default(''),
+  archived: z.boolean().default(false),
+});
+export type Occasion = z.infer<typeof occasionSchema>;
+
+/** Bienes: auto, casa, moto… con lo que valen y cómo se deprecian (para el patrimonio). */
+export const ASSET_KINDS = ['auto', 'moto', 'casa', 'terreno', 'otro'] as const;
+export type AssetKind = (typeof ASSET_KINDS)[number];
+export const assetSchema = z.object({
+  ...base,
+  name: z.string().trim().min(1).max(60),
+  kind: z.enum(ASSET_KINDS).default('otro'),
+  icon,
+  currency: currency.default('USD'),
+  /** Lo que pagaste (o lo que valía cuando lo empezaste a anotar). */
+  value: money.positive(),
+  date,
+  /** % por año que pierde de valor (auto ~12%). Negativo: se valoriza (una casa, un terreno). */
+  depreciation: z.number().min(-50).max(100).default(0),
+  /** Lo que vale según una tasación o lo que viste publicado: desde ese día se calcula desde ahí. */
+  appraisal: money.positive().nullable().default(null),
+  appraisalDate: date.nullable().default(null),
+  /** Vendido: deja de contar desde ese día. */
+  soldDate: date.nullable().default(null),
+  note: z.string().max(200).default(''),
+});
+export type Asset = z.infer<typeof assetSchema>;
+
 /** Menú de la semana: una comida planificada (receta, día, almuerzo o cena, para cuántos). */
 export const MEAL_SLOTS = ['almuerzo', 'cena'] as const;
 export type MealSlot = (typeof MEAL_SLOTS)[number];
@@ -722,6 +783,8 @@ export const ENTITY_SCHEMAS = {
   group: groupSchema,
   groupExpense: groupExpenseSchema,
   meal: mealSchema,
+  asset: assetSchema,
+  occasion: occasionSchema,
 } as const;
 
 export type EntityName = keyof typeof ENTITY_SCHEMAS;
@@ -757,6 +820,8 @@ export interface EntityTypes {
   group: Group;
   groupExpense: GroupExpense;
   meal: Meal;
+  asset: Asset;
+  occasion: Occasion;
 }
 
 export function isEntityName(value: string): value is EntityName {
@@ -807,4 +872,6 @@ export interface LiftyData {
   groups: Group[];
   groupExpenses: GroupExpense[];
   meals: Meal[];
+  assets: Asset[];
+  occasions: Occasion[];
 }

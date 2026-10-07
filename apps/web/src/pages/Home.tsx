@@ -785,6 +785,12 @@ function AgendaRow({ item, stock }: { item: AgendaItem; stock: StockOverview | n
       open = () => navigate('/deudas');
       break;
     }
+    case 'occasion':
+      open = () => navigate('/fechas');
+      break;
+    case 'subs':
+      open = () => navigate('/suscripciones');
+      break;
     case 'meal': {
       const meal = data.meals.find((m) => m.id === item.refId);
       if (meal) {

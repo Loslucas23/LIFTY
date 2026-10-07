@@ -1,4 +1,5 @@
 import { convert, debtStatus } from './accounts';
+import { occasionDate } from './occasions';
 import { countsInBudget, offBudgetAccounts, ownAmount, type MonthBudget } from './budget';
 import { cardAutoPayments } from './card';
 import { habitDay } from './habits';
@@ -17,7 +18,7 @@ export interface CalendarItem {
   text: string;
   /** + entra, − sale (pesos). */
   amount?: number;
-  kind: 'income' | 'fixed' | 'card' | 'load' | 'reminder' | 'exam' | 'period' | 'loan' | 'invest';
+  kind: 'income' | 'fixed' | 'card' | 'load' | 'reminder' | 'exam' | 'period' | 'loan' | 'invest' | 'occasion';
   done?: boolean;
 }
 
@@ -112,6 +113,13 @@ export function monthCalendar(data: LiftyData, b: MonthBudget, today: string): C
   for (const a of data.accounts) {
     const day = a.investKind && a.maturity && !a.archived ? at.get(a.maturity) : undefined;
     if (day) day.items.push({ icon: '📈', text: `Vence: ${a.name}`, kind: 'invest' });
+  }
+  // Fechas caras y cumpleaños de ese mes.
+  for (const o of data.occasions ?? []) {
+    if (o.archived) continue;
+    const date = occasionDate(o, Number(month.slice(0, 4)));
+    const day = date ? at.get(date) : undefined;
+    if (day) day.items.push({ icon: o.icon, text: o.kind === 'cumple' ? `Cumple de ${o.name}` : o.name, kind: 'occasion' });
   }
   for (const r of data.reminders) {
     const day = !r.archived ? at.get(r.date) : undefined;

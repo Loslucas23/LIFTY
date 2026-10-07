@@ -145,6 +145,7 @@ export function Reports() {
                     { label: 'Bancos y efectivo', value: last.cash, op: '+' },
                     { label: 'Ahorros', value: last.savings, op: '+' },
                     { label: 'Te deben', value: last.owedToMe, op: '+' },
+                    ...(last.goods ? [{ label: 'Bienes (auto, casa…)', value: last.goods, op: '+' as const }] : []),
                     { label: 'Tarjeta de crédito', value: -last.credit, op: '−' },
                     { label: 'Debés a otros', value: last.iOwe, op: '−' },
                   ],

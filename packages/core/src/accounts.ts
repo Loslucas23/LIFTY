@@ -1,4 +1,6 @@
 import { offBudgetAccounts } from './budget';
+import { assetsAt } from './assets';
+import { groupTotals } from './groups';
 import { cardAutoPayments } from './card';
 import { addMonths, daysInMonth, monthOf } from './months';
 import { dataDeps, remember } from './memo';
@@ -241,6 +243,8 @@ export interface NetWorth {
   savings: number;
   owedToMe: number;
   iOwe: number;
+  /** Bienes (auto, casa…) a lo que valen ese día. */
+  goods: number;
   total: number;
 }
 
@@ -271,7 +275,12 @@ export function netWorthAt(data: LiftyData, date: string): NetWorth {
     if (d.direction === 'lent') owedToMe += v;
     else iOwe += v;
   }
-  const total = cash + credit + savings + owedToMe - iOwe;
+  // Gastos en grupo: lo que pusiste de más te lo deben; lo que pusiste de menos, lo debés.
+  const groups = groupTotals({ ...data, groupExpenses: (data.groupExpenses ?? []).filter((e) => e.date <= date) });
+  owedToMe += groups.UYU.owedToMe + groups.USD.owedToMe * rate;
+  iOwe += groups.UYU.iOwe + groups.USD.iOwe * rate;
+  const goods = assetsAt(data, date).totalUYU;
+  const total = cash + credit + savings + owedToMe - iOwe + goods;
   return {
     date,
     cash: round2(cash),
@@ -279,6 +288,7 @@ export function netWorthAt(data: LiftyData, date: string): NetWorth {
     savings: round2(savings),
     owedToMe: round2(owedToMe),
     iOwe: round2(iOwe),
+    goods,
     total: round2(total),
   };
 }

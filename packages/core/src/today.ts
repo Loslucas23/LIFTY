@@ -5,7 +5,9 @@ import { debtsToRemind } from './daytoday';
 import { reminderStatus } from './extras';
 import { habitsToday } from './habits';
 import { upcomingEvents } from './insights';
-import { fold, round2 } from './money';
+import { fold, formatMoney, round2 } from './money';
+import { upcomingOccasions } from './occasions';
+import { subscriptionReview } from './subscriptions';
 import { addDays, daysBetween } from './weight';
 import type { LiftyData } from './schema';
 import { routinesPaused } from './periods';
@@ -30,7 +32,9 @@ export type AgendaKind =
   | 'loan'
   | 'invest'
   | 'remind'
-  | 'meal';
+  | 'meal'
+  | 'occasion'
+  | 'subs';
 
 export interface AgendaItem {
   key: string;
@@ -166,6 +170,44 @@ export function todayAgenda(data: LiftyData, b: MonthBudget, today: string, hour
         e.daysLeft < 0 ? 'Ya venció: usalo o tiralo' : e.daysLeft === 0 ? 'Vence hoy: usalo' : `Vence en ${e.daysLeft} días`,
       urgency: e.daysLeft <= 0 ? 2 : 1,
       done: false,
+    });
+  }
+
+  // Una vez por mes (los primeros 10 días): ¿usaste tus suscripciones?
+  if (Number(today.slice(8)) <= 10) {
+    const r = subscriptionReview(data, today);
+    if (r.pending > 0)
+      items.push({
+        key: `subs:${today.slice(0, 7)}`,
+        kind: 'subs',
+        refId: 'subs',
+        title: `📺 ¿Usaste tus suscripciones este mes?`,
+        detail: `${r.pending} para revisar · ${formatMoney(Math.round(r.monthly))} por mes`,
+        urgency: 0,
+        done: false,
+      });
+  }
+
+  // Fechas caras y cumpleaños: el primer aviso, a los 30 y 14 días, y la última semana.
+  for (const s of upcomingOccasions(data, today)) {
+    const o = s.occasion;
+    const d = s.daysLeft;
+    if (!(d <= 7 || d === o.notice || d === 30 || d === 14)) continue;
+    const who = o.kind === 'cumple' ? `Cumple de ${o.name}` : o.name;
+    items.push({
+      key: `occasion:${o.id}:${s.date}`,
+      kind: 'occasion',
+      refId: o.id,
+      title: `${o.icon} ${who}`,
+      detail:
+        d === 0
+          ? '¡Es hoy!'
+          : `${d === 1 ? 'Mañana' : `En ${d} días`}${
+              s.perMonth !== null && s.perMonth > 0 && d > 7 ? ` · apartá ${formatMoney(Math.ceil(s.perMonth))} por mes` : ''
+            }${o.ideas.length && d <= 14 ? ` · ideas: ${o.ideas.slice(0, 2).join(', ')}` : ''}`,
+      urgency: d <= 1 ? 1 : 0,
+      done: false,
+      ...(o.budget ? { amount: o.budget } : {}),
     });
   }
 
