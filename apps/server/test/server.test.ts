@@ -456,3 +456,19 @@ describe('extracto del banco', () => {
     expect(old.json().message).toMatch(/guardalo como .xlsx/);
   });
 });
+
+describe('dólar automático', () => {
+  it('trae la cotización, la guarda con su fecha y actualiza la de Lifty', async () => {
+    await app.close();
+    app = await buildApp({ db, trustLocalhost: true, password: 'secreta', fetchRate: async () => 40.25 });
+    const res = await app.inject({ method: 'POST', url: '/api/rate/refresh' });
+    expect(res.json()).toEqual({ rate: 40.25, error: null });
+    const changes = (await app.inject({ url: '/api/changes' })).json().changes as { entity: string; record: { usdRate?: number; rate?: number } }[];
+    expect(changes.find((c) => c.entity === 'settings')!.record.usdRate).toBe(40.25);
+    expect(changes.find((c) => c.entity === 'fxRate')!.record.rate).toBe(40.25);
+    // Sin internet: no rompe nada y avisa.
+    await app.close();
+    app = await buildApp({ db, trustLocalhost: true, password: 'secreta', fetchRate: async () => { throw new Error('sin conexión'); } });
+    expect((await app.inject({ method: 'POST', url: '/api/rate/refresh' })).json()).toEqual({ rate: null, error: 'sin conexión' });
+  });
+});

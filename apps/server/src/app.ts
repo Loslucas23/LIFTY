@@ -9,6 +9,7 @@ import { BackupService, decryptBackup } from './backup';
 import { LiftyDb, type Device } from './db';
 import { importWorkbook } from './excel';
 import { readStatementFile, StatementFileError } from './statement';
+import { fetchUsdRate, RateService, type FetchRate } from './rates';
 import { exportWorkbook } from './export';
 import { isLoopback, lanAddresses } from './network';
 
@@ -28,6 +29,9 @@ export interface AppOptions {
   logger?: boolean;
   /** Respaldo automático cifrado (si no, se crea uno sin programar). */
   backup?: BackupService;
+  /** Cotización del dólar: de dónde sale (para tests) y si se consulta sola cada unas horas. */
+  fetchRate?: FetchRate;
+  autoRates?: boolean;
 }
 
 declare module 'fastify' {
@@ -108,8 +112,11 @@ export async function buildApp(opts: AppOptions): Promise<FastifyInstance> {
   }, 25_000);
   heartbeat.unref();
   const backup = opts.backup ?? new BackupService(db);
+  const rates = new RateService(db, opts.fetchRate ?? fetchUsdRate, (rev) => broadcast({ rev, from: 'server' }));
+  if (opts.autoRates) rates.start();
   app.addHook('preClose', async () => {
     backup.stop();
+    rates.stop();
     clearInterval(heartbeat);
     for (const c of live) c.res.end();
     live.clear();
@@ -257,10 +264,15 @@ export async function buildApp(opts: AppOptions): Promise<FastifyInstance> {
       return { rows: await readStatementFile(req.body) };
     } catch (err) {
       req.log.warn(err);
-      const message =
-        err instanceof StatementFileError ? err.message : `No pude leer el archivo: ${(err as Error).message}`;
+      const message = err instanceof StatementFileError ? err.message : `No pude leer el archivo: ${(err as Error).message}`;
       return reply.code(422).send({ error: 'bad_file', message });
     }
+  });
+
+  // Cotización del dólar: traerla ahora (al activarla o con "Actualizar").
+  app.post('/api/rate/refresh', async () => {
+    const rate = await rates.run(true);
+    return { rate, error: rate === null ? (rates.lastError ?? 'No se pudo') : null };
   });
 
   app.get('/api/export/excel', async (_req, reply) => {

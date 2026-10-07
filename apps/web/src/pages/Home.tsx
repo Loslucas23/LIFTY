@@ -29,6 +29,7 @@ import {
   goalMonths,
   paceAlerts,
   leftoversToSave,
+  fxNews,
   antExpenses,
   workHour,
 } from '@lifty/core';
@@ -109,6 +110,17 @@ export function Home() {
         }),
       ),
   ];
+  // El dólar: si bajó a tu aviso o está más barato que su promedio, es buen momento para comprar.
+  const fx = fxNews(data, today);
+  if (fx?.good)
+    insights.unshift({
+      id: `fx-${fx.date}`,
+      tone: 'good',
+      text: `💵 El dólar bajó a ${formatNumber(fx.rate, 2, 0)}: si querés comprar, es un buen momento (${fx.reason}).`,
+      detail: fx.average
+        ? `Cotización de hoy: ${formatNumber(fx.rate, 2, 0)}. Promedio del último mes: ${formatNumber(fx.average, 2, 0)} (${fx.change}%).`
+        : `Cotización de hoy: ${formatNumber(fx.rate, 2, 0)}.`,
+    });
   // Gastos hormiga (al final: es información, no un aviso urgente).
   const ants = empty ? null : cached(data, `ants:${today}`, () => antExpenses(data, today, workHour(data, b)));
   if (ants && ants.monthly >= 1000)
@@ -790,6 +802,9 @@ function AgendaRow({ item, stock }: { item: AgendaItem; stock: StockOverview | n
       break;
     case 'subs':
       open = () => navigate('/suscripciones');
+      break;
+    case 'benefit':
+      open = () => navigate('/beneficios');
       break;
     case 'meal': {
       const meal = data.meals.find((m) => m.id === item.refId);

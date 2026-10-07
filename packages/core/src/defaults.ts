@@ -35,6 +35,8 @@ export function defaultSettings(): Settings {
     autoShop: false,
     weeklyHours: 40,
     inflation: 5,
+    autoRate: false,
+    rateAlert: null,
   };
 }
 

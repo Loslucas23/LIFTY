@@ -16,7 +16,7 @@ import { Chips, Field, PageHeader, Section, Segmented, Sheet, Toggle, toast } fr
 import { getTheme, setTheme, type Theme } from '../lib/theme';
 import { money, parseAmount } from '../lib/format';
 import { useData, useMonth, useToday } from '../lib/store';
-import { mutate } from '../lib/sync';
+import { api, mutate } from '../lib/sync';
 
 const COLORS = [
   '#0ea5e9',
@@ -366,18 +366,37 @@ function SettingsForm() {
   const [startBalance, setStartBalance] = useState(String(s.startBalance).replace('.', ','));
   const [hours, setHours] = useState(String(s.weeklyHours ?? 40));
   const [inflation, setInflation] = useState(String(s.inflation ?? 5).replace('.', ','));
+  const [autoRate, setAutoRate] = useState(s.autoRate ?? false);
+  const [rateAlert, setRateAlert] = useState(s.rateAlert != null ? String(s.rateAlert).replace('.', ',') : '');
+  const lastFx = data.fxRates?.[data.fxRates.length - 1];
+  const refreshRate = async () => {
+    try {
+      const r = await api<{ rate: number | null; error: string | null }>('/rate/refresh', { method: 'POST' });
+      if (r.rate) {
+        setRate(String(r.rate).replace('.', ','));
+        toast(`Dólar a ${String(r.rate).replace('.', ',')}`);
+      } else toast(`No pude traer la cotización: ${r.error ?? 'sin respuesta'}. ¿La compu tiene internet?`, { tone: 'error' });
+    } catch {
+      toast('Necesitás conexión con la compu', { tone: 'error' });
+    }
+  };
   const save = () => {
     const usdRate = parseAmount(rate);
     if (!usdRate || usdRate <= 0) return toast('La cotización tiene que ser mayor a 0', { tone: 'error' });
     mutate('settings', 'upsert', {
       ...s,
       ownerName: name.trim(),
-      usdRate,
+      // Con la cotización automática manda la última que trajo la compu.
+      usdRate: autoRate ? s.usdRate : usdRate,
       startMonth: startMonth || null,
       startBalance: parseAmount(startBalance) ?? 0,
       weeklyHours: Math.min(100, Math.max(1, parseAmount(hours) ?? 40)),
       inflation: Math.max(0, parseAmount(inflation) ?? 5),
+      autoRate,
+      rateAlert: parseAmount(rateAlert) || null,
     });
+    // Recién activada: traerla ya (si no, la compu la consulta cada 6 horas).
+    if (autoRate && !s.autoRate) setTimeout(() => void refreshRate(), 500);
     toast('Ajustes guardados');
   };
   return (
@@ -397,8 +416,33 @@ function SettingsForm() {
           label="Dólar (pesos por US$)"
           hint="Se usa para convertir gastos y ahorros en dólares. Cada movimiento guarda la cotización del día en que lo cargaste."
         >
-          <input inputMode="decimal" value={rate} onChange={(e) => setRate(e.target.value)} />
+          <input inputMode="decimal" value={rate} onChange={(e) => setRate(e.target.value)} disabled={autoRate} />
         </Field>
+        <Toggle
+          checked={autoRate}
+          onChange={setAutoRate}
+          label="Actualizar el dólar solo (la compu lo consulta en internet cada 6 horas)"
+        />
+        {autoRate && (
+          <>
+            <p className="muted small">
+              {lastFx
+                ? `Última: ${String(lastFx.rate).replace('.', ',')} el ${lastFx.date.split('-').reverse().join('/')}. `
+                : ''}
+              <button type="button" className="link" onClick={() => void refreshRate()}>
+                Actualizar ahora
+              </button>
+            </p>
+            <Field label="Avisame si baja a (opcional)" hint="Para comprar dólares cuando está barato">
+              <input
+                inputMode="decimal"
+                value={rateAlert}
+                onChange={(e) => setRateAlert(e.target.value)}
+                placeholder="Ej: 39,50"
+              />
+            </Field>
+          </>
+        )}
         <Field
           label="Mes en que empezás a usar Lifty"
           hint="Desde ese mes se arrastra el saldo de un mes al siguiente. Vacío = el primer mes con datos."

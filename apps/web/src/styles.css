@@ -3619,3 +3619,8 @@ h3.small-title {
   align-items: center;
   gap: 8px;
 }
+.benefit-banner {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  font-size: 0.95rem;
+}

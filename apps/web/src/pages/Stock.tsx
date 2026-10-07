@@ -28,6 +28,7 @@ import {
   type StockStatus,
   type StockUnit,
   catalogFor,
+  benefitsOn,
 } from '@lifty/core';
 import { openExplain, openMenu, openPrompt } from '../components/Editors';
 import { Icon } from '../components/Icon';
@@ -245,6 +246,7 @@ export function Stock({ initialTab }: { initialTab?: Tab } = {}) {
             </>
           )}
 
+          {tab === 'lista' && <TodayBenefits />}
           {tab === 'lista' && <ShoppingList onBuy={(lines) => setBuying(lines)} onOpen={setViewing} />}
 
           {tab === 'precios' && <PricesView />}
@@ -1479,5 +1481,25 @@ function PricesView() {
         <p className="muted small">El último precio que pagaste en cada lugar (últimos 6 meses).</p>
       </Section>
     </>
+  );
+}
+
+/** En la lista del súper: "hoy conviene comprar acá" (por tus beneficios de hoy). */
+function TodayBenefits() {
+  const data = useData();
+  const today = useToday();
+  const list = benefitsOn(data, today).filter((b) => b.store || b.categoryId === 'cat-super');
+  if (!list.length) return null;
+  const acc = (id: string | null) => (id ? data.accounts.find((a) => a.id === id)?.name : null);
+  return (
+    <div className="card pad benefit-banner">
+      🏷️ Hoy conviene:{' '}
+      {list
+        .map(
+          (b) =>
+            `${b.percent ? `${b.percent}% ` : ''}${b.store ? `en ${b.store}` : 'en el súper'}${acc(b.accountId) ? ` con ${acc(b.accountId)}` : ''}${b.cap ? ` (tope ${money(b.cap)})` : ''}`,
+        )
+        .join(' · ')}
+    </div>
   );
 }

@@ -20,6 +20,7 @@ import {
   type Transaction,
   type TxKind,
   cardChoices,
+  benefitFor,
   type CardChoice,
 } from '@lifty/core';
 import { syncSplitDebt } from '../lib/actions';
@@ -149,6 +150,14 @@ function TxForm({
   const account = accounts.find((a) => a.id === accountId);
   const isFood = account?.type === 'food';
   const isCredit = kind === 'expense' && account?.type === 'credit' && !linked;
+  // Beneficio de hoy en ese lugar (y si conviene pagar con otra cuenta).
+  const benefitHint = useMemo(
+    () =>
+      kind === 'expense' && description.trim().length >= 3
+        ? benefitFor(data, { date, description, accountId, categoryId })
+        : null,
+    [kind, data, date, description, accountId, categoryId],
+  );
   // Tarjeta: cuándo la pagás y si otra te da más días (con el día de cierre de cada una).
   const cardHint = useMemo(() => {
     if (!isCredit || tx) return null;
@@ -627,6 +636,20 @@ function TxForm({
             <Field label={kind === 'income' ? '¿Dónde entró?' : kind === 'saving' ? '¿De dónde salió?' : '¿Con qué pagaste?'}>
               <Chips label="Cuenta" value={accountId} onChange={setAccountId} options={accountChips()} />
               {isCredit && cardHint && <CardHint {...cardHint} onPick={setAccountId} />}
+              {kind === 'expense' && benefitHint && (
+                <span className="budget-hint">
+                  🏷️ Hoy: {benefitHint.benefit.name}
+                  {benefitHint.ok ? ' ✓' : ''}
+                  {!benefitHint.ok && benefitHint.benefit.accountId && (
+                    <>
+                      {' '}
+                      <button type="button" className="link" onClick={() => setAccountId(benefitHint.benefit.accountId)}>
+                        Pagar con {data.accounts.find((a) => a.id === benefitHint.benefit.accountId)?.name}
+                      </button>
+                    </>
+                  )}
+                </span>
+              )}
             </Field>
             {isFood && (
               <p className="note">

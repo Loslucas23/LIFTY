@@ -8,6 +8,7 @@ import { upcomingEvents } from './insights';
 import { fold, formatMoney, round2 } from './money';
 import { upcomingOccasions } from './occasions';
 import { subscriptionReview } from './subscriptions';
+import { benefitsOn } from './benefits';
 import { addDays, daysBetween } from './weight';
 import type { LiftyData } from './schema';
 import { routinesPaused } from './periods';
@@ -34,7 +35,8 @@ export type AgendaKind =
   | 'remind'
   | 'meal'
   | 'occasion'
-  | 'subs';
+  | 'subs'
+  | 'benefit';
 
 export interface AgendaItem {
   key: string;
@@ -169,6 +171,26 @@ export function todayAgenda(data: LiftyData, b: MonthBudget, today: string, hour
       detail:
         e.daysLeft < 0 ? 'Ya venció: usalo o tiralo' : e.daysLeft === 0 ? 'Vence hoy: usalo' : `Vence en ${e.daysLeft} días`,
       urgency: e.daysLeft <= 0 ? 2 : 1,
+      done: false,
+    });
+  }
+
+  // Los beneficios que valen hoy (el día que toca).
+  for (const b of benefitsOn(data, today).slice(0, 3)) {
+    const acc = b.accountId ? data.accounts.find((a) => a.id === b.accountId) : null;
+    items.push({
+      key: `benefit:${b.id}:${today}`,
+      kind: 'benefit',
+      refId: b.id,
+      title: `🏷️ Hoy: ${b.name}`,
+      detail: [
+        b.store && !fold(b.name).includes(fold(b.store)) ? `en ${b.store}` : null,
+        acc ? `con ${acc.name}` : null,
+        b.cap ? `tope ${formatMoney(b.cap)}` : null,
+      ]
+        .filter(Boolean)
+        .join(' · '),
+      urgency: 0,
       done: false,
     });
   }

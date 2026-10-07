@@ -19,6 +19,12 @@ const GROUPS: { title: string; items: { href: string; icon: IconName; label: str
         hint: 'Subí el Excel o CSV del banco o la tarjeta: lo que falta anotar y lo repetido',
       },
       {
+        href: '/beneficios',
+        icon: 'tag',
+        label: 'Beneficios y descuentos',
+        hint: 'Los de tus tarjetas: te avisa el día que tocan y con qué conviene pagar',
+      },
+      {
         href: '/fechas',
         icon: 'calendar',
         label: 'Fechas y regalos',

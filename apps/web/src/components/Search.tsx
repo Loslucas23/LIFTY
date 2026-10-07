@@ -38,6 +38,11 @@ const PAGES: { label: string; path: string; words: string }[] = [
   { label: 'Piloto automático', path: '/piloto', words: 'automatico reglas debito solo automatizar' },
   { label: 'Tu plata', path: '/plata', words: 'sobra libre disponible patrimonio cobro repartir sueldo inversiones plazo fijo' },
   {
+    label: 'Beneficios y descuentos',
+    path: '/beneficios',
+    words: 'beneficio descuento reintegro promo martes tarjeta brou oca itau conviene',
+  },
+  {
     label: 'Fechas y regalos',
     path: '/fechas',
     words: 'cumpleaños cumple regalo navidad fiestas madre padre reyes clases fechas caras apartar',

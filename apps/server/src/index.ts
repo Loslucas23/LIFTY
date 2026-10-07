@@ -30,7 +30,7 @@ export async function startServer(opts: StartOptions) {
     backupDir: path.join(opts.dataDir, 'backups'),
   });
   const backup = new BackupService(db);
-  const app = await buildApp({ ...opts, db, port, backup });
+  const app = await buildApp({ ...opts, db, port, backup, autoRates: true });
   await app.listen({ port, host: opts.host ?? '0.0.0.0' });
   backup.start();
   return {

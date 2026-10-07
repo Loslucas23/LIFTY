@@ -100,6 +100,7 @@ export async function smokeTour(): Promise<string[]> {
     '/grupos',
     '/menu',
     '/fechas',
+    '/beneficios',
     '/calendario',
     '/epocas',
     '/tu-anio',

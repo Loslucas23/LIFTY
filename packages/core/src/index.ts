@@ -35,3 +35,5 @@ export * from './menu';
 export * from './assets';
 export * from './occasions';
 export * from './subscriptions';
+export * from './benefits';
+export * from './fx';

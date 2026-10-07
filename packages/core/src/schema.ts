@@ -312,6 +312,10 @@ export const settingsSchema = z.object({
   weeklyHours: z.number().min(1).max(100).default(40),
   /** Inflación anual estimada (%): para comparar contado contra cuotas. */
   inflation: z.number().min(0).max(1000).default(5),
+  /** Cotización del dólar automática (la compu la consulta en internet cada unas horas). */
+  autoRate: z.boolean().default(false),
+  /** Avisar cuando el dólar baje a esto o menos. */
+  rateAlert: money.positive().nullable().default(null),
 });
 export type Settings = z.infer<typeof settingsSchema>;
 
@@ -620,6 +624,37 @@ export const periodSchema = z.object({
 });
 export type Period = z.infer<typeof periodSchema>;
 
+/** Cotización del dólar de un día (la trae la compu si está activada la cotización automática). */
+export const fxRateSchema = z.object({
+  ...base,
+  date,
+  rate: money.positive(),
+  source: z.string().max(60).default(''),
+});
+export type FxRate = z.infer<typeof fxRateSchema>;
+
+/** Beneficios y descuentos ("martes 25% en el súper con BROU"): cuándo, dónde y con qué. */
+export const benefitSchema = z.object({
+  ...base,
+  name: z.string().trim().min(1).max(80),
+  /** Dónde (Tienda Inglesa, Disco, una farmacia…). Vacío: en cualquier lado. */
+  store: z.string().trim().max(60).default(''),
+  /** Días de la semana (0 domingo … 6 sábado). Vacío: todos los días. */
+  days: z.array(z.number().int().min(0).max(6)).max(7).default([]),
+  /** Con qué hay que pagar (tarjeta o cuenta). */
+  accountId: id.nullable().default(null),
+  /** Descuento o reintegro (%). */
+  percent: z.number().min(0).max(100).nullable().default(null),
+  /** Tope del reintegro por mes (pesos). */
+  cap: money.min(0).nullable().default(null),
+  categoryId: id.nullable().default(null),
+  /** Hasta cuándo vale. */
+  until: date.nullable().default(null),
+  note: z.string().max(200).default(''),
+  archived: z.boolean().default(false),
+});
+export type Benefit = z.infer<typeof benefitSchema>;
+
 /**
  * Fechas caras del año (Navidad, Día de la Madre, inicio de clases) y cumpleaños: cuándo, cuánto
  * pensás gastar, ideas de regalo y con cuánta anticipación avisar.
@@ -785,6 +820,8 @@ export const ENTITY_SCHEMAS = {
   meal: mealSchema,
   asset: assetSchema,
   occasion: occasionSchema,
+  benefit: benefitSchema,
+  fxRate: fxRateSchema,
 } as const;
 
 export type EntityName = keyof typeof ENTITY_SCHEMAS;
@@ -822,6 +859,8 @@ export interface EntityTypes {
   meal: Meal;
   asset: Asset;
   occasion: Occasion;
+  benefit: Benefit;
+  fxRate: FxRate;
 }
 
 export function isEntityName(value: string): value is EntityName {
@@ -874,4 +913,6 @@ export interface LiftyData {
   meals: Meal[];
   assets: Asset[];
   occasions: Occasion[];
+  benefits: Benefit[];
+  fxRates: FxRate[];
 }
