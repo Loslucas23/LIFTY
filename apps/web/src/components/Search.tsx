@@ -38,6 +38,11 @@ const PAGES: { label: string; path: string; words: string }[] = [
   { label: 'Piloto automático', path: '/piloto', words: 'automatico reglas debito solo automatizar' },
   { label: 'Tu plata', path: '/plata', words: 'sobra libre disponible patrimonio cobro repartir sueldo inversiones plazo fijo' },
   {
+    label: 'Conciliar con el banco',
+    path: '/conciliar',
+    words: 'extracto banco brou itau csv excel importar movimientos cuadrar repetidos falta anotar',
+  },
+  {
     label: 'Día a día',
     path: '/dia-a-dia',
     words: 'hormiga cafe kiosco tarjeta cierre conviene cuotas contado descuento inflacion gimnasio uso costo',

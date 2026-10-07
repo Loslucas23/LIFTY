@@ -139,6 +139,9 @@ export function Accounts() {
             <button className="btn" onClick={() => openTxForm({ preset: { kind: 'transfer' } })}>
               <Icon name="repeat" /> Transferir
             </button>
+            <a className="btn" href="#/conciliar">
+              <Icon name="upload" /> Conciliar con el banco
+            </a>
             <button className="btn btn-primary" onClick={() => setEditing('new')}>
               <Icon name="plus" /> Cuenta
             </button>

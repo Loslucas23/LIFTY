@@ -13,6 +13,12 @@ const GROUPS: { title: string; items: { href: string; icon: IconName; label: str
         hint: 'Cuánto te sobra de verdad, dónde está cada peso, metas, inversiones y patrimonio',
       },
       {
+        href: '/conciliar',
+        icon: 'upload',
+        label: 'Conciliar con el banco',
+        hint: 'Subí el Excel o CSV del banco o la tarjeta: lo que falta anotar y lo repetido',
+      },
+      {
         href: '/dia-a-dia',
         icon: 'tag',
         label: 'Día a día',

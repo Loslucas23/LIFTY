@@ -3478,3 +3478,57 @@ h3.small-title {
   overflow: visible;
   text-overflow: clip;
 }
+
+/* Conciliar con el banco */
+.reconcile-stats {
+  grid-template-columns: repeat(2, 1fr);
+}
+@media (min-width: 640px) {
+  .reconcile-stats {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
+.missing-row {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 10px;
+  align-items: start;
+  padding: 12px 14px;
+  border-top: 1px solid var(--line);
+}
+.missing-row:first-child {
+  border-top: 0;
+}
+.missing-row.off {
+  opacity: 0.55;
+}
+.missing-row input[type='checkbox'] {
+  width: 20px;
+  height: 20px;
+  margin-top: 10px;
+}
+.missing-main {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+.missing-main .small {
+  overflow-wrap: anywhere;
+}
+.missing-desc {
+  font-weight: 600;
+}
+.missing-row .tx-amount {
+  margin-top: 10px;
+  white-space: nowrap;
+}
+.reconcile-matched summary {
+  cursor: pointer;
+  font-weight: 600;
+}
+.btn-wrap {
+  white-space: normal;
+  text-align: center;
+  height: auto;
+}

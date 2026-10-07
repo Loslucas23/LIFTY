@@ -77,6 +77,7 @@ const Retro = lazyPage(() => import('./pages/Retro'), 'Retro');
 const Study = lazyPage(() => import('./pages/Study'), 'Study');
 const Recipes = lazyPage(() => import('./pages/Recipes'), 'Recipes');
 const Simulator = lazyPage(() => import('./pages/Simulator'), 'Simulator');
+const Reconcile = lazyPage(() => import('./pages/Reconcile'), 'Reconcile');
 const DayToDay = lazyPage(() => import('./pages/DayToDay'), 'DayToDay');
 const Routines = lazyPage(() => import('./pages/Routines'), 'Routines');
 const Week = lazyPage(() => import('./pages/Extras'), 'Week');
@@ -154,6 +155,7 @@ const ROUTES: [string, (p: Record<string, string>) => ReactNode][] = [
   ['/lista', () => <Stock initialTab="lista" />],
   ['/plata', () => <Plata />],
   ['/dia-a-dia', () => <DayToDay />],
+  ['/conciliar', () => <Reconcile />],
   ['/calendario', () => <LifeCalendar />],
   ['/calendario/:month', (p) => <LifeCalendar month={p.month} />],
   ['/epocas', () => <Periods />],

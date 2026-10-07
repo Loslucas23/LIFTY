@@ -12,7 +12,7 @@ const NAV: { href: string; label: string; icon: IconName; match: RegExp }[] = [
   { href: '/movimientos', label: 'Movimientos', icon: 'list', match: /^\/movimientos/ },
   { href: '/presupuesto', label: 'Presupuesto', icon: 'budget', match: /^\/presupuesto/ },
   { href: '/ahorro', label: 'Ahorro', icon: 'piggy', match: /^\/ahorro/ },
-  { href: '/cuentas', label: 'Cuentas', icon: 'bank', match: /^\/(cuentas|deudas)/ },
+  { href: '/cuentas', label: 'Cuentas', icon: 'bank', match: /^\/(cuentas|deudas|conciliar)/ },
   { href: '/alimentacion', label: 'Alimentación', icon: 'food', match: /^\/alimentacion/ },
   { href: '/tarjeta', label: 'Tarjeta', icon: 'card', match: /^\/tarjeta/ },
   { href: '/stock', label: 'Stock', icon: 'box', match: /^\/(stock|lista)/ },

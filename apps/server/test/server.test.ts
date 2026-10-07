@@ -413,3 +413,46 @@ describe('respaldo automático cifrado', () => {
     expect(left).not.toContain('lifty-2020-01-02-1200.lifty');
   });
 });
+
+describe('extracto del banco', () => {
+  const parse = (body: Buffer) =>
+    app.inject({ method: 'POST', url: '/api/statement/parse', headers: { 'content-type': 'application/octet-stream' }, body });
+
+  it('lee CSV en Latin-1 con ; y comillas', async () => {
+    const csv =
+      'Fecha;Descripción;Débito;Crédito;Saldo\r\n02/09/2026;"COMPRA; TATA";1.250,50;;8.749,50\r\n05/09/2026;SUELDO;;50.000,00;58.749,50\r\n';
+    const res = await parse(Buffer.from(csv, 'latin1'));
+    expect(res.statusCode).toBe(200);
+    expect(res.json().rows).toEqual([
+      ['Fecha', 'Descripción', 'Débito', 'Crédito', 'Saldo'],
+      ['02/09/2026', 'COMPRA; TATA', '1.250,50', null, '8.749,50'],
+      ['05/09/2026', 'SUELDO', null, '50.000,00', '58.749,50'],
+    ]);
+  });
+
+  it('lee la tabla HTML que algunos bancos bajan como .xls', async () => {
+    const html =
+      '<html><body><table><tr><th>Fecha</th><th>Concepto</th><th>Importe</th></tr><tr><td>03/09/2026</td><td>UTE&nbsp;Factura</td><td>-2.300,00</td></tr></table></body></html>';
+    const res = await parse(Buffer.from(html));
+    expect(res.json().rows).toEqual([
+      ['Fecha', 'Concepto', 'Importe'],
+      ['03/09/2026', 'UTE Factura', '-2.300,00'],
+    ]);
+  });
+
+  it('lee .xlsx (la hoja con más filas) y avisa con el .xls viejo', async () => {
+    const wb = new ExcelJS.Workbook();
+    wb.addWorksheet('Info').addRow(['Banco']);
+    const ws = wb.addWorksheet('Movimientos');
+    ws.addRow(['Fecha', 'Descripción', 'Importe']);
+    ws.addRow([new Date(Date.UTC(2026, 8, 4)), 'Farmacia', -450]);
+    const res = await parse(Buffer.from(await wb.xlsx.writeBuffer()));
+    expect(res.json().rows).toEqual([
+      ['Fecha', 'Descripción', 'Importe'],
+      ['2026-09-04', 'Farmacia', -450],
+    ]);
+    const old = await parse(Buffer.from([0xd0, 0xcf, 0x11, 0xe0, 0, 0, 0, 0]));
+    expect(old.statusCode).toBe(422);
+    expect(old.json().message).toMatch(/guardalo como .xlsx/);
+  });
+});

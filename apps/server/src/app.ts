@@ -8,6 +8,7 @@ import { ENTITY_SCHEMAS, isEntityName, mutationSchema, toLiftyData, type Mutatio
 import { BackupService, decryptBackup } from './backup';
 import { LiftyDb, type Device } from './db';
 import { importWorkbook } from './excel';
+import { readStatementFile, StatementFileError } from './statement';
 import { exportWorkbook } from './export';
 import { isLoopback, lanAddresses } from './network';
 
@@ -244,6 +245,21 @@ export async function buildApp(opts: AppOptions): Promise<FastifyInstance> {
     } catch (err) {
       req.log.warn(err);
       return reply.code(422).send({ error: 'bad_file', message: `No pude leer la planilla: ${(err as Error).message}` });
+    }
+  });
+
+  // Extracto del banco o de la tarjeta: devuelve las filas; la app las interpreta y concilia.
+  app.post('/api/statement/parse', async (req, reply) => {
+    if (!Buffer.isBuffer(req.body)) {
+      return reply.code(400).send({ error: 'bad_request', message: 'Mandá el archivo como application/octet-stream.' });
+    }
+    try {
+      return { rows: await readStatementFile(req.body) };
+    } catch (err) {
+      req.log.warn(err);
+      const message =
+        err instanceof StatementFileError ? err.message : `No pude leer el archivo: ${(err as Error).message}`;
+      return reply.code(422).send({ error: 'bad_file', message });
     }
   });
 

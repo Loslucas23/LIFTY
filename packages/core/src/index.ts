@@ -29,3 +29,4 @@ export * from './calendar';
 export * from './retro';
 export * from './plata';
 export * from './daytoday';
+export * from './statement';

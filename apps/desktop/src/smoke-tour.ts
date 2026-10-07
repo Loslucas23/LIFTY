@@ -96,6 +96,7 @@ export async function smokeTour(): Promise<string[]> {
     '/lista',
     '/plata',
     '/dia-a-dia',
+    '/conciliar',
     '/calendario',
     '/epocas',
     '/tu-anio',
@@ -734,6 +735,20 @@ export async function smokeTour(): Promise<string[]> {
   type($('input[placeholder="Ej: 24000"]') as HTMLInputElement | null, '24000');
   if (!(await waitFor('.verdict'))) problems.push('contado o cuotas: no da el resultado');
   check('día a día');
+
+  // Conciliar: un extracto CSV se lee en la compu y se cruza con lo cargado.
+  await go('/conciliar');
+  const file = $('input[type=file]') as HTMLInputElement | null;
+  if (file) {
+    const csv = 'Fecha;Descripción;Débito;Crédito;Saldo\n02/09/2026;COMPRA FARMACIA;450,00;;9.550,00\n';
+    const dt = new DataTransfer();
+    dt.items.add(new File([csv], 'extracto.csv', { type: 'text/csv' }));
+    file.files = dt.files;
+    file.dispatchEvent(new Event('change', { bubbles: true }));
+    if (!(await waitFor('.reconcile-stats', 6000))) problems.push('conciliar: no leyó el extracto');
+    else if (!$('.missing-row')) problems.push('conciliar: no muestra lo que falta anotar');
+  } else problems.push('conciliar: falta elegir el archivo');
+  check('conciliar');
 
   // Calendario: tocar hoy muestra el detalle del día.
   await go('/calendario');
