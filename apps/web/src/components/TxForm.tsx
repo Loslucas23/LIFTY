@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, useSyncExternalStore } from 'react';
+import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import {
   autoTagFor,
   buildWordIndex,
@@ -21,21 +21,36 @@ import {
   type TxKind,
   cardChoices,
   benefitFor,
+  parseQuick,
   type CardChoice,
+  type QuickParse,
 } from '@lifty/core';
 import { syncSplitDebt } from '../lib/actions';
 import { money, parseAmount } from '../lib/format';
 import { useData, useMonth } from '../lib/store';
 import { mutate } from '../lib/sync';
+import { isDesktopApp, useDictation } from '../lib/voice';
+import { Icon } from './Icon';
 import { Chips, Field, Segmented, Sheet, Toggle, toast } from './ui';
 
 // ---- Apertura global (botón +, presupuesto, ahorro...) ----
 
-type Request = { tx?: Transaction; preset?: Partial<Transaction>; withdraw?: boolean } | null;
+interface TxFormRequest {
+  tx?: Transaction;
+  preset?: Partial<Transaction>;
+  withdraw?: boolean;
+  /** Abrir escuchando («gasté 450 en la feria»). */
+  voice?: boolean;
+  /** Lo que llegó compartido (un mensaje del banco, de WhatsApp): se interpreta al abrir. */
+  sharedText?: string;
+  /** La foto del ticket que compartiste (se ve mientras cargás). */
+  photo?: string;
+}
+type Request = TxFormRequest | null;
 let request: Request = null;
 const listeners = new Set<() => void>();
 
-export function openTxForm(opts: { tx?: Transaction; preset?: Partial<Transaction>; withdraw?: boolean } = {}) {
+export function openTxForm(opts: TxFormRequest = {}) {
   request = opts;
   listeners.forEach((fn) => fn());
 }
@@ -58,7 +73,18 @@ export function TxFormHost() {
   if (!req) return null;
   // Lo de un gasto en grupo se cambia desde el grupo (así las cuentas del grupo y las tuyas cuadran).
   if (req.tx?.groupExpenseId) return <GroupTxNotice tx={req.tx} onClose={closeTxForm} />;
-  return <TxForm key={req.tx?.id ?? 'new'} tx={req.tx} preset={req.preset} withdraw={req.withdraw} onClose={closeTxForm} />;
+  return (
+    <TxForm
+      key={req.tx?.id ?? 'new'}
+      tx={req.tx}
+      preset={req.preset}
+      withdraw={req.withdraw}
+      voice={req.voice}
+      incoming={req.sharedText}
+      photo={req.photo}
+      onClose={closeTxForm}
+    />
+  );
 }
 
 function GroupTxNotice({ tx, onClose }: { tx: Transaction; onClose: () => void }) {
@@ -101,11 +127,17 @@ function TxForm({
   tx,
   preset,
   withdraw: withdrawInit,
+  voice,
+  incoming,
+  photo,
   onClose,
 }: {
   tx?: Transaction;
   preset?: Partial<Transaction>;
   withdraw?: boolean;
+  voice?: boolean;
+  incoming?: string;
+  photo?: string;
   onClose: () => void;
 }) {
   const data = useData();
@@ -301,6 +333,18 @@ function TxForm({
     }
     if (k !== 'expense') setSplit(false);
   };
+  // Lo que entendió de la frase (dicha, escrita o compartida) va a cada campo; después se revisa y se guarda.
+  const applyQuick = (p: QuickParse) => {
+    if (p.kind !== kind) changeKind(p.kind);
+    if (p.amount !== null) setAmountText(String(p.amount).replace('.', ','));
+    if (p.amount !== null || p.currency === 'USD') setCurrency(p.currency);
+    setDate(p.date);
+    if (p.description) setDescription(p.description);
+    if (p.accountId) setAccountId(p.accountId);
+    if (p.toAccountId) setToAccountId(p.toAccountId);
+    if (p.installments) setInstallments(p.installments);
+    setError(null);
+  };
 
   const save = () => {
     if (total === null || total === 0) {
@@ -478,6 +522,8 @@ function TxForm({
           save();
         }}
       >
+        {photo && <SharedPhoto src={photo} />}
+        {!tx && !linked && <QuickLine initial={incoming} autoListen={voice} onParsed={applyQuick} />}
         {!linked && (
           <Segmented
             label="Tipo"
@@ -878,5 +924,94 @@ function CardHint({ mine, better, onPick }: { mine: CardChoice; better: CardChoi
         </>
       )}
     </span>
+  );
+}
+
+// ---- Cargar con una frase: dictada, escrita o compartida ----
+
+function QuickLine({
+  initial,
+  autoListen,
+  onParsed,
+}: {
+  initial?: string;
+  autoListen?: boolean;
+  onParsed: (p: QuickParse) => void;
+}) {
+  const data = useData();
+  const [text, setText] = useState(initial ?? '');
+  const [understood, setUnderstood] = useState<string[] | null>(null);
+  const apply = (t: string) => {
+    if (!t.trim()) return;
+    const p = parseQuick(t, data, todayISO());
+    setUnderstood(p.understood);
+    onParsed(p);
+  };
+  const dict = useDictation((t) => {
+    setText(t);
+    apply(t);
+  });
+  const started = useRef(false);
+  useEffect(() => {
+    if (started.current) return;
+    started.current = true;
+    if (initial) apply(initial);
+    else if (autoListen) dict.start();
+    // Solo al abrir.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  return (
+    <div className="quick-line">
+      <div className="quick-line-row">
+        <button
+          type="button"
+          className={`mic-btn ${dict.listening ? 'on' : ''}`}
+          onClick={() => (dict.listening ? dict.stop() : dict.start())}
+          aria-label={dict.listening ? 'Dejar de escuchar' : 'Dictar'}
+          title={isDesktopApp() ? 'En la compu: Windows + H para dictar' : 'Dictar'}
+        >
+          <Icon name="mic" size={18} />
+        </button>
+        <input
+          value={dict.listening ? dict.interim : text}
+          placeholder={dict.listening ? 'Te escucho…' : 'Decilo o escribilo: «gasté 450 en la feria»'}
+          onChange={(e) => setText(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') {
+              e.preventDefault();
+              apply(text);
+            }
+          }}
+          onPaste={(e) => {
+            const t = e.clipboardData.getData('text');
+            if (t.trim()) {
+              e.preventDefault();
+              setText(t.replace(/\s+/g, ' ').trim());
+              apply(t);
+            }
+          }}
+          readOnly={dict.listening}
+          enterKeyHint="go"
+          aria-label="Cargar con una frase"
+        />
+        {text.trim() && !dict.listening && (
+          <button type="button" className="btn btn-ghost btn-sm" onClick={() => apply(text)}>
+            Usar
+          </button>
+        )}
+      </div>
+      {understood && !dict.listening && <p className="muted small">Entendí: {understood.join(' · ')}. Revisá y guardá.</p>}
+      {dict.error && <p className="field-error">{dict.error}</p>}
+    </div>
+  );
+}
+
+function SharedPhoto({ src }: { src: string }) {
+  const [big, setBig] = useState(false);
+  return (
+    <button type="button" className={`shared-photo ${big ? 'big' : ''}`} onClick={() => setBig(!big)} aria-label="Ver el ticket">
+      <img src={src} alt="El ticket que compartiste" />
+      <span className="muted small">{big ? 'Tocá para achicar' : 'Tocá para agrandar el ticket'}</span>
+    </button>
   );
 }

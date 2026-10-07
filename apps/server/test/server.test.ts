@@ -89,6 +89,20 @@ describe('API', () => {
     expect(good.json().token).toHaveLength(64);
   });
 
+  it('lo compartido que llega sin service worker abre la pantalla de compartir', async () => {
+    const boundary = '----lifty';
+    const body = `--${boundary}\r\nContent-Disposition: form-data; name="text"\r\n\r\ngasté 450 en la feria\r\n--${boundary}--\r\n`;
+    const res = await app.inject({
+      method: 'POST',
+      url: '/compartir',
+      headers: { 'content-type': `multipart/form-data; boundary=${boundary}` },
+      payload: body,
+      ...remote,
+    });
+    expect(res.statusCode).toBe(303);
+    expect(res.headers.location).toBe('/#/compartir');
+  });
+
   it('sincroniza mutaciones con "gana el más nuevo" y lápidas', async () => {
     const tx = { date: '2026-02-02', kind: 'expense', amount: 633.2, categoryId: 'cat-transporte', description: 'Cabify' };
     const send = (mutations: unknown[]) =>
@@ -463,12 +477,25 @@ describe('dólar automático', () => {
     app = await buildApp({ db, trustLocalhost: true, password: 'secreta', fetchRate: async () => 40.25 });
     const res = await app.inject({ method: 'POST', url: '/api/rate/refresh' });
     expect(res.json()).toEqual({ rate: 40.25, error: null });
-    const changes = (await app.inject({ url: '/api/changes' })).json().changes as { entity: string; record: { usdRate?: number; rate?: number } }[];
+    const changes = (await app.inject({ url: '/api/changes' })).json().changes as {
+      entity: string;
+      record: { usdRate?: number; rate?: number };
+    }[];
     expect(changes.find((c) => c.entity === 'settings')!.record.usdRate).toBe(40.25);
     expect(changes.find((c) => c.entity === 'fxRate')!.record.rate).toBe(40.25);
     // Sin internet: no rompe nada y avisa.
     await app.close();
-    app = await buildApp({ db, trustLocalhost: true, password: 'secreta', fetchRate: async () => { throw new Error('sin conexión'); } });
-    expect((await app.inject({ method: 'POST', url: '/api/rate/refresh' })).json()).toEqual({ rate: null, error: 'sin conexión' });
+    app = await buildApp({
+      db,
+      trustLocalhost: true,
+      password: 'secreta',
+      fetchRate: async () => {
+        throw new Error('sin conexión');
+      },
+    });
+    expect((await app.inject({ method: 'POST', url: '/api/rate/refresh' })).json()).toEqual({
+      rate: null,
+      error: 'sin conexión',
+    });
   });
 });

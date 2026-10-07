@@ -268,12 +268,12 @@ export function Home() {
         <button className="qa" onClick={() => openTxForm({ preset: { kind: 'saving' } })}>
           <span>🐷</span> Ahorro
         </button>
-        <a className="qa" href={`#/presupuesto/${month}`}>
+        <button className="qa" onClick={() => openTxForm({ voice: true })}>
           <span>
-            <Icon name="budget" size={18} />
+            <Icon name="mic" size={18} />
           </span>{' '}
-          Presupuesto
-        </a>
+          Dictar
+        </button>
       </div>
 
       {!empty && <PlataCard />}

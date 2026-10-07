@@ -101,6 +101,7 @@ export async function smokeTour(): Promise<string[]> {
     '/menu',
     '/fechas',
     '/beneficios',
+    '/compartir',
     '/calendario',
     '/epocas',
     '/tu-anio',
@@ -190,6 +191,21 @@ export async function smokeTour(): Promise<string[]> {
     }
   }
   check('sugerencia y repetido');
+
+  // Cargar con una frase (lo mismo que llega dictado o compartido).
+  await go('/');
+  if (await openNew()) {
+    const quick = $<HTMLInputElement>('.sheet .quick-line input');
+    type(quick, 'ayer gasté 2 lucas de nafta');
+    quick?.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+    const amount = () => $<HTMLInputElement>('.sheet .amount-input input')?.value;
+    if (!(await until(() => amount() === '2000'))) problems.push(`frase: no completó el monto (${amount() ?? 'sin campo'})`);
+    if (!(await until(() => !!$('.sheet .chip.on')?.textContent?.includes('Transporte'))))
+      problems.push(`frase: no sugirió la categoría (${$('.sheet .chip.on')?.textContent ?? 'ninguna'})`);
+    if (!$('.sheet .quick-line')?.textContent?.includes('Entendí')) problems.push('frase: no muestra lo que entendió');
+    await closeSheet();
+  } else problems.push('frase: no se abrió el formulario');
+  check('cargar con una frase');
 
   // Transferencia (cajero): no es gasto.
   await go('/');

@@ -323,6 +323,21 @@ export async function buildApp(opts: AppOptions): Promise<FastifyInstance> {
 
   // ---- App web ----
 
+  // «Compartir → Lifty»: lo recibe el service worker del celular. Si todavía no estaba activo, el
+  // pedido llega acá: se abre la pantalla de compartir (que explica cómo probar de nuevo).
+  await app.register(async (scope) => {
+    scope.addContentTypeParser(
+      ['multipart/form-data', 'application/x-www-form-urlencoded'],
+      { bodyLimit: 30 * 1024 * 1024 },
+      (_req, payload, done) => {
+        payload.resume();
+        payload.on('end', () => done(null, null));
+        payload.on('error', (err) => done(err, null));
+      },
+    );
+    scope.post('/compartir', async (_req, reply) => reply.redirect('/#/compartir', 303));
+  });
+
   if (opts.webDir && fs.existsSync(path.join(opts.webDir, 'index.html'))) {
     await app.register(fastifyStatic, {
       root: opts.webDir,

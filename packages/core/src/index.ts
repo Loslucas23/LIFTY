@@ -30,6 +30,7 @@ export * from './retro';
 export * from './plata';
 export * from './daytoday';
 export * from './statement';
+export * from './quick';
 export * from './groups';
 export * from './menu';
 export * from './assets';

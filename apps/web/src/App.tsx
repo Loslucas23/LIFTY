@@ -72,6 +72,7 @@ const Weight = lazyPage(() => import('./pages/Weight'), 'Weight');
 const Food = lazyPage(() => import('./pages/Food'), 'Food');
 const Debts = lazyPage(() => import('./pages/Debts'), 'Debts');
 const Stock = lazyPage(() => import('./pages/Stock'), 'Stock');
+const Share = lazyPage(() => import('./pages/Share'), 'Share');
 const LifeCalendar = lazyPage(() => import('./pages/LifeCalendar'), 'LifeCalendar');
 const Retro = lazyPage(() => import('./pages/Retro'), 'Retro');
 const Study = lazyPage(() => import('./pages/Study'), 'Study');
@@ -165,6 +166,7 @@ const ROUTES: [string, (p: Record<string, string>) => ReactNode][] = [
   ['/menu', () => <Menu />],
   ['/fechas', () => <Occasions />],
   ['/beneficios', () => <Benefits />],
+  ['/compartir', () => <Share />],
   ['/grupos/:id', (p) => <GroupDetail id={p.id} />],
   ['/calendario', () => <LifeCalendar />],
   ['/calendario/:month', (p) => <LifeCalendar month={p.month} />],
