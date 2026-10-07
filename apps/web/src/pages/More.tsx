@@ -35,6 +35,12 @@ const GROUPS: { title: string; items: { href: string; icon: IconName; label: str
       { href: '/ahorro', icon: 'piggy', label: 'Ahorro', hint: 'Meta del mes y metas con fecha' },
       { href: '/deudas', icon: 'people', label: 'Deudas y préstamos', hint: 'Lo que te deben y lo que debés' },
       {
+        href: '/grupos',
+        icon: 'people',
+        label: 'Gastos en grupo',
+        hint: 'La casa, la pareja o un viaje: quién puso cuánto y cómo quedar a mano',
+      },
+      {
         href: '/desafios',
         icon: 'check',
         label: 'Desafíos',

@@ -156,6 +156,8 @@ export function changePlannedAmount(data: LiftyData, kind: 'fixed' | 'income', i
  * Si se deja de dividir y la deuda no tiene pagos, se borra.
  */
 export function syncSplitDebt(data: LiftyData, tx: Transaction) {
+  // Los gastos en grupo llevan la cuenta en el grupo (no como deuda aparte).
+  if (tx.groupExpenseId) return;
   const existing = data.debts.find((d) => d.fromTxId === tx.id);
   if (tx.kind === 'expense' && tx.sharedAmount > 0 && tx.sharedWith) {
     mutate('debt', 'upsert', {

@@ -55,7 +55,36 @@ export function TxFormHost() {
     () => request,
   );
   if (!req) return null;
+  // Lo de un gasto en grupo se cambia desde el grupo (así las cuentas del grupo y las tuyas cuadran).
+  if (req.tx?.groupExpenseId) return <GroupTxNotice tx={req.tx} onClose={closeTxForm} />;
   return <TxForm key={req.tx?.id ?? 'new'} tx={req.tx} preset={req.preset} withdraw={req.withdraw} onClose={closeTxForm} />;
+}
+
+function GroupTxNotice({ tx, onClose }: { tx: Transaction; onClose: () => void }) {
+  const data = useData();
+  const ge = data.groupExpenses.find((e) => e.id === tx.groupExpenseId);
+  const group = ge ? data.groups.find((g) => g.id === ge.groupId) : undefined;
+  return (
+    <Sheet
+      title={tx.description || 'Gasto en grupo'}
+      onClose={onClose}
+      footer={
+        group ? (
+          <a className="btn btn-primary grow" href={`#/grupos/${group.id}`} onClick={onClose}>
+            Abrir {group.name}
+          </a>
+        ) : undefined
+      }
+    >
+      <p>
+        {money(tx.amount, tx.currency)} · {tx.date.split('-').reverse().join('/')}
+      </p>
+      <p className="muted small">
+        Viene de un gasto en grupo{group ? ` (${group.name})` : ''}. Se cambia o se borra desde el grupo, así las cuentas del
+        grupo y las tuyas quedan iguales.
+      </p>
+    </Sheet>
+  );
 }
 
 // ---- Formulario ----

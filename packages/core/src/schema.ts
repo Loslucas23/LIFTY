@@ -153,19 +153,39 @@ export const transactionSchema = z
     linkKind: z.enum(LINK_KINDS).nullable().default(null),
     linkId: id.nullable().default(null),
     linkMonth: month.nullable().default(null),
+    /**
+     * Viene de un gasto en grupo (lo maneja el grupo): tu parte de un gasto, lo que pagaste por
+     * todos o un pago para saldar cuentas (que mueve plata sin ser gasto).
+     */
+    groupExpenseId: id.nullable().optional(),
   })
   .refine((t) => (t.linkKind === null) === (t.linkId === null && t.linkMonth === null), {
     message: 'Vínculo incompleto',
     path: ['linkKind'],
   })
-  .refine((t) => t.sharedAmount === 0 || (t.kind === 'expense' && t.sharedAmount < Math.abs(t.amount)), {
-    message: 'La parte de la otra persona tiene que ser menor que el total',
-    path: ['sharedAmount'],
-  })
-  .refine((t) => t.kind !== 'transfer' || (t.accountId && t.toAccountId && t.accountId !== t.toAccountId && t.amount > 0), {
-    message: 'Una transferencia necesita cuenta de origen y de destino distintas, y un monto positivo',
-    path: ['toAccountId'],
-  });
+  .refine(
+    (t) =>
+      t.sharedAmount === 0 ||
+      (t.kind === 'expense' &&
+        // En un grupo podés pagar algo que es todo de los demás.
+        (t.groupExpenseId ? t.sharedAmount <= Math.abs(t.amount) : t.sharedAmount < Math.abs(t.amount))),
+    {
+      message: 'La parte de la otra persona tiene que ser menor que el total',
+      path: ['sharedAmount'],
+    },
+  )
+  .refine(
+    (t) =>
+      t.kind !== 'transfer' ||
+      (t.groupExpenseId
+        ? // Saldar cuentas en un grupo: la plata sale de (o entra a) una sola cuenta tuya.
+          !!t.accountId !== !!t.toAccountId && t.amount > 0
+        : t.accountId && t.toAccountId && t.accountId !== t.toAccountId && t.amount > 0),
+    {
+      message: 'Una transferencia necesita cuenta de origen y de destino distintas, y un monto positivo',
+      path: ['toAccountId'],
+    },
+  );
 export type Transaction = z.infer<typeof transactionSchema>;
 
 export const deductionSchema = z.object({
@@ -580,6 +600,46 @@ export const periodSchema = z.object({
 });
 export type Period = z.infer<typeof periodSchema>;
 
+/** Gastos en grupo (la casa, la pareja, un viaje con amigos). Vos sos el integrante `me`. */
+export const ME = 'me';
+export const groupMemberSchema = z.object({
+  id: z.string().min(1).max(40),
+  name: z.string().trim().min(1).max(40),
+  /** Para recordarle por WhatsApp. */
+  phone: z.string().max(30).default(''),
+});
+export type GroupMember = z.infer<typeof groupMemberSchema>;
+
+export const groupSchema = z.object({
+  ...base,
+  name: z.string().trim().min(1).max(60),
+  icon,
+  currency: currency.default('UYU'),
+  members: z.array(groupMemberSchema).min(1).max(30),
+  /** Un viaje (época de vacaciones): los gastos llevan su etiqueta y se ven en el viaje. */
+  periodId: id.nullable().default(null),
+  archived: z.boolean().default(false),
+});
+export type Group = z.infer<typeof groupSchema>;
+
+export const groupExpenseSchema = z.object({
+  ...base,
+  groupId: id,
+  /** expense: alguien pagó algo de todos. settlement: alguien le pagó a otro para saldar. */
+  kind: z.enum(['expense', 'settlement']).default('expense'),
+  date,
+  description: z.string().max(120).default(''),
+  amount: money.positive(),
+  /** Quién pagó (id de integrante; `me` sos vos). */
+  paidBy: z.string().min(1).max(40),
+  /** Cuánto le toca a cada uno (suma el total). En un pago para saldar, a quién se le pagó. */
+  split: z.array(z.object({ memberId: z.string().min(1).max(40), amount: money.min(0) })).min(1),
+  /** Para tu parte: categoría y de qué cuenta salió (o a cuál entró) tu plata. */
+  categoryId: id.nullable().default(null),
+  accountId: id.nullable().default(null),
+});
+export type GroupExpense = z.infer<typeof groupExpenseSchema>;
+
 export const AUTO_KINDS = ['fixed', 'income', 'load', 'saving', 'shop', 'category'] as const;
 
 /**
@@ -629,6 +689,8 @@ export const ENTITY_SCHEMAS = {
   autoLog: autoLogSchema,
   challenge: challengeSchema,
   period: periodSchema,
+  group: groupSchema,
+  groupExpense: groupExpenseSchema,
 } as const;
 
 export type EntityName = keyof typeof ENTITY_SCHEMAS;
@@ -661,6 +723,8 @@ export interface EntityTypes {
   autoLog: AutoLog;
   challenge: Challenge;
   period: Period;
+  group: Group;
+  groupExpense: GroupExpense;
 }
 
 export function isEntityName(value: string): value is EntityName {
@@ -708,4 +772,6 @@ export interface LiftyData {
   autoLogs: AutoLog[];
   challenges: Challenge[];
   periods: Period[];
+  groups: Group[];
+  groupExpenses: GroupExpense[];
 }

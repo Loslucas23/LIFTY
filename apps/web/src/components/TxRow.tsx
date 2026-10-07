@@ -19,7 +19,8 @@ export function TxRow({ tx, showDate = false }: { tx: Transaction; showDate?: bo
   const title =
     tx.description || (transfer ? 'Transferencia' : tx.kind === 'saving' ? (g?.name ?? 'Ahorro') : (catName ?? 'Sin categoría'));
   const meta = [
-    transfer ? `${acc?.name ?? '?'} → ${to?.name ?? '?'}` : null,
+    transfer && tx.groupExpenseId ? (acc?.name ?? to?.name ?? null) : null,
+    transfer && !tx.groupExpenseId ? `${acc?.name ?? '?'} → ${to?.name ?? '?'}` : null,
     !transfer && tx.description ? (tx.kind === 'saving' ? g?.name : catName) : null,
     !transfer ? acc?.name : null,
     food ? 'aparte del presupuesto' : null,

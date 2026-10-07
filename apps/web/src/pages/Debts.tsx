@@ -1,5 +1,16 @@
 import { useMemo, useState } from 'react';
-import { debtSchema, debtStatus, debtTotals, loanPlan, monthLabel, newId, todayISO, type Currency, type Debt } from '@lifty/core';
+import {
+  debtSchema,
+  debtStatus,
+  debtTotals,
+  loanPlan,
+  monthLabel,
+  newId,
+  todayISO,
+  type Currency,
+  type Debt,
+  groupTotals,
+} from '@lifty/core';
 import { Icon } from '../components/Icon';
 import { Chips, Empty, Field, PageHeader, Progress, Section, Segmented, Sheet, Toggle, toast } from '../components/ui';
 import { dayLabel, money, parseAmount } from '../lib/format';
@@ -69,6 +80,7 @@ export function Debts() {
           <strong className="text-expense">{money(totals.iOwe)}</strong>
         </div>
       </div>
+      <GroupsLink />
       {open.length === 0 && (
         <Empty icon="info" title="No hay deudas abiertas">
           Anotá cuando le prestás plata a alguien o te prestan. Si pagás algo por otro, al cargar el gasto usá "Dividir con
@@ -423,5 +435,26 @@ function DebtSheet({ debt, onClose, onEdit }: { debt: Debt; onClose: () => void;
         )}
       </div>
     </Sheet>
+  );
+}
+
+/** Lo de los grupos va aparte (allá se ve quién le debe a quién). */
+function GroupsLink() {
+  const data = useData();
+  if (!data.groups.some((g) => !g.archived)) return null;
+  const t = groupTotals(data).UYU;
+  return (
+    <a className="card pad tile-link" href="#/grupos">
+      <span className="tile-text">
+        <strong>👥 Gastos en grupo</strong>
+        <span className="muted small">
+          {t.owedToMe > 0 || t.iOwe > 0
+            ? [t.owedToMe > 0 ? `te deben ${money(t.owedToMe)}` : null, t.iOwe > 0 ? `debés ${money(t.iOwe)}` : null]
+                .filter(Boolean)
+                .join(' · ')
+            : 'Están a mano en todos los grupos'}
+        </span>
+      </span>
+    </a>
   );
 }

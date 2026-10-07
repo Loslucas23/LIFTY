@@ -97,6 +97,7 @@ export async function smokeTour(): Promise<string[]> {
     '/plata',
     '/dia-a-dia',
     '/conciliar',
+    '/grupos',
     '/calendario',
     '/epocas',
     '/tu-anio',
@@ -749,6 +750,28 @@ export async function smokeTour(): Promise<string[]> {
     else if (!$('.missing-row')) problems.push('conciliar: no muestra lo que falta anotar');
   } else problems.push('conciliar: falta elegir el archivo');
   check('conciliar');
+
+  // Gastos en grupo: crear un grupo, anotar un gasto que pagaste vos y ver cómo quedar a mano.
+  await go('/grupos');
+  clickText('.page-head button', 'Nuevo grupo');
+  if (await waitFor('.sheet')) {
+    type($('.sheet input[placeholder^="Ej: Casa"]') as HTMLInputElement | null, 'Prueba');
+    type($('.sheet input[placeholder="Nombre"]') as HTMLInputElement | null, 'Juan');
+    clickText('.sheet .btn-primary', 'Guardar');
+    if (!(await until(() => location.hash.startsWith('#/grupos/'), 4000))) problems.push('grupos: no se creó el grupo');
+    else {
+      await waitFor('.page:not(.page-loading) .page-head');
+      clickText('.page-head button', 'Gasto');
+      if (await waitFor('.sheet')) {
+        type($('.sheet input[placeholder^="Ej: Cena"]') as HTMLInputElement | null, 'Cena');
+        type($('.sheet input[inputmode="decimal"]') as HTMLInputElement | null, '3000');
+        clickText('.sheet .btn-primary', 'Guardar');
+        if (!(await until(() => !!document.body.textContent?.includes('Para quedar a mano'), 3000)))
+          problems.push('grupos: no dice cómo quedar a mano');
+      } else problems.push('grupos: no se abrió el gasto');
+    }
+  } else problems.push('grupos: no se abrió el formulario');
+  check('grupos');
 
   // Calendario: tocar hoy muestra el detalle del día.
   await go('/calendario');

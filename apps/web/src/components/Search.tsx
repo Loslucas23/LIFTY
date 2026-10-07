@@ -38,6 +38,11 @@ const PAGES: { label: string; path: string; words: string }[] = [
   { label: 'Piloto automático', path: '/piloto', words: 'automatico reglas debito solo automatizar' },
   { label: 'Tu plata', path: '/plata', words: 'sobra libre disponible patrimonio cobro repartir sueldo inversiones plazo fijo' },
   {
+    label: 'Gastos en grupo',
+    path: '/grupos',
+    words: 'grupo amigos viaje casa pareja dividir splitwise saldar deben',
+  },
+  {
     label: 'Conciliar con el banco',
     path: '/conciliar',
     words: 'extracto banco brou itau csv excel importar movimientos cuadrar repetidos falta anotar',

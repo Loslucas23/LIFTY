@@ -3532,3 +3532,21 @@ h3.small-title {
   text-align: center;
   height: auto;
 }
+
+/* Gastos en grupo */
+.member-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.member-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr auto;
+  gap: 8px;
+  align-items: center;
+}
+.btn-row.tight {
+  gap: 6px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}

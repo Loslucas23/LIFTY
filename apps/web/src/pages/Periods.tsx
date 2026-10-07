@@ -9,6 +9,7 @@ import {
   type Period,
   type PeriodKind,
   type PeriodStatus,
+  groupSummary,
 } from '@lifty/core';
 import { Icon } from '../components/Icon';
 import { Empty, Field, PageHeader, Section, Segmented, Sheet, Toggle, toast } from '../components/ui';
@@ -141,6 +142,7 @@ function PeriodCard({ s, onEdit }: { s: PeriodStatus; onEdit: () => void }) {
       <p className="small">
         <PeriodLine s={s} />
       </p>
+      <TripGroups periodId={p.id} />
       <div className="btn-row">
         {p.tag && (
           <a className="btn btn-ghost" href={`#/movimientos?etiqueta=${encodeURIComponent(p.tag)}`}>
@@ -279,5 +281,29 @@ function PeriodForm({ period, kind: initialKind, onClose }: { period: Period | n
         <Toggle checked={pause} onChange={setPause} label="Pausar rutinas y estudio mientras dura (no te los pide en Para hoy)" />
       </div>
     </Sheet>
+  );
+}
+
+/** Los grupos del viaje: lo gastado entre todos, tu parte y cómo quedás. */
+function TripGroups({ periodId }: { periodId: string }) {
+  const data = useData();
+  const groups = data.groups.filter((g) => g.periodId === periodId);
+  if (!groups.length) return null;
+  return (
+    <>
+      {groups.map((g) => {
+        const s = groupSummary(data, g);
+        return (
+          <a key={g.id} className="small link-block" href={`#/grupos/${g.id}`}>
+            {g.icon} {g.name}: gastaron {money(s.total, g.currency)} entre todos, tu parte {money(s.myShare, g.currency)}
+            {Math.abs(s.myBalance) >= 0.5
+              ? s.myBalance > 0
+                ? ` · te deben ${money(s.myBalance, g.currency)}`
+                : ` · debés ${money(-s.myBalance, g.currency)}`
+              : ' · a mano'}
+          </a>
+        );
+      })}
+    </>
   );
 }
